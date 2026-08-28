@@ -289,6 +289,8 @@ No file inside these ten skill packages was changed.
 
 ## Focused consolidation review: Emil design engineering family
 
+**Implemented:** `emil-design-eng` is now a 52-line router and the sole automatically discoverable family skill. Thirteen direct one-level references and workflows cover all approved modes, including the folded `improve` workflow; duplicated absolutes were normalized into requirements, measured constraints, house defaults, preferences, and verification-dependent judgments. Six old names remain explicit-only compatibility aliases. Consolidated installer entries were removed from `.skill-lock.json`; 20 provider-neutral eval definitions and deterministic package validation now live under the umbrella. Alias removal remains gated on running the evaluation matrix and clearing active command references.
+
 ### Requested family
 
 This review treats `emil-design-eng` as the umbrella and evaluates folding these five packages into it:
