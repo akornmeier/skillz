@@ -284,3 +284,169 @@ No file inside these ten skill packages was changed.
 5. Add missing reference contents sections and deterministic validation for animation plans.
 6. Consolidate duplicated motion doctrine only after evaluations identify which shared rules improve outcomes.
 7. Add or restore provenance and license metadata for globally tracked third-party packages.
+
+---
+
+## Focused consolidation review: Emil design engineering family
+
+### Requested family
+
+This review treats `emil-design-eng` as the umbrella and evaluates folding these five packages into it:
+
+- `animation-vocabulary`
+- `apple-design`
+- `find-animation-opportunities`
+- `prototype`
+- `review-animations`
+
+Together, the six packages contain 1,790 Markdown lines. The current split creates repeated automatic-routing candidates and duplicates motion doctrine: `scale(0)` guidance appears in four packages, reduced-motion guidance in five, the same custom easing in three, and the Raycast keyboard-motion example in three.
+
+### Anthropic-guidance interpretation
+
+The correct goal is **one discoverable router, not one giant skill file**.
+
+- Keep `emil-design-eng/SKILL.md` concise and action-oriented.
+- Put durable knowledge and task workflows in directly linked, one-level leaf files.
+- Load only the leaf files needed for the selected mode.
+- Use one automatic discovery description for the family; do not keep six overlapping descriptions active.
+- Do not say the skill “always applies.” Route when motion, interaction behavior, animation quality, or an interactive UI prototype is materially part of the task.
+- Preserve explicit boundaries with `ux-design`, static visual design, `d3-viz`, and general code prototyping.
+- Test discovery and non-discovery separately from output quality.
+
+### Consolidation verdict by package
+
+| Package | Verdict | Content retained in umbrella | Important boundary |
+| --- | --- | --- | --- |
+| `animation-vocabulary` | Fold completely | Focused terminology glossary and short disambiguation behavior | Naming mode must not load implementation standards. |
+| `apple-design` | Fold completely, then deduplicate | Gesture continuity, velocity handoff, momentum, rubber-banding, materials, typography, and platform-inspired principles | Apple-inspired guidance extends shared standards; it does not own all UX or static visual design. |
+| `find-animation-opportunities` | Fold completely | Read-only opportunity workflow, rejection gate, evidence format, and suggestion cap | Opportunity mode never edits source and must allow “nothing should animate.” |
+| `prototype` | Fold UI and interaction prototyping; keep logic explicit-only | UI variants, interaction-state experiments, isolation, cleanup, and promotion boundaries | General business-logic or data-shape prototypes should not automatically trigger a design skill. Preserve them only as `/skill:emil-design-eng prototype logic ...` or later split them into a separate `logic-prototype` skill. |
+| `review-animations` | Fold completely | Read-only motion-review workflow, evidence table, severity, verdict, and truthful visual-verification rules | Review mode reports findings and does not silently implement them. |
+| `emil-design-eng` | Rewrite as router | Shared craft principles plus build, tune, and debug routing | Remove the promotional canned greeting and the 679-line manual from the entry file. |
+
+### Proposed package architecture
+
+```text
+skills/emil-design-eng/
+├── SKILL.md
+├── references/
+│   ├── motion-principles.md
+│   ├── motion-standards.md
+│   ├── apple-design.md
+│   └── animation-vocabulary.md
+├── workflows/
+│   ├── apply-motion.md
+│   ├── find-opportunities.md
+│   ├── review-motion.md
+│   └── prototype.md
+└── evals/
+    └── evals.json
+```
+
+Content ownership:
+
+- `motion-principles.md`: purpose, frequency, restraint, spatial continuity, cohesion, and design judgment.
+- `motion-standards.md`: canonical durations, easing defaults, springs, performance, accessibility, and verification.
+- `apple-design.md`: unique gesture, momentum, material, typography, and platform-inspired guidance without repeating shared standards.
+- `animation-vocabulary.md`: glossary only.
+- `apply-motion.md`: implementation, tuning, debugging, and browser verification.
+- `find-opportunities.md`: read-only search and rejection workflow.
+- `review-motion.md`: read-only diff or code review and output contract.
+- `prototype.md`: UI/interaction variants by default; logic mode only through explicit invocation.
+
+Every leaf should be linked directly from `SKILL.md` and usable without reading another leaf. A vocabulary lookup should not load Apple guidance; a review should not load the full glossary; an opportunity scan should not preload prototype instructions.
+
+### Discovery design
+
+Recommended umbrella description:
+
+> Design-engineering guidance for UI motion, interaction polish, gesture physics, Apple-style fluid interfaces, animation terminology, motion opportunity audits, animation code reviews, and throwaway interaction prototypes. Use whenever animation or transition behavior is being designed, built, reviewed, debugged, named, or evaluated in UI/UX work, including popovers, drawers, drag/swipe interactions, springs, reduced motion, and perceived performance. Also use when the user asks what should animate or requests an interactive UI prototype. Do not use for static visual styling, general UX research, or unrelated code prototypes unless explicitly invoked.
+
+Recommended modes:
+
+| Intent | Mode | Minimum context |
+| --- | --- | --- |
+| Build, fix, tune, or debug motion | `apply` | Principles, standards, apply workflow |
+| Review animation code or a motion diff | `review` | Standards, review workflow |
+| Find places where motion would help | `opportunities` | Principles, opportunity workflow |
+| Name an animation effect | `name` | Vocabulary only |
+| Design Apple-style gestures, materials, or typography | `apple` | Apple reference; standards only when implementing motion |
+| Explore UI or interaction variants | `prototype ui` / `prototype interaction` | Prototype workflow |
+| Explore business logic explicitly | `prototype logic` | Prototype workflow, explicit invocation only |
+| Broad design-engineering advice | `advise` | Smallest relevant leaf set |
+
+Examples:
+
+```text
+/skill:emil-design-eng review this motion diff
+/skill:emil-design-eng opportunities src/pages/settings
+/skill:emil-design-eng name the iOS overscroll effect
+/skill:emil-design-eng prototype ui three onboarding variants
+/skill:emil-design-eng prototype logic model undo and redo
+```
+
+### Ownership boundaries
+
+- `emil-design-eng` owns motion, interaction craft, animation review, and interaction prototypes.
+- `ux-design` owns comprehension, usability, flows, information architecture, and decision load. It may use Emil motion guidance when motion is material.
+- Static visual-design skills own color, typography systems, composition, and art direction when interaction is not central.
+- `d3-viz` owns data-driven D3 implementation; Emil guidance may supply motion criteria.
+- Browser tooling owns execution and visual evidence, not design judgment.
+- General parser, API, data-model, or state-machine prototypes should not auto-route to Emil.
+
+This makes the skill broadly useful in design and UX work without turning every design mention into a false-positive trigger.
+
+### Guidance that must be normalized during consolidation
+
+The current family mixes requirements, defaults, preferences, and technical claims. The merged references should label each rule as one of: accessibility requirement, measured technical constraint, house default, craft preference, or visual-test-dependent judgment.
+
+Specifically:
+
+- “Animate only transform and opacity” is a strong default, not a universal law.
+- CSS or WAAPI does not automatically guarantee compositor execution.
+- `clip-path`, filters, blur, and promoted layers can have real paint, memory, or GPU costs.
+- Framer Motion shorthand performance depends on library version, generated transforms, browser, and workload.
+- “Never animate keyboard actions” is useful frequency and latency guidance, not a universal accessibility rule.
+- Built-in easing being “too weak” is an aesthetic preference, not a technical fact.
+- Spring interruption and velocity carry-over depend on the implementation and must be verified.
+- Browser-specific media queries and APIs need capability checks and fallbacks.
+- Visual quality, reduced-motion behavior, touch feel, and frame performance must not be claimed without actual verification.
+
+### Migration plan
+
+1. Snapshot the six current packages and preserve upstream attribution, license, and source revisions.
+2. Build the umbrella leaf structure and deduplicate contradictory guidance.
+3. Add umbrella evaluations before removing discovery from the old packages.
+4. Compare umbrella routing and output against the current family using fresh sessions.
+5. Replace the five subordinate packages with explicit-only compatibility aliases during one transition period. Each alias should route to one umbrella mode and use Pi's `disable-model-invocation: true`.
+6. Remove the retired packages from `.skill-lock.json` so an installer update cannot overwrite the locally consolidated versions.
+7. Search global and project configuration, prompts, agents, and evals for old names. Migrate the existing three `prototype` cases to umbrella modes.
+8. Remove aliases after the transition period and keep migration history in Git rather than discoverable packages.
+
+### Adjacent unresolved collision
+
+`improve-animations` was not in the requested fold list, but it overlaps the proposed umbrella's `apply`, `opportunities`, and review behavior. Leaving it automatically discoverable would preserve the main routing collision. Before implementation, choose one:
+
+1. Fold its audit, planning, reconcile, and execute workflows into `emil-design-eng`; or
+2. Keep it as an explicit-only planning/execution alias with `disable-model-invocation: true`.
+
+The first option produces the cleanest ownership model. The second preserves a specialized command while keeping it out of automatic routing.
+
+### Evaluation requirements
+
+At minimum, cover every mode and every boundary across Pi's fast/economical, balanced/default, and highest-reasoning profiles:
+
+- vocabulary lookup and ambiguous terminology;
+- build/fix motion with reduced-motion and performance constraints;
+- read-only review with clean and defective diffs;
+- opportunity search with positive, excessive-motion, and zero-opportunity fixtures;
+- Apple-style gesture interruption and velocity handoff;
+- UI and interaction prototypes with production isolation and cleanup;
+- explicit-only logic prototype behavior;
+- negative routing for static visual design, UX flow review, backend code, general logic prototypes, and D3 implementation.
+
+Use fresh sessions and equivalent tooling. Record provider, model ID, thinking level, Pi version, loaded leaf files, total tokens, tool calls, routing outcome, task assertions, unauthorized mutation count, and human visual preference where applicable. The consolidation is successful only if it improves routing precision while reducing loaded context and preserving or improving artifact quality.
+
+### Focused recommendation
+
+Proceed with a single discoverable `emil-design-eng` router and hidden compatibility aliases. Fold all five subordinate packages, but auto-route only UI/interaction prototyping; keep logic prototyping explicit. Resolve `improve-animations` in the same implementation batch so the family ends with one automatic owner for motion and interaction craft.
