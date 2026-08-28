@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Validate the consolidated Emil package, aliases, links, lock state, and eval definitions."""
+"""Validate the consolidated Emil package, retired names, links, lock state, and evals."""
 from __future__ import annotations
 
-import argparse
 import json
 import re
 import sys
@@ -12,13 +11,13 @@ from urllib.parse import unquote
 PACKAGE = Path(__file__).resolve().parents[1]
 SKILLS = PACKAGE.parent
 REPO = SKILLS.parent
-ALIASES = {
-    "animation-vocabulary": "name",
-    "apple-design": "apple",
-    "find-animation-opportunities": "opportunities",
-    "prototype": "prototype",
-    "review-animations": "review",
-    "improve-animations": "improve",
+LEGACY_NAMES = {
+    "animation-vocabulary",
+    "apple-design",
+    "find-animation-opportunities",
+    "improve-animations",
+    "prototype",
+    "review-animations",
 }
 LEAVES = {
     "references/animation-plan-template.md",
@@ -55,7 +54,6 @@ REQUIRED_MODES = {
     "prototype ui",
     "prototype logic",
     "none",
-    "alias",
 }
 REQUIRED_RECORD_FIELDS = {
     "provider",
@@ -113,9 +111,6 @@ def add(errors: list[str], message: str) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--pre-remove-aliases", action="store_true")
-    args = parser.parse_args()
     errors: list[str] = []
 
     actual_files = {
@@ -168,41 +163,14 @@ def main() -> int:
             if separator and unquote(anchor) not in anchors(target_path):
                 add(errors, f"broken anchor: {path.relative_to(REPO)} -> {link}")
 
-    automatic_family: list[str] = []
-    for name in ["emil-design-eng", *ALIASES]:
-        path = SKILLS / name / "SKILL.md"
-        try:
-            fm = frontmatter(path)
-            if scalar(fm, "name") != name:
-                add(errors, f"skill name mismatch: {name}")
-            description = scalar(fm, "description") or ""
-            if not 1 <= len(description) <= 1024:
-                add(errors, f"invalid description: {name}")
-            hidden = scalar(fm, "disable-model-invocation") == "true"
-            if not hidden:
-                automatic_family.append(name)
-            if name in ALIASES:
-                mode = ALIASES[name]
-                if not hidden:
-                    add(errors, f"alias remains automatically discoverable: {name}")
-                if not re.search(r"(?m)^  alias-for: emil-design-eng$", fm):
-                    add(errors, f"alias-for metadata missing: {name}")
-                if not re.search(rf"(?m)^  mode: {re.escape(mode)}$", fm):
-                    add(errors, f"alias mode mismatch: {name}")
-                body = path.read_text(encoding="utf-8")
-                if "../emil-design-eng/SKILL.md" not in body or "final `User: <arguments>` block" not in body:
-                    add(errors, f"alias forwarding contract missing: {name}")
-                alias_files = [item for item in path.parent.rglob("*") if item.is_file()]
-                if alias_files != [path]:
-                    add(errors, f"alias contains unexpected files: {name}")
-        except (OSError, ValueError) as error:
-            add(errors, str(error))
-    if automatic_family != ["emil-design-eng"]:
-        add(errors, f"automatic family skills must be only emil-design-eng; got {automatic_family}")
+    for name in sorted(LEGACY_NAMES):
+        path = SKILLS / name
+        if path.exists():
+            add(errors, f"retired skill package still exists: {path.relative_to(REPO)}")
 
     try:
         lock = json.loads((REPO / ".skill-lock.json").read_text(encoding="utf-8"))
-        collisions = sorted(set(lock.get("skills", {})) & ({"emil-design-eng"} | set(ALIASES)))
+        collisions = sorted(set(lock.get("skills", {})) & ({"emil-design-eng"} | LEGACY_NAMES))
         if collisions:
             add(errors, f"consolidated packages remain installer-managed: {collisions}")
     except (OSError, json.JSONDecodeError) as error:
@@ -233,24 +201,21 @@ def main() -> int:
         cases = []
         add(errors, f"invalid eval definitions: {error}")
 
-    if args.pre_remove_aliases:
-        for skill in SKILLS.iterdir():
-            if not skill.is_dir() or skill.name in ALIASES:
-                continue
-            for path in skill.rglob("*.md"):
-                if path in {PACKAGE / "references/maintenance.md", PACKAGE / "references/provenance.md"}:
-                    continue
-                text = path.read_text(encoding="utf-8")
-                for old in ALIASES:
-                    if re.search(rf"/skill:{re.escape(old)}\b", text):
-                        add(errors, f"active old command reference: {path.relative_to(REPO)} -> {old}")
+    for skill in SKILLS.iterdir():
+        if not skill.is_dir():
+            continue
+        for path in skill.rglob("*.md"):
+            text = path.read_text(encoding="utf-8")
+            for old in LEGACY_NAMES:
+                if re.search(rf"/skill:{re.escape(old)}\b", text):
+                    add(errors, f"active retired command reference: {path.relative_to(REPO)} -> {old}")
 
     if errors:
         print("Consolidation validation failed:", file=sys.stderr)
         for error in errors:
             print(f"- {error}", file=sys.stderr)
         return 1
-    print(f"Consolidation validation passed: 1 umbrella, {len(ALIASES)} explicit aliases, {len(cases)} eval cases.")
+    print(f"Consolidation validation passed: 1 umbrella, {len(LEGACY_NAMES)} retired names absent, {len(cases)} eval cases.")
     return 0
 
 

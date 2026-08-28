@@ -203,13 +203,13 @@
       ]
     },
     {
-      "id": "alias-arguments",
-      "mode": "alias",
-      "prompt": "/skill:review-animations src/components/Toast.tsx --strict",
+      "id": "explicit-review-arguments",
+      "mode": "review",
+      "prompt": "/skill:emil-design-eng review src/components/Toast.tsx --strict",
       "assertions": [
-        "alias selects review mode",
-        "final Pi User block is treated as the request",
-        "does not expect interpolation or nested slash commands"
+        "explicit umbrella command selects review mode",
+        "path and strictness arguments are preserved as request scope",
+        "loads review files without unrelated Apple or prototype material"
       ]
     }
   ]

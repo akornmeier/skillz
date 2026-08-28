@@ -257,7 +257,7 @@ No file inside these ten skill packages was changed.
 
 **Findings:** `disable-model-invocation` is Pi-specific and should be documented as a portability choice. `STANDARDS.md` needs a contents section. Standards duplicate other motion packages and rely on broad technical absolutes. The package should state its no-modification boundary more directly.
 
-**Recommendation:** Verify manual `/skill:review-animations` behavior in Pi and define behavior for other intended harnesses. Evaluate clean diffs, subtle regressions, non-motion diffs, and intentional exceptions; grade precision, severity agreement, citation accuracy, and refusal correctness.
+**Recommendation:** Verify explicit `/skill:emil-design-eng review` behavior in Pi and define behavior for other intended harnesses. Evaluate clean diffs, subtle regressions, non-motion diffs, and intentional exceptions; grade precision, severity agreement, citation accuracy, and refusal correctness.
 
 #### `shadcn-vue`
 
@@ -289,7 +289,7 @@ No file inside these ten skill packages was changed.
 
 ## Focused consolidation review: Emil design engineering family
 
-**Implemented:** `emil-design-eng` is now a 52-line router and the sole automatically discoverable family skill. Thirteen direct one-level references and workflows cover all approved modes, including the folded `improve` workflow; duplicated absolutes were normalized into requirements, measured constraints, house defaults, preferences, and verification-dependent judgments. Six old names remain explicit-only compatibility aliases. Consolidated installer entries were removed from `.skill-lock.json`; 20 provider-neutral eval definitions and deterministic package validation now live under the umbrella. Alias removal remains gated on running the evaluation matrix and clearing active command references.
+**Implemented:** `emil-design-eng` is now a 52-line router and the sole family skill. Thirteen direct one-level references and workflows cover all approved modes, including the folded `improve` workflow; duplicated absolutes were normalized into requirements, measured constraints, house defaults, preferences, and verification-dependent judgments. The six temporary compatibility aliases were subsequently removed. Consolidated installer entries remain absent from `.skill-lock.json`; 20 provider-neutral eval definitions and deterministic package validation live under the umbrella.
 
 ### Requested family
 
@@ -451,4 +451,4 @@ Use fresh sessions and equivalent tooling. Record provider, model ID, thinking l
 
 ### Focused recommendation
 
-Proceed with a single discoverable `emil-design-eng` router and hidden compatibility aliases. Fold all five subordinate packages, but auto-route only UI/interaction prototyping; keep logic prototyping explicit. Resolve `improve-animations` in the same implementation batch so the family ends with one automatic owner for motion and interaction craft.
+Proceed with a single discoverable `emil-design-eng` router. The five subordinate packages and `improve-animations` were folded into the umbrella; their temporary hidden aliases were later removed. Auto-route only UI/interaction prototyping and keep logic prototyping explicit.

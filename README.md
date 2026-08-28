@@ -16,7 +16,7 @@ skills/<skill-name>/
 └── assets/       # optional
 ```
 
-`emil-design-eng` is the sole automatically discoverable owner for the consolidated motion and interaction family. Retired sibling names remain temporary explicit-only aliases with `disable-model-invocation: true`; they link to the umbrella and are not self-contained.
+`emil-design-eng` is the sole skill and command for the consolidated motion and interaction family. The temporary compatibility aliases have been removed.
 
 `SKILL-AUTHORING-REVIEW.md` documents the authoring review and provider-neutral evaluation plan for the locally maintained skills.
 
@@ -35,4 +35,4 @@ Validate the consolidated motion family without running models:
 python3 skills/emil-design-eng/scripts/validate.py
 ```
 
-The command checks the umbrella, aliases, direct links and anchors, package inventory, long-reference contents sections, installer lock state, and provider-neutral evaluation definitions.
+The command checks the umbrella, retired-name absence, direct links and anchors, package inventory, long-reference contents sections, installer lock state, active command references, and provider-neutral evaluation definitions.

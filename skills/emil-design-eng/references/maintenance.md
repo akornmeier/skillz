@@ -35,44 +35,29 @@ Keep router short. Every task leaf lives exactly one directory below package roo
 - Resolve a link relative to the Markdown file containing it.
 - Package links from `SKILL.md` use `references/file.md` or `workflows/file.md`.
 - Leaf files should use local anchors, not sideways links to other leaves.
-- Temporary sibling aliases may use `../emil-design-eng/SKILL.md`. This cross-package link is intentional and must disappear with the alias.
 - Never use CWD-relative paths for bundled files. Agents must resolve them from the loaded skill directory.
 
-## Pi-compatible alias pattern
+## Retired command names
 
-```yaml
----
-name: review-animations
-description: Temporary explicit-only compatibility alias. Reviews animation code through the consolidated Emil design-engineering skill.
-disable-model-invocation: true
-metadata:
-  alias-for: emil-design-eng
-  mode: review
----
-```
+The transition aliases have been removed. Do not recreate packages named `animation-vocabulary`, `apple-design`, `find-animation-opportunities`, `improve-animations`, `prototype`, or `review-animations`. Route callers to an explicit `emil-design-eng` mode instead.
 
-Alias body must tell the agent to read `../emil-design-eng/SKILL.md` and select the declared mode. `disable-model-invocation: true` hides it from the system prompt but retains `/skill:review-animations`.
-
-Pi appends slash-command arguments to loaded skill content as a final `User: <arguments>` block. The alias hands that final block to the selected umbrella mode as the request. Skill Markdown has no supported `{{args}}`, `$ARGUMENTS`, shell interpolation, command substitution, or nested slash-command forwarding. Do not fake forwarding with those forms.
+Pi does not create redirects for deleted skills, and running sessions retain their startup discovery snapshot. Restart Pi after package changes. Old commands should be unknown in a fresh session.
 
 ## Discovery and collision caveats
 
 - Pi recursively discovers every directory containing `SKILL.md` under `~/.agents/skills/`, including nested packages.
-- `disable-model-invocation` prevents automatic model routing. It does not remove the slash command.
 - Same-name skills from global, project, package, settings, or CLI locations collide. Pi warns and keeps the first discovered definition. Do not rely on load order.
 - Pi permits a frontmatter name that differs from the parent directory, but the Agent Skills standard does not. These packages keep names and directories equal.
 - Root `.md` discovery differs between `.pi/skills` and `.agents/skills`. Use `<name>/SKILL.md` packages for portable behavior.
-- Remove consolidated names from `.skill-lock.json`; otherwise an installer update can overwrite local aliases or umbrella content.
-- A running Pi session retains its startup discovery snapshot. Restart Pi after adding, hiding, or removing skills.
+- Keep the umbrella and retired names out of `.skill-lock.json`; otherwise installer updates can restore or overwrite locally maintained content.
+- A running Pi session retains its startup discovery snapshot. Restart Pi after adding or removing skills.
 
-## Gates before deleting aliases
+## Post-removal gates
 
-1. Run `python3 skills/emil-design-eng/scripts/validate.py --pre-remove-aliases` from repository root.
-2. Start fresh Pi sessions and confirm startup reports zero skill diagnostics, one automatic umbrella, and all six explicit slash commands.
-3. Invoke every alias with a unique argument sentinel. Confirm selected umbrella mode receives the final `User:` block unchanged.
+1. Run `python3 skills/emil-design-eng/scripts/validate.py` from repository root.
+2. Start a fresh Pi session and require zero diagnostics and exactly one Emil-family command.
+3. Confirm old commands are absent from completion and unknown when entered.
 4. Run every eval case across all three capability profiles. Require correct routing, no unauthorized mutations, and no quality regression against retained baselines.
-5. Confirm all active prompts, agents, docs, settings, packages, and project configs no longer call old skill commands. Historical migration notes may retain names.
-6. Confirm `.skill-lock.json` contains none of the umbrella or alias names.
-7. Commit alias removal separately. Restart Pi and confirm old slash commands are absent while umbrella commands still pass.
-
-Do not remove aliases based only on elapsed time. Remove them when command references and eval failures reach zero.
+5. Search active prompts, agents, docs, settings, package manifests, scripts, CI, and project configs for retired command invocations and explicit legacy skill paths.
+6. Confirm `.skill-lock.json` contains neither the umbrella nor retired names.
+7. Check project, package, settings, and CLI skill sources so duplicate legacy packages cannot silently restore old commands.
