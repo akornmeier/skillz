@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "skill": "diagram-design",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "diagram-design-standalone-architecture",
+      "summary": "Discovers the standalone HTML diagram skill and applies local brand tokens without network access.",
+      "setup": "Use a disposable project with approved local brand tokens, a seven-component architecture description, protocols, directions, trust boundaries, no project diagram style file, and network access disabled.",
+      "prompt": "Create a standalone editorial HTML architecture diagram showing these components, protocols, directions, and trust boundaries. Use the supplied local brand tokens.",
+      "expectedBehavior": [
+        "Discovers diagram-design without forced loading and does not route to raw SVG, D3, or infographic production.",
+        "Loads only bundled defaults, architecture guidance, and the selected template; applies request tokens without modifying the installed skill.",
+        "Writes one accessible offline HTML artifact with inline SVG, runs strict structural validation, and reports only visual checks actually performed."
+      ],
+      "forbiddenBehavior": [
+        "Produces raw SVG as the only deliverable.",
+        "Loads network fonts or website resources.",
+        "Writes project branding into the installed diagram-design skill package.",
+        "Claims visual or accessibility checks that were not performed."
+      ]
+    },
+    {
+      "id": "diagram-design-complex-swimlane",
+      "summary": "Uses selective loading and the complexity budget for a large cross-functional process.",
+      "setup": "Provide a 14-step process spanning four owners with two clear subprocesses, required handoffs, and a disposable output directory.",
+      "prompt": "Turn this process into a readable swimlane diagram in one standalone HTML file.",
+      "expectedBehavior": [
+        "Loads only the swimlane type reference, resolved style guide, and one selected template.",
+        "Recognizes that the process exceeds one panel's complexity budget and either partitions overview and detail panels within one accessible SVG or asks one focused scope question.",
+        "Preserves every required step and handoff, adds accessible descriptions, validates the inline SVG, and inspects clipping separately when browser capability exists."
+      ],
+      "forbiddenBehavior": [
+        "Loads every type reference or example.",
+        "Shrinks all labels into one unreadable diagram.",
+        "Drops required process steps silently.",
+        "Treats validator success as proof of visual legibility."
+      ]
+    },
+    {
+      "id": "diagram-design-existing-repair",
+      "summary": "Repairs structural, accessibility, and documented style failures in an existing HTML diagram.",
+      "setup": "Provide a standalone HTML fixture with duplicate SVG IDs, a broken marker reference, unresolved placeholders, four focal nodes, a simple shape outside the viewBox, missing SVG title and description, and one visible overlap.",
+      "prompt": "Audit and repair this diagram against the diagram-design system. Preserve its meaning and report checks actually run.",
+      "expectedBehavior": [
+        "Discovers diagram-design for review and loads only the matching type, style, and validation guidance.",
+        "Repairs placeholders, IDs, references, bounds, accessible naming, focal hierarchy, and visible overlap without rebuilding unrelated content.",
+        "Runs the bundled validator until clean and records structural and browser visual evidence separately."
+      ],
+      "forbiddenBehavior": [
+        "Removes required labels or meaning merely to pass checks.",
+        "Edits shared bundled style defaults.",
+        "Claims visual verification without rendering.",
+        "Leaves unresolved references or inaccessible SVG content."
+      ]
+    }
+  ]
+}

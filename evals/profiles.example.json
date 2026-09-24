@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "profiles": {
+    "fast/economical": {
+      "selectionRule": "Lowest-cost, low-latency available model supporting the required tools and context.",
+      "model": "${PI_EVAL_FAST_MODEL}",
+      "thinking": "${PI_EVAL_FAST_THINKING}"
+    },
+    "balanced/default": {
+      "selectionRule": "Normal production model with its default thinking configuration.",
+      "model": "${PI_EVAL_BALANCED_MODEL}",
+      "thinking": "${PI_EVAL_BALANCED_THINKING}"
+    },
+    "highest-reasoning": {
+      "selectionRule": "Strongest available tool-capable model with the maximum appropriate thinking level.",
+      "model": "${PI_EVAL_REASONING_MODEL}",
+      "thinking": "${PI_EVAL_REASONING_THINKING}"
+    }
+  }
+}

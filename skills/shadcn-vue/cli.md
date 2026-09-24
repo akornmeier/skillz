@@ -2,8 +2,7 @@
 
 Configuration is read from `components.json`.
 
-> **IMPORTANT:** Always run commands using the project's package runner: `npx shadcn-vue@latest`, `pnpm dlx shadcn-vue@latest`, or `bunx --bun shadcn-vue@latest`. Check `packageManager` from project context to choose the right one. Examples below use `npx shadcn-vue@latest` but substitute the correct runner for the project.
-> **IMPORTANT:** Only use the flags documented below. Do not invent or guess flags — if a flag isn't listed here, it doesn't exist. The CLI auto-detects the package manager from the project's lockfile; there is no `--package-manager` flag.
+Commands below use `shadcn-vue` as a placeholder. Resolve the project-local or explicitly approved version as described in [SKILL.md](SKILL.md#resolve-project-context), then invoke it through the project's package manager. Confirm version-sensitive flags with that executable's `--help`; this reference records the expected command shape, not a promise about every release.
 
 ## Contents
 
@@ -19,7 +18,7 @@ Configuration is read from `components.json`.
 ### `init` — Initialize or create a project
 
 ```bash
-npx shadcn-vue@latest init [components...] [options]
+shadcn-vue init [components...] [options]
 ```
 
 Initializes shadcn-vue in an existing project or creates a new project (when `--name` is provided). Optionally installs components in the same step.
@@ -37,12 +36,12 @@ Initializes shadcn-vue in an existing project or creates a new project (when `--
 | `--rtl`                 |       | Enable RTL support                             | —       |
 | `--reinstall`           |       | Re-install existing UI components              | `false` |
 
-`npx shadcn-vue@latest create` is an alias for `npx shadcn-vue@latest init`.
+`shadcn-vue create` is an alias for `shadcn-vue init`.
 
 ### `apply` — Apply a preset to an existing project
 
 ```bash
-npx shadcn-vue@latest apply [preset] [options]
+shadcn-vue apply [preset] [options]
 ```
 
 Applies a preset to an existing project, overwriting preset-driven config, fonts, CSS variables, and detected UI components.
@@ -62,19 +61,21 @@ If no preset is provided, the CLI offers to open the custom preset builder on `s
 > **IMPORTANT:** NEVER fetch raw files from GitHub or other sources manually. The CLI handles registry resolution, file paths, and CSS diffing automatically.
 
 ```bash
-npx shadcn-vue@latest add [components...] [options]
+shadcn-vue add [components...] [options]
 ```
 
 Accepts component names, registry-prefixed names (`@magicui/shimmer-button`), URLs, or local paths.
 
-| Flag            | Short | Description                   | Default |
-| --------------- | ----- | ----------------------------- | ------- |
-| `--yes`         | `-y`  | Skip confirmation prompt      | `false` |
-| `--overwrite`   | `-o`  | Overwrite existing files      | `false` |
-| `--cwd <cwd>`   | `-c`  | Working directory             | current |
-| `--all`         | `-a`  | Add all available components  | `false` |
-| `--path <path>` | `-p`  | Target path for the component | —       |
-| `--silent`      | `-s`  | Mute output                   | `false` |
+| Flag            | Short | Description                                | Default |
+| --------------- | ----- | ------------------------------------------ | ------- |
+| `--yes`         | `-y`  | Skip confirmation prompt                   | `false` |
+| `--overwrite`   | `-o`  | Overwrite existing files                   | `false` |
+| `--cwd <cwd>`   | `-c`  | Working directory                          | current |
+| `--all`         | `-a`  | Add all available components               | `false` |
+| `--path <path>` | `-p`  | Target path for the component              | —       |
+| `--silent`      | `-s`  | Mute output                                | `false` |
+| `--dry-run`     |       | Preview files without writing              | `false` |
+| `--diff <file>` |       | Compare one installed file with registry   | —       |
 
 #### Smart Merge from Upstream
 
@@ -83,10 +84,10 @@ See [Updating Components in SKILL.md](./SKILL.md#updating-components) for the fu
 ### `search` — Search registries
 
 ```bash
-npx shadcn-vue@latest search <registries...> [options]
+shadcn-vue search <registries...> [options]
 ```
 
-Fuzzy search across registries. Also aliased as `npx shadcn-vue@latest list`. Without `-q`, lists all items.
+Fuzzy search across registries. Also aliased as `shadcn-vue list`. Without `-q`, lists all items.
 
 | Flag                | Short | Description            | Default |
 | ------------------- | ----- | ---------------------- | ------- |
@@ -98,20 +99,20 @@ Fuzzy search across registries. Also aliased as `npx shadcn-vue@latest list`. Wi
 ### `view` — View item details
 
 ```bash
-npx shadcn-vue@latest view <items...> [options]
+shadcn-vue view <items...> [options]
 ```
 
-Displays item info including file contents. Example: `npx shadcn-vue@latest view @shadcn/button`.
+Displays item info including file contents. Example: `shadcn-vue view @shadcn/button`.
 
 ### `docs` — Get component documentation URLs
 
 ```bash
-npx shadcn-vue@latest docs <components...> [options]
+shadcn-vue docs <components...> [options]
 ```
 
 Outputs resolved URLs for component documentation, examples, and API references. Accepts one or more component names. Fetch the URLs to get the actual content.
 
-Example output for `npx shadcn-vue@latest docs input button`:
+Example output for `shadcn-vue docs input button`:
 
 ```text
 input
@@ -127,12 +128,12 @@ Some components include an `api` link to the underlying library (e.g. `reka-ui` 
 
 ### `diff` — Check for updates
 
-Do not use this command. Use `npx shadcn-vue@latest add --diff` instead.
+Do not use this command. Use `shadcn-vue add --diff` instead.
 
 ### `info` — Project information
 
 ```bash
-npx shadcn-vue@latest info [options]
+shadcn-vue info [options]
 ```
 
 Displays project info and `components.json` configuration. Run this first to discover the project's framework, aliases, Tailwind version, and resolved paths.
@@ -175,12 +176,12 @@ Displays project info and `components.json` configuration. Run this first to dis
 
 **Links fields:**
 
-The `info` output includes a **Links** section with templated URLs for component docs, source, and examples. For resolved URLs, use `npx shadcn-vue@latest docs <component>` instead.
+The `info` output includes a **Links** section with templated URLs for component docs, source, and examples. For resolved URLs, use `shadcn-vue docs <component>` instead.
 
 ### `build` — Build a custom registry
 
 ```bash
-npx shadcn-vue@latest build [registry] [options]
+shadcn-vue build [registry] [options]
 ```
 
 Builds `registry.json` into individual JSON files for distribution. Default input: `./registry.json`, default output: `./public/r`.
@@ -211,15 +212,15 @@ Three ways to specify a preset via `--preset`:
 2. **Code:** `--preset a2r6bw` (version-prefixed base62 string, e.g. `a2r6bw`)
 3. **URL:** `--preset "https://shadcn-vue.com/init?base=reka&style=nova&..."`
 
-> **IMPORTANT:** Never try to decode, fetch, or resolve preset codes manually. Preset codes are opaque — pass them directly to `npx shadcn-vue@latest init --preset <code>` and let the CLI handle resolution.
-> Use `npx shadcn-vue@latest apply --preset <code>` when overwriting an existing project's preset.
+> **IMPORTANT:** Never try to decode, fetch, or resolve preset codes manually. Preset codes are opaque — pass them directly to `shadcn-vue init --preset <code>` and let the CLI handle resolution.
+> Use `shadcn-vue apply --preset <code>` when overwriting an existing project's preset.
 
 ## Switching Presets
 
 Ask the user first: **overwrite**, **merge**, or **skip** existing components?
 
-- **Overwrite / Re-install** → `npx shadcn-vue@latest apply --preset <code>`. Overwrites all detected component files with the new preset styles. Use when the user hasn't customized components.
-- **Merge** → `npx shadcn-vue@latest init --preset <code> --force --no-reinstall`, then run `npx shadcn-vue@latest info` to get the list of installed components and use the [smart merge workflow](./SKILL.md#updating-components) to update them one by one, preserving local changes. Use when the user has customized components.
-- **Skip** → `npx shadcn-vue@latest init --preset <code> --force --no-reinstall`. Only updates config and CSS variables, leaves existing components as-is.
+- **Overwrite / Re-install** → `shadcn-vue apply --preset <code>`. Overwrites all detected component files with the new preset styles. Use when the user hasn't customized components.
+- **Merge** → `shadcn-vue init --preset <code> --force --no-reinstall`, then run `shadcn-vue info` to get the list of installed components and use the [smart merge workflow](./SKILL.md#updating-components) to update them one by one, preserving local changes. Use when the user has customized components.
+- **Skip** → `shadcn-vue init --preset <code> --force --no-reinstall`. Only updates config and CSS variables, leaves existing components as-is.
 
 Always run preset commands inside the user's project directory. `apply` only works in an existing project with a `components.json` file. The CLI automatically preserves the current base (`base`) from `components.json`. If you must use a scratch/temp directory (e.g. for `--dry-run` comparisons), pass `--base <current-base>` explicitly — preset codes do not encode the base.

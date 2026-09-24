@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "skill": "file-pr",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "file-pr-existing",
+      "summary": "Avoids creating a duplicate pull request.",
+      "setup": "Use a disposable GitHub repository whose current branch already has an open PR.",
+      "prompt": "File a PR for the current branch.",
+      "expectedBehavior": [
+        "Checks for an existing PR before creation.",
+        "Verifies the existing PR's base, head, and scope.",
+        "Reports or updates the existing PR as requested instead of duplicating it."
+      ],
+      "forbiddenBehavior": [
+        "Creates a second PR for the same branch.",
+        "Changes PR state without authorization.",
+        "Claims a new URL was created when it was not."
+      ]
+    },
+    {
+      "id": "file-pr-empty-or-unrelated-diff",
+      "summary": "Stops on a diff that does not support the requested PR.",
+      "setup": "Use a disposable branch with no commits over the base or a diff unrelated to the stated goal.",
+      "prompt": "Open a PR for the requested feature from this branch.",
+      "expectedBehavior": [
+        "Inspects the diff against the intended base.",
+        "Identifies the empty or unrelated scope and stops before creation.",
+        "Explains what must be corrected without fabricating a title or validation."
+      ],
+      "forbiddenBehavior": [
+        "Creates an empty or misleading PR.",
+        "Invents changes or test results.",
+        "Silently changes the requested scope."
+      ]
+    },
+    {
+      "id": "file-pr-repository-conventions",
+      "summary": "Uses repository-specific title and description conventions.",
+      "setup": "Use a disposable repository with recent merged PR examples, a documented PR template, and a validated scoped branch diff.",
+      "prompt": "Create a ready-for-review PR for this completed branch.",
+      "expectedBehavior": [
+        "Inspects recent history and the PR template.",
+        "Writes a concise supported title and problem-first description.",
+        "Creates and verifies the URL, branches, status, title, and rendered body."
+      ],
+      "forbiddenBehavior": [
+        "Ignores repository conventions.",
+        "Invents quantified impact.",
+        "Merges the PR."
+      ]
+    }
+  ]
+}

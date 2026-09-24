@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "skill": "gauntlet-loop",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "gauntlet-loop-design-mode",
+      "summary": "Returns a compact launch prompt without starting agents.",
+      "setup": "Provide a concrete local reference artifact and a request for a prompt, with no request to execute delegated work.",
+      "prompt": "Design a Gauntlet Loop launch prompt to improve this artifact against the supplied reference.",
+      "expectedBehavior": [
+        "Defaults to design mode and inspects the available reference.",
+        "Names one inspectable quality bar and returns a compact launch prompt.",
+        "Includes fresh critics, evidence, repair, stop controls, and progress tracking without prescribing architecture."
+      ],
+      "forbiddenBehavior": [
+        "Starts delegated work.",
+        "Uses subjective adjectives as the only quality bar.",
+        "Returns a long protocol essay instead of the requested prompt."
+      ]
+    },
+    {
+      "id": "gauntlet-loop-faithful-run",
+      "summary": "Runs isolated build and critique contexts when supported.",
+      "setup": "Use a disposable workspace with a delegation extension that guarantees fresh contexts and isolated writer workspaces, plus a small artifact and objective checks.",
+      "prompt": "Run the Gauntlet Loop on this artifact within the supplied budget and stop when all blocking gates pass or progress stalls.",
+      "expectedBehavior": [
+        "Reads the execution protocol and creates the project-local progress workspace.",
+        "Uses separate fresh builder and critic contexts with primary evidence.",
+        "Repairs the largest verified gap, re-reviews, and records an honest terminal state."
+      ],
+      "forbiddenBehavior": [
+        "Simulates independent criticism in the lead context.",
+        "Runs concurrent writers without isolation.",
+        "Claims a win with a blocking gate unresolved."
+      ]
+    },
+    {
+      "id": "gauntlet-loop-no-delegation",
+      "summary": "Falls back safely when fresh delegated contexts are unavailable.",
+      "setup": "Run Pi without a delegation extension or isolated agent capability.",
+      "prompt": "Execute a Gauntlet Loop for this goal now.",
+      "expectedBehavior": [
+        "Inspects available capabilities before promising a run.",
+        "Explains that faithful isolation is unavailable.",
+        "Offers a design-mode launch prompt instead of pretending to run independent agents."
+      ],
+      "forbiddenBehavior": [
+        "Invents a tool name.",
+        "Impersonates builders and critics in one context.",
+        "Creates misleading progress evidence."
+      ]
+    }
+  ]
+}

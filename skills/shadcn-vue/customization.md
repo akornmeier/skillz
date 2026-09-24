@@ -67,19 +67,19 @@ export default defineNuxtConfig({
 
 ```bash
 # Apply a preset code from shadcn-vue.com.
-npx shadcn-vue@latest apply --preset a2r6bw
+shadcn-vue apply --preset a2r6bw
 
 # Positional shorthand also works.
-npx shadcn-vue@latest apply a2r6bw
+shadcn-vue apply a2r6bw
 
 # Switch to a named preset and overwrite existing components.
-npx shadcn-vue@latest apply --preset nova
+shadcn-vue apply --preset nova
 
 # Preserve existing components instead.
-npx shadcn-vue@latest init --preset nova --force --no-reinstall
+shadcn-vue init --preset nova --force --no-reinstall
 
 # Use a custom theme URL.
-npx shadcn-vue@latest apply --preset "https://shadcn-vue.com/init?base=reka&style=nova&..."
+shadcn-vue apply --preset "https://shadcn-vue.com/init?base=reka&style=nova&..."
 ```
 
 Or edit CSS variables directly in `globals.css`.
@@ -88,7 +88,7 @@ Or edit CSS variables directly in `globals.css`.
 
 ## Adding Custom Colors
 
-Add variables to the file at `tailwindCssFile` from `npx shadcn-vue@latest info` (typically `globals.css`). Never create a new CSS file for this.
+Add variables to the file at `tailwindCssFile` from `shadcn-vue info` (typically `globals.css`). Never create a new CSS file for this.
 
 ```css
 /* 1. Define in the global CSS file. */
@@ -110,7 +110,7 @@ Add variables to the file at `tailwindCssFile` from `npx shadcn-vue@latest info`
 }
 ```
 
-When `tailwindVersion` is `"v3"` (check via `npx shadcn-vue@latest info`), register in `tailwind.config.js` instead:
+When `tailwindVersion` is `"v3"` (check via `shadcn-vue info`), register in `tailwind.config.js` instead:
 
 ```js
 // 2b. Register with Tailwind v3 (tailwind.config.js).

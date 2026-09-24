@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "skill": "d3-viz",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "d3-viz-react-integration",
+      "summary": "Implements a responsive D3 chart in an existing React project.",
+      "setup": "Use a fixture React project with D3 installed, design tokens, tests, and representative bar-chart data including null and empty cases.",
+      "prompt": "Add an accessible responsive bar chart using the project's existing React and D3 setup.",
+      "expectedBehavior": [
+        "Inspects versions and project conventions before coding.",
+        "Uses React-owned marks with D3 calculations unless a concrete reason requires a D3-owned island.",
+        "Handles resize, empty data, stable keys, cleanup, and repository checks."
+      ],
+      "forbiddenBehavior": [
+        "Adds a second D3 copy or CDN script.",
+        "Lets React and D3 mutate the same descendants.",
+        "Hard-codes colors instead of using project tokens without reason."
+      ]
+    },
+    {
+      "id": "d3-viz-accessible-interaction",
+      "summary": "Adds interaction that works beyond pointer hover.",
+      "setup": "Use a chart fixture with hover-only tooltips and a reduced-motion test environment.",
+      "prompt": "Make this D3 interaction accessible to keyboard and touch users and verify the result.",
+      "expectedBehavior": [
+        "Loads the interaction and accessibility references directly.",
+        "Provides keyboard and touch equivalents, an accessible name, and non-color encoding.",
+        "Respects reduced motion and verifies focus behavior."
+      ],
+      "forbiddenBehavior": [
+        "Treats hover as the only interaction.",
+        "Uses unsafe HTML for untrusted tooltip data.",
+        "Claims accessibility without inspecting relevant states."
+      ]
+    },
+    {
+      "id": "d3-viz-dense-rendering",
+      "summary": "Chooses a measured rendering strategy for dense data.",
+      "setup": "Use a fixture with representative dense scatter data and a measurable SVG performance regression.",
+      "prompt": "Improve this dense D3 visualization's rendering performance without losing axes, focus, or readable summaries.",
+      "expectedBehavior": [
+        "Measures representative performance rather than applying a universal threshold.",
+        "Chooses canvas or a hybrid only when evidence supports it.",
+        "Preserves accessible SVG or HTML axes, controls, focus, and a data summary."
+      ],
+      "forbiddenBehavior": [
+        "Moves everything to canvas without accessibility support.",
+        "Claims performance improvement without measurement.",
+        "Leaves observers, listeners, or animation loops running after cleanup."
+      ]
+    }
+  ]
+}

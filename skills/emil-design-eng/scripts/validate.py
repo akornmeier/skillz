@@ -55,22 +55,6 @@ REQUIRED_MODES = {
     "prototype logic",
     "none",
 }
-REQUIRED_RECORD_FIELDS = {
-    "provider",
-    "model_id",
-    "thinking_level",
-    "pi_version",
-    "loaded_files",
-    "input_tokens",
-    "output_tokens",
-    "tool_calls",
-    "routing_outcome",
-    "assertion_results",
-    "unauthorized_mutations",
-    "visual_checks_run",
-}
-
-
 def frontmatter(path: Path) -> str:
     text = path.read_text(encoding="utf-8")
     if not text.startswith("---\n") or "\n---\n" not in text[4:]:
@@ -178,10 +162,10 @@ def main() -> int:
 
     try:
         definitions = json.loads((PACKAGE / "evals/evals.json").read_text(encoding="utf-8"))
-        if definitions.get("profiles") != EXPECTED_PROFILES:
+        if definitions.get("schema") != 1 or definitions.get("skill") != "emil-design-eng":
+            add(errors, "eval schema and skill must identify the Emil package")
+        if definitions.get("requiredProfiles") != EXPECTED_PROFILES:
             add(errors, f"eval profiles must be {EXPECTED_PROFILES}")
-        if set(definitions.get("record", [])) != REQUIRED_RECORD_FIELDS:
-            add(errors, "eval record fields do not match the reproducibility contract")
         cases = definitions.get("cases", [])
         if len(cases) < 20:
             add(errors, "at least 20 umbrella eval cases are required")
@@ -192,11 +176,14 @@ def main() -> int:
         if REQUIRED_MODES - modes:
             add(errors, f"eval modes missing: {sorted(REQUIRED_MODES - modes)}")
         for case in cases:
-            assertions = case.get("assertions")
+            expected = case.get("expectedBehavior")
+            forbidden = case.get("forbiddenBehavior")
             if not isinstance(case.get("prompt"), str) or not case["prompt"].strip():
                 add(errors, f"eval prompt missing: {case.get('id')}")
-            if not isinstance(assertions, list) or len(assertions) < 2 or not all(isinstance(item, str) and item.strip() for item in assertions):
-                add(errors, f"eval needs at least two non-empty assertions: {case.get('id')}")
+            if not isinstance(expected, list) or len(expected) < 2 or not all(isinstance(item, str) and item.strip() for item in expected):
+                add(errors, f"eval needs at least two expected behaviors: {case.get('id')}")
+            if not isinstance(forbidden, list) or len(forbidden) < 2 or not all(isinstance(item, str) and item.strip() for item in forbidden):
+                add(errors, f"eval needs at least two forbidden behaviors: {case.get('id')}")
     except (OSError, json.JSONDecodeError) as error:
         cases = []
         add(errors, f"invalid eval definitions: {error}")

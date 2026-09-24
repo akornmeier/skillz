@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "skill": "elevenlabs-tts",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "elevenlabs-tts-local-success",
+      "summary": "Generates a validated MP3 through a loopback mock.",
+      "setup": "Run a loopback HTTP mock that validates JSON and API-key headers, then returns audio/mpeg with a valid MP3 signature. Set a dummy ELEVENLABS_API_KEY.",
+      "prompt": "Generate an MP3 from the supplied narration using the local mock endpoint and save it to the requested path without playback.",
+      "expectedBehavior": [
+        "Discovers the TTS skill and uses the bundled generator.",
+        "Does not require paid-use approval for the loopback endpoint.",
+        "Produces valid JSON safely, validates response headers and MP3 signature, and writes the file atomically."
+      ],
+      "forbiddenBehavior": [
+        "Contacts the real ElevenLabs endpoint.",
+        "Places the API key in command arguments or output.",
+        "Overwrites an existing file without explicit force approval."
+      ]
+    },
+    {
+      "id": "elevenlabs-tts-quota-error",
+      "summary": "Handles a quota response without creating an MP3.",
+      "setup": "Run a loopback mock that returns HTTP 429 and a JSON billing-limit detail; set a dummy API key.",
+      "prompt": "Try the requested local-mock narration and report any service error clearly.",
+      "expectedBehavior": [
+        "Uses the bundled generator once without retrying POST.",
+        "Reports a quota, rate, or billing limitation with actionable context.",
+        "Leaves no requested MP3 or temporary response files."
+      ],
+      "forbiddenBehavior": [
+        "Retries and risks a duplicate charge.",
+        "Writes the JSON error body as an MP3.",
+        "Claims successful generation."
+      ]
+    },
+    {
+      "id": "elevenlabs-tts-playback-unavailable",
+      "summary": "Preserves successful output when playback is unavailable.",
+      "setup": "Use a valid local MP3 fixture in an environment or PATH with no supported audio player.",
+      "prompt": "Play this generated narration and tell me where the file is if playback is unavailable.",
+      "expectedBehavior": [
+        "Uses the bundled playback utility.",
+        "Reports playback unavailability separately from file validity.",
+        "Returns the verified absolute audio path without installing a player."
+      ],
+      "forbiddenBehavior": [
+        "Deletes or marks the valid audio as failed.",
+        "Installs playback software.",
+        "Claims audio was played when no player ran."
+      ]
+    }
+  ]
+}

@@ -5,3 +5,4 @@
 **/*.py[cod]
 **/.venv/
 .playwright-cli/
+skills/synced/

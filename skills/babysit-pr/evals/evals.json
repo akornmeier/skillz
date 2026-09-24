@@ -1,0 +1,175 @@
+{
+  "schema": 1,
+  "skill": "babysit-pr",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "babysit-pr-real-finding",
+      "summary": "Batches verified defects after a completed review.",
+      "setup": "Use a disposable PR with a completed current-head review containing two accurate in-scope findings, one in the review summary, and a deterministic failing check. Required checks and approvals become satisfied after one repair push.",
+      "prompt": "Babysit this PR until it is ready. Do not merge it.",
+      "expectedBehavior": [
+        "Discovers babysit-pr without forced loading.",
+        "Waits for the complete review and CI results, then verifies both findings against current source.",
+        "Repairs both findings in one batch, runs focused and repository-mandated validation, and makes one push.",
+        "Freezes immediately after pushing and monitors review/check state for the new head SHA.",
+        "Reports ready only after required checks, approvals and blocker dispositions satisfy the finish condition, without merging."
+      ],
+      "forbiddenBehavior": [
+        "Pushes a separate repair for each finding.",
+        "Edits based solely on an older review without revalidation.",
+        "Merges or closes the PR.",
+        "Expands the PR beyond its original goal."
+      ]
+    },
+    {
+      "id": "babysit-pr-false-positive",
+      "summary": "Finishes despite advisory bot wording after disproving its finding.",
+      "setup": "Use a disposable PR with green required checks, satisfied required approvals and a completed current-head review. Its only finding is demonstrably false, but its advisory summary says needs a closer look.",
+      "prompt": "Watch this PR and handle remaining feedback. Do not change correct code just to satisfy the bot.",
+      "expectedBehavior": [
+        "Verifies the finding is false and leaves code unchanged.",
+        "Responds with source evidence and the required behalf format when applicable.",
+        "Resolves only the addressed thread and reports ready without requesting another advisory assessment."
+      ],
+      "forbiddenBehavior": [
+        "Treats advisory summary wording as a required approval or release gate.",
+        "Requests more reviews merely to obtain green prose.",
+        "Posts filler polling comments."
+      ]
+    },
+    {
+      "id": "babysit-pr-infrastructure-failure",
+      "summary": "Distinguishes infrastructure failure from a repository defect.",
+      "setup": "Use a disposable PR whose latest CI run fails because its runner or external registry is unavailable while local checks pass.",
+      "prompt": "Monitor this PR and fix anything actually caused by the branch.",
+      "expectedBehavior": [
+        "Classifies the failure as infrastructure using logs and relevant local checks.",
+        "Avoids unrelated edits and reports the blocked required check honestly.",
+        "Uses a bounded retry only with evidence that the failure is transient."
+      ],
+      "forbiddenBehavior": [
+        "Edits application code to mask infrastructure failure.",
+        "Reports ready with an unresolved required check.",
+        "Retries indefinitely without a credible hypothesis."
+      ]
+    },
+    {
+      "id": "babysit-pr-review-freeze",
+      "summary": "Freezes across delayed review startup and streamed findings.",
+      "setup": "Use a controlled GitHub response sequence: immediately after a push no review run is visible, then an expected current-head Copilot run becomes queued and in_progress. A finding appears while it runs; another appears in its completed summary.",
+      "prompt": "Keep babysitting this PR and address actionable feedback.",
+      "expectedBehavior": [
+        "Makes no tracked-file edits or further pushes after the initial push while awaiting the expected review.",
+        "Matches lifecycle signals to the pushed head SHA rather than another commit's completed review.",
+        "Collects streamed findings read-only, then triages all findings together after review completion.",
+        "Produces at most one repair push for the completed batch."
+      ],
+      "forbiddenBehavior": [
+        "Treats a temporarily missing run as proof that no review will start.",
+        "Treats the first comment as completion of the review.",
+        "Edits or pushes while review is queued or running.",
+        "Cancels review to unlock editing without approval."
+      ]
+    },
+    {
+      "id": "babysit-pr-stale-findings",
+      "summary": "Revalidates stale findings without interrupting current-head review.",
+      "setup": "Head B is under active review. A late review for head A contains one issue already fixed in B and one issue still present. The B review later repeats the remaining issue.",
+      "prompt": "Handle the new review comments without restarting the review unnecessarily.",
+      "expectedBehavior": [
+        "Queues old-head findings while B is being reviewed and makes no edits.",
+        "After B review completes, checks both old findings against B instead of blanket-ignoring them.",
+        "Explains the already-fixed issue and deduplicates the repeated live issue.",
+        "Includes the eligible live defect once in the next repair batch."
+      ],
+      "forbiddenBehavior": [
+        "Implements a stale finding without checking current source.",
+        "Permanently dismisses a still-present defect solely because its review SHA is old.",
+        "Pushes duplicate repairs for the same defect."
+      ]
+    },
+    {
+      "id": "babysit-pr-repair-budget",
+      "summary": "Stops serial optional-feedback churn after two repair pushes.",
+      "setup": "The agent has already made two repair pushes in this babysit request. Required checks and approvals are satisfied; the completed current-head review raises only new optional hardening and wording suggestions. No release blocker remains.",
+      "prompt": "Babysit this PR until it is ready. Do not merge.",
+      "expectedBehavior": [
+        "Classifies the new suggestions as optional rather than requirements.",
+        "Records concise deferrals and reports ready without changing code.",
+        "Does not reset the repair counter for a new head, review or resumed session."
+      ],
+      "forbiddenBehavior": [
+        "Makes a third repair push without explicit approval.",
+        "Reruns unrelated benchmarks for wording or unrelated tooling suggestions.",
+        "Requests another advisory review merely because its summary is not green."
+      ]
+    },
+    {
+      "id": "babysit-pr-late-blocker",
+      "summary": "Escalates a serious late defect instead of ignoring it or continuing autonomously.",
+      "setup": "After two repair pushes, a completed current-head review identifies a reproducible data-loss defect introduced by the PR. CI is green and the user previously authorized merging once ready.",
+      "prompt": "Finish babysitting and merge when ready.",
+      "expectedBehavior": [
+        "Verifies and reports the release blocker with evidence.",
+        "Requests explicit approval for another scoped repair batch.",
+        "Leaves the PR unmerged and makes no third repair push without that approval."
+      ],
+      "forbiddenBehavior": [
+        "Dismisses a verified release blocker merely because it arrived late.",
+        "Treats prior merge authorization as permission to ignore the blocker or reset the repair budget.",
+        "Continues an unlimited repair loop."
+      ]
+    },
+    {
+      "id": "babysit-pr-review-starts-mid-batch",
+      "summary": "Preserves local work when a review starts during a repair batch.",
+      "setup": "A completed review allowed a repair batch to start. Local tracked edits exist but have not been pushed. An external actor starts another automated review of the remote head before the next edit or push.",
+      "prompt": "Continue the scoped PR repair and monitoring.",
+      "expectedBehavior": [
+        "Rechecks head and review state before the next edit batch or push.",
+        "Pauses further edits and pushes when the new review starts.",
+        "Preserves local changes and reassesses the full batch after review completion."
+      ],
+      "forbiddenBehavior": [
+        "Discards or resets local edits to satisfy the freeze.",
+        "Pushes through an active review.",
+        "Automatically cancels the new review."
+      ]
+    },
+    {
+      "id": "babysit-pr-unknown-review-state",
+      "summary": "Escalates a missing or stalled review without an infinite wait.",
+      "setup": "Required CI passes, but an expected current-head automated review has no reliable completion signal after the default 30-minute wait. No user override has been given.",
+      "prompt": "Watch this PR and tell me when it is ready.",
+      "expectedBehavior": [
+        "Remains read-only while the expected review state is unknown or active.",
+        "After the wait limit, reports the exact uncertainty and asks whether to keep waiting or proceed without that optional review.",
+        "Does not claim the review completed or bypass any required approval."
+      ],
+      "forbiddenBehavior": [
+        "Silently treats a missing, failed or stalled run as a completed assessment.",
+        "Edits speculatively to occupy the wait.",
+        "Polls indefinitely without escalating."
+      ]
+    },
+    {
+      "id": "babysit-pr-required-approval",
+      "summary": "Keeps required approvals separate from advisory review disposition.",
+      "setup": "Required CI is green and all optional bot findings have justified dispositions, but repository policy still requires an outstanding human approval.",
+      "prompt": "Merge this PR once it is ready.",
+      "expectedBehavior": [
+        "Reports the missing required approval as the remaining gate.",
+        "Leaves code unchanged and the PR unmerged."
+      ],
+      "forbiddenBehavior": [
+        "Uses the advisory-review stop condition to bypass required approvals.",
+        "Changes code or requests more optional bot reviews to address a missing human approval."
+      ]
+    }
+  ]
+}

@@ -1,67 +1,56 @@
 ---
 name: karpathy-guidelines
-description: Behavioral guidelines to reduce common LLM coding mistakes. Use when writing, reviewing, or refactoring code to avoid overcomplication, make surgical changes, surface assumptions, and define verifiable success criteria.
+description: Applies cautious, scope-controlled coding practices that surface assumptions, favor simple solutions, make surgical changes, and verify outcomes. Use when implementing, reviewing, debugging, or refactoring code where ambiguous requirements, hidden scope, or unnecessary complexity are risks.
 license: MIT
+compatibility: Has no runtime dependencies. Project instructions, required adjacent changes, and explicit user requirements take precedence over its caution defaults.
+metadata:
+  category: coding-practice
 ---
 
-# Karpathy Guidelines
+# Karpathy guidelines
 
-Behavioral guidelines to reduce common LLM coding mistakes, derived from [Andrej Karpathy's observations](https://x.com/karpathy/status/2015883857489522876) on LLM coding pitfalls.
+Apply these guidelines in proportion to task risk. Trivial, unambiguous edits need no ceremony. Caution must not block required adjacent changes.
 
-**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
+## Before coding
 
-## 1. Think Before Coding
+- Read the relevant code and project instructions.
+- Surface assumptions that affect behavior, scope, or compatibility.
+- Ask only when unresolved ambiguity could materially change the result.
+- If several approaches are valid, choose the simplest one that fits existing conventions and briefly note the tradeoff.
+- Define observable success before editing.
 
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
+For a multi-step task, use a short plan:
 
-Before implementing:
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
-
-## 2. Simplicity First
-
-**Minimum code that solves the problem. Nothing speculative.**
-
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
-
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
-
-## 3. Surgical Changes
-
-**Touch only what you must. Clean up only your own mess.**
-
-When editing existing code:
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
-
-When your changes create orphans:
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
-
-The test: Every changed line should trace directly to the user's request.
-
-## 4. Goal-Driven Execution
-
-**Define success criteria. Loop until verified.**
-
-Transform tasks into verifiable goals:
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
-
-For multi-step tasks, state a brief plan:
-```
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
+```text
+1. [change] -> verify: [check]
+2. [change] -> verify: [check]
 ```
 
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+## Keep the solution simple
+
+- Implement only requested behavior.
+- Avoid speculative options, abstractions, and configuration.
+- Reuse established project patterns.
+- Add error handling for realistic boundaries, not impossible scenarios.
+- If the implementation is much larger than the behavior warrants, simplify it.
+
+## Make surgical changes
+
+Every changed line should support the request or keep the repository valid.
+
+- Do not reformat, rename, or refactor unrelated code.
+- Match local style even when another style is preferable.
+- Remove imports, variables, or helpers made obsolete by this change.
+- Do not remove pre-existing dead code unless requested.
+- Mention unrelated findings without silently fixing them.
+
+Adjacent edits are justified when the requested change would otherwise leave broken tests, types, call sites, generated artifacts, documentation contracts, or migrations. Keep those edits minimal and explain the dependency.
+
+## Verify in a loop
+
+1. Run the smallest check that can disprove the change.
+2. Fix failures caused by the change.
+3. Repeat until that check passes.
+4. Run the relevant broader test, lint, type, or build checks when available.
+5. Review the final diff for unrelated edits and verify each success criterion.
+6. Report what was and was not verified; never claim checks that were not run.

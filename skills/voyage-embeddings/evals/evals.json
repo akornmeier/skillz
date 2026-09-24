@@ -1,0 +1,26 @@
+{
+  "skill_name": "voyage-embeddings",
+  "evals": [
+    {
+      "id": 0,
+      "name": "embed-and-upsert-code-file",
+      "prompt": "I have a Python file at /tmp/sample_code.py and I want to embed it with Voyage AI and store it in my Pinecone index called code-corpus-voyage under the namespace 'pono'. Walk me through it and write the command I should run.",
+      "expected_output": "Skill should reference scripts/embed_and_upsert.py with --model voyage-code-3 (because it's code), --input-type document (or default), correct --index and --namespace flags, and confirm VOYAGE_API_KEY / PINECONE_API_KEY are set.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "name": "model-selection-for-code",
+      "prompt": "I'm building a code search feature for my Rust monorepo. Which Voyage model should I use, and why? Should I worry about dimensions?",
+      "expected_output": "Should recommend voyage-code-3 with reasoning (trained on code, beats general models on code retrieval). Should mention 1024-dim default is fine for Pinecone, and Matryoshka truncation is available if storage matters. Should NOT recommend voyage-4-large by default for code.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "migrate-integrated-to-voyage",
+      "prompt": "My code-corpus index in Pinecone currently uses llama-text-embed-v2 as an integrated model. I want to migrate it to use voyage-code-3 instead. What's the safest plan? I have ~50k records across 8 repo namespaces.",
+      "expected_output": "Should recommend parallel-run path: create new standard index code-corpus-voyage with dim=1024 metric=cosine, re-ingest with embed_and_upsert.py per namespace, side-by-side compare a few queries before swapping memory-config.json. Should NOT recommend in-place migration. Should mention input_type=document for re-ingest.",
+      "files": []
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "skill": "svg-generate",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "svg-generate-architecture",
+      "summary": "Creates and validates an accessible architecture diagram.",
+      "setup": "Provide a small architecture description, target output path, project color tokens, and explicit trust boundaries.",
+      "prompt": "Create an editable SVG architecture diagram showing services, direction, protocols, and trust boundaries.",
+      "expectedBehavior": [
+        "Discovers svg-generate rather than D3 or infographic-builder.",
+        "Uses project tokens, semantic groups, unique IDs, title, description, and labeled connections.",
+        "Runs validate_svg.py successfully and inspects the rendered output when supported."
+      ],
+      "forbiddenBehavior": [
+        "Adds a rendering library.",
+        "Uses an undefined deliberation directory.",
+        "Omits accessible text or trust labels."
+      ]
+    },
+    {
+      "id": "svg-generate-dense-label-repair",
+      "summary": "Repairs a dense SVG with overlapping labels.",
+      "setup": "Provide an editable SVG fixture with valid XML but visibly overlapping node and edge labels at delivery dimensions.",
+      "prompt": "Make this diagram readable at its intended size without dropping required labels.",
+      "expectedBehavior": [
+        "Inspects the visual artifact, not XML alone.",
+        "Adjusts layout, wrapping, grouping, or dimensions while preserving meaning.",
+        "Reruns structural validation and verifies clipping and overlap visually."
+      ],
+      "forbiddenBehavior": [
+        "Deletes required content to make space without approval.",
+        "Claims the parser proves visual legibility.",
+        "Converts text to inaccessible paths."
+      ]
+    },
+    {
+      "id": "svg-generate-accessibility-repair",
+      "summary": "Finds and fixes structural accessibility failures.",
+      "setup": "Provide an SVG missing title and description, using duplicate IDs, a broken marker reference, and color-only risk categories.",
+      "prompt": "Audit and repair this SVG's structure and accessibility, then validate it.",
+      "expectedBehavior": [
+        "Adds meaningful root title and description.",
+        "Repairs duplicate IDs and broken references.",
+        "Adds redundant category labels or shapes and passes validate_svg.py."
+      ],
+      "forbiddenBehavior": [
+        "Changes only colors.",
+        "Leaves broken references.",
+        "Claims assistive-technology testing that was not run."
+      ]
+    }
+  ]
+}

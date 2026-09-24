@@ -4,16 +4,22 @@ This repository stores user-global skills discovered by Pi from `~/.agents/skill
 
 ## Layout
 
-Normal skills are self-contained:
+Skills and their evaluation contracts are self-contained; shared evaluation infrastructure stays at repository root:
 
 ```text
 skills/<skill-name>/
 ├── SKILL.md
 ├── references/   # optional, one-level task knowledge
 ├── workflows/    # optional, one-level task procedures
-├── evals/        # optional, provider-neutral cases
+├── evals/        # provider-neutral cases owned by this skill
 ├── scripts/      # optional deterministic checks
 └── assets/       # optional
+
+evals/
+├── README.md
+├── profiles.example.json
+├── run-record.schema.json
+└── scripts/      # repository-wide definition validation
 ```
 
 `emil-design-eng` is the sole skill and command for the consolidated motion and interaction family. The temporary compatibility aliases have been removed.
@@ -29,10 +35,16 @@ skills/<skill-name>/
 
 ## Validation
 
-Validate the consolidated motion family without running models:
+Validate every skill's evaluation definitions and local Markdown links without running models:
+
+```bash
+node evals/scripts/validate-cases.mjs
+```
+
+Validate the consolidated motion family package:
 
 ```bash
 python3 skills/emil-design-eng/scripts/validate.py
 ```
 
-The command checks the umbrella, retired-name absence, direct links and anchors, package inventory, long-reference contents sections, installer lock state, active command references, and provider-neutral evaluation definitions.
+See [evals/README.md](evals/README.md) for capability profiles, isolation requirements, run records, and evaluation provenance.
