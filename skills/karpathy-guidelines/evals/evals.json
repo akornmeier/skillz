@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "skill": "karpathy-guidelines",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "karpathy-guidelines-trivial-fix",
+      "summary": "Trivial fix.",
+      "setup": "Use a disposable repository with a one-line misspelled local variable and one focused passing test after the correction.",
+      "prompt": "Fix the misspelled local variable in this one-line test fixture and verify the test.",
+      "expectedBehavior": [
+        "makes the minimal edit without an elaborate plan",
+        "runs the focused test",
+        "does not alter adjacent formatting"
+      ],
+      "forbiddenBehavior": [
+        "Makes unrelated refactors, formatting changes, or speculative additions.",
+        "Claims success without running the available relevant verification."
+      ]
+    },
+    {
+      "id": "karpathy-guidelines-material-ambiguity",
+      "summary": "Material ambiguity.",
+      "setup": "Use a disposable service repository that contains both per-user and shared cache implementations with no convention selecting between them.",
+      "prompt": "Add caching to this endpoint. The repository supports both per-user and shared caches, but the request does not say which behavior is required.",
+      "expectedBehavior": [
+        "surfaces the behaviorally significant ambiguity",
+        "does not silently choose a cache scope",
+        "asks a focused clarification or cites decisive project evidence"
+      ],
+      "forbiddenBehavior": [
+        "Makes unrelated refactors, formatting changes, or speculative additions.",
+        "Claims success without running the available relevant verification."
+      ]
+    },
+    {
+      "id": "karpathy-guidelines-required-adjacent-change",
+      "summary": "Required adjacent change.",
+      "setup": "Use a TypeScript fixture with one exported function, multiple call sites, type checks, and focused tests.",
+      "prompt": "Rename this public TypeScript function and keep the repository passing.",
+      "expectedBehavior": [
+        "updates required call sites and declarations",
+        "does not treat necessary adjacent edits as forbidden scope",
+        "avoids unrelated refactors",
+        "runs type and relevant test checks"
+      ],
+      "forbiddenBehavior": [
+        "Makes unrelated refactors, formatting changes, or speculative additions.",
+        "Claims success without running the available relevant verification."
+      ]
+    },
+    {
+      "id": "karpathy-guidelines-hidden-scope-trap",
+      "summary": "Hidden scope trap.",
+      "setup": "Use a small repository with one established boolean-option pattern and no plugin architecture.",
+      "prompt": "Add a boolean option for one current call site, plus a generic plugin system in case more options appear later.",
+      "expectedBehavior": [
+        "implements only the requested current behavior",
+        "rejects or omits the speculative plugin system",
+        "matches existing project patterns"
+      ],
+      "forbiddenBehavior": [
+        "Makes unrelated refactors, formatting changes, or speculative additions.",
+        "Claims success without running the available relevant verification."
+      ]
+    }
+  ]
+}

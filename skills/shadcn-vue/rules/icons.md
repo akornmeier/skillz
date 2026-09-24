@@ -1,5 +1,12 @@
 # Icons
 
+## Contents
+
+- Configured icon library
+- Icons in buttons
+- Icon sizing inside components
+- Passing icons as component objects
+
 **Always use the project's configured `iconLibrary` for imports.** Check the `iconLibrary` field from project context: `lucide` → `@lucide/vue`, `tabler` → `@tabler/icons-vue`, etc. Never assume `@lucide/vue`.
 
 ---

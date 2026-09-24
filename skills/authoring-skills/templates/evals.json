@@ -1,0 +1,39 @@
+{
+  "scenarios": [
+    {
+      "id": "A-<route or gap>",
+      "skills": ["<skill-name>"],
+      "query": "<what a user types, with no slash command>",
+      "files": [],
+      "expected_behavior": [
+        "Fires from the description alone",
+        "<an observable action: reads X, runs Y, writes Z>",
+        "<an observable property of the output>"
+      ]
+    },
+    {
+      "id": "B-<route or gap>",
+      "skills": ["<skill-name>"],
+      "query": "<a second phrasing or a second route>",
+      "files": ["<fixture path, if the scenario needs input>"],
+      "expected_behavior": [
+        "<observable action>",
+        "<observable property>"
+      ]
+    },
+    {
+      "id": "C-<route or gap>",
+      "skills": ["<skill-name>"],
+      "query": "<a narrow or adversarial ask the skill should still handle>",
+      "files": [],
+      "expected_behavior": [
+        "<observable action>",
+        "<what it must not do, e.g. opens no file in references/>"
+      ]
+    }
+  ],
+  "baseline": {
+    "source": "<how the model performed on these queries without the skill>",
+    "note": "<the number each scenario has to beat>"
+  }
+}

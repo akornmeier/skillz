@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pi skill evaluation run record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "skill",
+    "skillRevision",
+    "caseId",
+    "profile",
+    "provider",
+    "model",
+    "thinking",
+    "piVersion",
+    "fixtureRevision",
+    "outcome",
+    "assertions",
+    "evidence"
+  ],
+  "properties": {
+    "schema": { "const": 1 },
+    "skill": { "type": "string", "minLength": 1 },
+    "skillRevision": { "type": "string", "minLength": 1 },
+    "caseId": { "type": "string", "minLength": 1 },
+    "profile": {
+      "enum": ["fast/economical", "balanced/default", "highest-reasoning"]
+    },
+    "provider": { "type": "string", "minLength": 1 },
+    "model": { "type": "string", "minLength": 1 },
+    "thinking": { "type": "string", "minLength": 1 },
+    "piVersion": { "type": "string", "minLength": 1 },
+    "fixtureRevision": { "type": "string", "minLength": 1 },
+    "toolConfiguration": { "type": "object" },
+    "loadedFiles": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "toolCalls": { "type": "integer", "minimum": 0 },
+    "inputTokens": { "type": "integer", "minimum": 0 },
+    "outputTokens": { "type": "integer", "minimum": 0 },
+    "routingOutcome": { "type": "string" },
+    "unauthorizedMutations": { "type": "integer", "minimum": 0 },
+    "visualChecksRun": { "type": "boolean" },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "finishedAt": { "type": "string", "format": "date-time" },
+    "outcome": { "enum": ["pass", "fail", "blocked"] },
+    "assessor": { "type": "string" },
+    "assertions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "text", "outcome", "evidence"],
+        "properties": {
+          "kind": { "enum": ["expected", "forbidden"] },
+          "text": { "type": "string", "minLength": 1 },
+          "outcome": { "enum": ["pass", "fail", "blocked"] },
+          "evidence": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "notes": { "type": "string" }
+  }
+}

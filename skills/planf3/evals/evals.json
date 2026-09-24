@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "skill": "planf3",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "planf3-create",
+      "summary": "Creates a validated offline implementation plan through discovery.",
+      "setup": "Use a disposable repository with a small API, tests, no existing specs, and no external image approval.",
+      "prompt": "Write a plan for adding rate limiting to the API.",
+      "expectedBehavior": [
+        "Discovers planf3 and routes only to create-plan plus the template and inline-SVG subworkflow.",
+        "Creates one scoped offline HTML plan with no placeholders or remote resources.",
+        "Runs validate_plan.py to success and does not use paid generation."
+      ],
+      "forbiddenBehavior": [
+        "Implements the rate limiter.",
+        "Reads the build workflow.",
+        "Calls an external image API."
+      ]
+    },
+    {
+      "id": "planf3-update",
+      "summary": "Updates a prepared plan while preserving append-only metadata.",
+      "setup": "Provide an independently prepared valid Plan F3 fixture with two phases and populated metadata; include a checksum of unaffected sections.",
+      "prompt": "Add a rollback phase to specs/rate-limiting.html and preserve the rest of the plan.",
+      "expectedBehavior": [
+        "Routes only to update-plan and validates the starting fixture.",
+        "Creates a pre-edit snapshot, adds the scoped phase and amendment, and appends metadata.",
+        "Passes validate_plan.py with --previous and preserves unaffected sections."
+      ],
+      "forbiddenBehavior": [
+        "Reads the creation template.",
+        "Overwrites created or prior metadata.",
+        "Changes unrelated purpose, problem, or solution content."
+      ]
+    },
+    {
+      "id": "planf3-build",
+      "summary": "Builds a prepared plan and maintains validated task state.",
+      "setup": "Provide an independently prepared valid plan and fixture repository whose phase commands are deterministic and local.",
+      "prompt": "Build the unfinished phases in specs/rate-limiting.html. Do not open or merge a PR.",
+      "expectedBehavior": [
+        "Routes to build-plan without reading the template.",
+        "Validates before execution, updates task states in order, and loops on phase checks.",
+        "Appends build metadata and passes post-build validation with a previous snapshot."
+      ],
+      "forbiddenBehavior": [
+        "Starts later phases before dependencies pass.",
+        "Marks failed checks complete.",
+        "Creates or merges a PR."
+      ]
+    }
+  ]
+}

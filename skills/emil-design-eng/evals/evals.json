@@ -1,216 +1,324 @@
 {
+  "schema": 1,
   "skill": "emil-design-eng",
-  "schema_version": 1,
-  "profiles": [
+  "requiredProfiles": [
     "fast/economical",
     "balanced/default",
     "highest-reasoning"
   ],
-  "record": [
-    "provider",
-    "model_id",
-    "thinking_level",
-    "pi_version",
-    "loaded_files",
-    "input_tokens",
-    "output_tokens",
-    "tool_calls",
-    "routing_outcome",
-    "assertion_results",
-    "unauthorized_mutations",
-    "visual_checks_run"
-  ],
   "cases": [
     {
-      "id": "name-rubber-band",
-      "mode": "name",
+      "id": "emil-design-eng-apply-motion",
+      "summary": "Repairs a poor popover transition with bounded motion guidance.",
+      "setup": "Use a fixture web application with an existing popover primitive, motion tokens, reduced-motion convention, and local browser tooling.",
+      "prompt": "This popover grows from the center with transition: all 400ms ease-in and scale(0). Make the interaction feel responsive and verify it.",
+      "expectedBehavior": [
+        "Discovers emil-design-eng and routes to apply mode without loading unrelated vocabulary, Apple, or prototype material.",
+        "Uses existing project conventions, a trigger-derived origin, named properties, a near-final starting scale, and reduced-motion behavior.",
+        "Runs mechanical checks and reports browser or visual checks only when actually performed."
+      ],
+      "forbiddenBehavior": [
+        "Applies every house value as a universal law.",
+        "Claims compositor, frame-rate, accessibility, or visual success without evidence.",
+        "Rebuilds unrelated static styling or UX flow."
+      ],
+      "mode": "apply"
+    },
+    {
+      "id": "emil-design-eng-opportunities",
+      "summary": "Finds restrained motion opportunities and rejects unnecessary animation.",
+      "setup": "Use a keyboard-heavy settings fixture with one occasional drawer that teleports, several already-clear state changes, and no need for source edits.",
+      "prompt": "What should animate here to make this feel better without slowing down frequent work?",
+      "expectedBehavior": [
+        "Routes to opportunities mode and remains read-only.",
+        "Applies frequency, purpose, budget, function, and evidence gates with file-line citations.",
+        "Produces a capped list, representative rejected candidates, and allows most candidates to fail."
+      ],
+      "forbiddenBehavior": [
+        "Suggests animation on every inspected control.",
+        "Edits source or writes implementation plans.",
+        "Treats keyboard-triggered motion or transform-only animation as context-free rules."
+      ],
+      "mode": "opportunities"
+    },
+    {
+      "id": "emil-design-eng-prototype-ui",
+      "summary": "Builds distinct interaction-aware UI variants safely on an existing route.",
+      "setup": "Use a fixture web application with an existing settings route, data loader, design system, and production build check.",
+      "prompt": "Prototype three structurally different settings layouts on the existing page so I can switch between them.",
+      "expectedBehavior": [
+        "Discovers emil-design-eng, routes to prototype UI mode, and does not load logic-prototype instructions.",
+        "Creates three structurally different URL-stable variants with keyboard-safe switching and existing project conventions.",
+        "Keeps prototype behavior out of production and verifies run, switching, and cleanup paths."
+      ],
+      "forbiddenBehavior": [
+        "Creates an unnecessary isolated route.",
+        "Varies only color or copy.",
+        "Leaves the switcher in a production build or promotes prototype code unchanged."
+      ],
+      "mode": "prototype ui"
+    },
+    {
+      "id": "emil-design-eng-name-rubber-band",
+      "summary": "Name rubber band.",
+      "setup": "Start a fresh session without project files; evaluate automatic routing and terminology lookup only.",
       "prompt": "What is the iOS effect called when scrolling resists past the edge and snaps back?",
-      "assertions": [
+      "expectedBehavior": [
         "routes to name only",
         "answers Rubber-banding",
         "does not load implementation workflows"
-      ]
+      ],
+      "forbiddenBehavior": [
+        "Loads unrelated guidance or expands the task beyond the selected mode.",
+        "Claims visual, accessibility, or performance verification without evidence."
+      ],
+      "mode": "name"
     },
     {
-      "id": "name-ambiguous",
-      "mode": "name",
+      "id": "emil-design-eng-name-ambiguous",
+      "summary": "Name ambiguous.",
+      "setup": "Start a fresh session without project files; evaluate ambiguous terminology lookup and answer brevity.",
       "prompt": "What is it called when one card seems to become a larger detail view?",
-      "assertions": [
+      "expectedBehavior": [
         "names Shared element transition first or explains why Morph differs",
         "stays concise"
-      ]
+      ],
+      "forbiddenBehavior": [
+        "Loads unrelated guidance or expands the task beyond the selected mode.",
+        "Claims visual, accessibility, or performance verification without evidence."
+      ],
+      "mode": "name"
     },
     {
-      "id": "apply-popover",
-      "mode": "apply",
-      "prompt": "Fix this popover entrance: transition all 400ms ease-in; transform scale(0).",
-      "assertions": [
-        "loads principles, standards, and apply workflow",
-        "uses exact properties and a near-final starting scale",
-        "includes reduced-motion handling"
-      ]
-    },
-    {
-      "id": "apply-keyboard-negative",
-      "mode": "apply",
+      "id": "emil-design-eng-apply-keyboard-negative",
+      "summary": "Apply keyboard negative.",
+      "setup": "Use a local UI fixture whose Cmd+K command palette currently appears immediately and has no entrance animation.",
       "prompt": "Add a lush 500ms entrance every time Cmd+K opens.",
-      "assertions": [
+      "expectedBehavior": [
         "challenges or removes high-frequency motion",
         "preserves immediate feedback"
-      ]
+      ],
+      "forbiddenBehavior": [
+        "Loads unrelated guidance or expands the task beyond the selected mode.",
+        "Claims visual, accessibility, or performance verification without evidence."
+      ],
+      "mode": "apply"
     },
     {
-      "id": "review-defective",
-      "mode": "review",
+      "id": "emil-design-eng-review-defective",
+      "summary": "Review defective.",
+      "setup": "Use a read-only diff fixture at src/CommandPalette.tsx:42 that adds `transition: all 450ms ease-in` to a keyboard-triggered palette.",
       "prompt": "Review a diff that adds transition: all 450ms ease-in to a keyboard command palette.",
-      "assertions": [
+      "expectedBehavior": [
         "remains read-only",
         "uses required findings table",
         "returns Block with file:line evidence"
-      ]
+      ],
+      "forbiddenBehavior": [
+        "Loads unrelated guidance or expands the task beyond the selected mode.",
+        "Claims visual, accessibility, or performance verification without evidence."
+      ],
+      "mode": "review"
     },
     {
-      "id": "review-clean",
-      "mode": "review",
+      "id": "emil-design-eng-review-clean",
+      "summary": "Review clean.",
+      "setup": "Use a read-only motion diff fixture with trigger-derived origin, named 180ms properties, interruption handling, and reduced-motion behavior, plus passing checks.",
       "prompt": "Review a motion diff whose trigger origin, 180ms easing, interruption, and reduced motion are all correct.",
-      "assertions": [
+      "expectedBehavior": [
         "does not invent findings",
         "returns Approve when evidence supports it"
-      ]
+      ],
+      "forbiddenBehavior": [
+        "Loads unrelated guidance or expands the task beyond the selected mode.",
+        "Claims visual, accessibility, or performance verification without evidence."
+      ],
+      "mode": "review"
     },
     {
-      "id": "opportunities-positive",
-      "mode": "opportunities",
-      "prompt": "Find animation opportunities in a settings view where an occasional drawer teleports in and buttons lack press feedback.",
-      "assertions": [
-        "remains read-only",
-        "gates each candidate",
-        "includes rejected candidates",
-        "caps suggestions"
-      ]
-    },
-    {
-      "id": "opportunities-zero",
-      "mode": "opportunities",
+      "id": "emil-design-eng-opportunities-zero",
+      "summary": "Opportunities zero.",
+      "setup": "Use a keyboard-heavy editor fixture whose frequent state changes are already clear and responsive. Require a read-only audit.",
       "prompt": "Find animation opportunities in a keyboard-heavy dense editor whose state changes are already clear.",
-      "assertions": [
+      "expectedBehavior": [
         "allows zero surviving suggestions",
         "explains frequency and function rejections"
-      ]
+      ],
+      "forbiddenBehavior": [
+        "Loads unrelated guidance or expands the task beyond the selected mode.",
+        "Claims visual, accessibility, or performance verification without evidence."
+      ],
+      "mode": "opportunities"
     },
     {
-      "id": "improve-audit",
-      "mode": "improve",
+      "id": "emil-design-eng-improve-audit",
+      "summary": "Improve audit.",
+      "setup": "Use a disposable app with representative motion patterns and no existing plan artifacts. Do not pre-authorize source or plan writes.",
       "prompt": "Audit motion across this app and write no plans until I select findings.",
-      "assertions": [
+      "expectedBehavior": [
         "recon comes first",
         "remains read-only on source",
         "stops after vetted findings"
-      ]
+      ],
+      "forbiddenBehavior": [
+        "Loads unrelated guidance or expands the task beyond the selected mode.",
+        "Claims visual, accessibility, or performance verification without evidence."
+      ],
+      "mode": "improve"
     },
     {
-      "id": "improve-plan",
-      "mode": "improve",
+      "id": "emil-design-eng-improve-plan",
+      "summary": "Improve plan.",
+      "setup": "Use a disposable app with a non-interruptible toast keyframe, an approved finding, and an empty project-local plan directory. Authorize plan artifacts but not source edits.",
       "prompt": "Plan replacing a non-interruptible toast keyframe.",
-      "assertions": [
+      "expectedBehavior": [
         "writes only plan artifacts",
         "includes exact current and target code, boundaries, checks, and commit",
         "updates plan index"
-      ]
+      ],
+      "forbiddenBehavior": [
+        "Loads unrelated guidance or expands the task beyond the selected mode.",
+        "Claims visual, accessibility, or performance verification without evidence."
+      ],
+      "mode": "improve"
     },
     {
-      "id": "improve-no-subagents",
-      "mode": "improve",
+      "id": "emil-design-eng-improve-no-subagents",
+      "summary": "Improve no subagents.",
+      "setup": "Use a small disposable UI repository with several motion patterns and no delegation or isolated-agent capability.",
       "prompt": "Deep-audit this small project, but subagents are unavailable.",
-      "assertions": [
+      "expectedBehavior": [
         "uses sequential fallback",
         "keeps evidence contract"
-      ]
+      ],
+      "forbiddenBehavior": [
+        "Loads unrelated guidance or expands the task beyond the selected mode.",
+        "Claims visual, accessibility, or performance verification without evidence."
+      ],
+      "mode": "improve"
     },
     {
-      "id": "apple-gesture",
-      "mode": "apple",
+      "id": "emil-design-eng-apple-gesture",
+      "summary": "Apple gesture.",
+      "setup": "Use a local bottom-sheet prototype with pointer input, an interruptible animation API, and deterministic gesture tests.",
       "prompt": "Design an interruptible bottom sheet with velocity handoff and rubber-banding.",
-      "assertions": [
+      "expectedBehavior": [
         "uses live presentation value",
         "preserves grab offset and pointer capture",
         "projects momentum and verifies library behavior"
-      ]
+      ],
+      "forbiddenBehavior": [
+        "Loads unrelated guidance or expands the task beyond the selected mode.",
+        "Claims visual, accessibility, or performance verification without evidence."
+      ],
+      "mode": "apple"
     },
     {
-      "id": "apple-typography",
-      "mode": "apple",
+      "id": "emil-design-eng-apple-typography",
+      "summary": "Apple typography.",
+      "setup": "Use a responsive UI fixture with existing display and body type tokens at small and large breakpoints.",
       "prompt": "Tune tracking and leading for responsive display and body text.",
-      "assertions": [
+      "expectedBehavior": [
         "routes to apple without unrelated motion workflow",
         "uses size-specific tracking and leading"
-      ]
+      ],
+      "forbiddenBehavior": [
+        "Loads unrelated guidance or expands the task beyond the selected mode.",
+        "Claims visual, accessibility, or performance verification without evidence."
+      ],
+      "mode": "apple"
     },
     {
-      "id": "prototype-ui",
-      "mode": "prototype ui",
-      "prompt": "Create three structurally different settings-page variants.",
-      "assertions": [
-        "uses one URL-stable route and switcher",
-        "keeps production isolation",
-        "defines cleanup"
-      ]
-    },
-    {
-      "id": "prototype-logic-explicit",
-      "mode": "prototype logic",
+      "id": "emil-design-eng-prototype-logic-explicit",
+      "summary": "Prototype logic explicit.",
+      "setup": "Use a disposable TypeScript repository with a terminal test harness and no UI framework. Invoke the logic-prototype mode explicitly.",
       "prompt": "Prototype undo and redo as a terminal-driven state machine.",
-      "assertions": [
+      "expectedBehavior": [
         "accepts because logic mode is explicit",
         "keeps core logic pure",
         "provides one run command and cleanup"
-      ]
+      ],
+      "forbiddenBehavior": [
+        "Loads unrelated guidance or expands the task beyond the selected mode.",
+        "Claims visual, accessibility, or performance verification without evidence."
+      ],
+      "mode": "prototype logic"
     },
     {
-      "id": "boundary-static",
-      "mode": "none",
+      "id": "emil-design-eng-boundary-static",
+      "summary": "Boundary static.",
+      "setup": "Start a fresh session with a static poster brief containing only palette and illustration-style requirements.",
       "prompt": "Pick a static color palette and illustration style for a poster.",
-      "assertions": [
+      "expectedBehavior": [
         "does not auto-route to emil-design-eng",
         "routes to a static visual-design capability when available"
-      ]
+      ],
+      "forbiddenBehavior": [
+        "Loads unrelated guidance or expands the task beyond the selected mode.",
+        "Claims visual, accessibility, or performance verification without evidence."
+      ],
+      "mode": "none"
     },
     {
-      "id": "boundary-ux",
-      "mode": "none",
+      "id": "emil-design-eng-boundary-ux",
+      "summary": "Boundary ux.",
+      "setup": "Use a checkout-flow fixture with information-architecture and decision-load problems but no motion request.",
       "prompt": "Review the information architecture and decision load in checkout.",
-      "assertions": [
+      "expectedBehavior": [
         "routes to UX guidance, not emil-design-eng unless motion is material",
         "does not load motion references for a flow-only review"
-      ]
+      ],
+      "forbiddenBehavior": [
+        "Loads unrelated guidance or expands the task beyond the selected mode.",
+        "Claims visual, accessibility, or performance verification without evidence."
+      ],
+      "mode": "none"
     },
     {
-      "id": "boundary-backend",
-      "mode": "none",
+      "id": "emil-design-eng-boundary-backend",
+      "summary": "Boundary backend.",
+      "setup": "Use a backend-only repository with a database migration and retry algorithm; do not explicitly invoke the Emil skill.",
       "prompt": "Prototype a database migration and retry algorithm.",
-      "assertions": [
+      "expectedBehavior": [
         "does not auto-route to emil-design-eng",
         "does not treat explicit-only logic prototype mode as an automatic trigger"
-      ]
+      ],
+      "forbiddenBehavior": [
+        "Loads unrelated guidance or expands the task beyond the selected mode.",
+        "Claims visual, accessibility, or performance verification without evidence."
+      ],
+      "mode": "none"
     },
     {
-      "id": "boundary-d3",
-      "mode": "none",
+      "id": "emil-design-eng-boundary-d3",
+      "summary": "Boundary d3.",
+      "setup": "Use a D3 project requiring an interactive force-directed network but no separate motion-design request.",
       "prompt": "Build an interactive D3 force-directed network.",
-      "assertions": [
+      "expectedBehavior": [
         "routes to d3-viz",
         "uses emil-design-eng only if motion criteria are separately requested"
-      ]
+      ],
+      "forbiddenBehavior": [
+        "Loads unrelated guidance or expands the task beyond the selected mode.",
+        "Claims visual, accessibility, or performance verification without evidence."
+      ],
+      "mode": "none"
     },
     {
-      "id": "explicit-review-arguments",
-      "mode": "review",
+      "id": "emil-design-eng-explicit-review-arguments",
+      "summary": "Explicit review arguments.",
+      "setup": "Use a read-only src/components/Toast.tsx motion diff and invoke `/skill:emil-design-eng review src/components/Toast.tsx --strict` exactly.",
       "prompt": "/skill:emil-design-eng review src/components/Toast.tsx --strict",
-      "assertions": [
+      "expectedBehavior": [
         "explicit umbrella command selects review mode",
         "path and strictness arguments are preserved as request scope",
         "loads review files without unrelated Apple or prototype material"
-      ]
+      ],
+      "forbiddenBehavior": [
+        "Loads unrelated guidance or expands the task beyond the selected mode.",
+        "Claims visual, accessibility, or performance verification without evidence."
+      ],
+      "mode": "review"
     }
   ]
 }

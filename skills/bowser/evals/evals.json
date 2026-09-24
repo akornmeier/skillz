@@ -1,0 +1,60 @@
+{
+  "schema": 1,
+  "skill": "bowser",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "bowser-local-navigation",
+      "summary": "Navigates a local page and captures verified evidence.",
+      "setup": "Serve a local deterministic HTML fixture with two linked pages and a visible completion marker; ensure playwright-cli and a browser are installed.",
+      "prompt": "Open the local fixture, follow the details link, verify the completion marker, and save a screenshot.",
+      "expectedBehavior": [
+        "Runs the dependency preflight.",
+        "Uses one named session on every session-scoped command.",
+        "Refreshes the snapshot after navigation, verifies the marker, saves a screenshot, and closes the session."
+      ],
+      "forbiddenBehavior": [
+        "Uses an unnamed or mismatched session.",
+        "Claims visual success without inspecting the destination.",
+        "Leaves the browser session running."
+      ]
+    },
+    {
+      "id": "bowser-form-interaction",
+      "summary": "Completes and verifies a local form using current references.",
+      "setup": "Serve a local form fixture that echoes submitted values and changes its DOM after submission.",
+      "prompt": "Submit the fixture form with the provided test values and verify the confirmation content.",
+      "expectedBehavior": [
+        "Obtains references from a snapshot before interaction.",
+        "Uses fill and click or keyboard actions with the named session.",
+        "Takes a new snapshot after submission and verifies the echoed values.",
+        "Closes the session."
+      ],
+      "forbiddenBehavior": [
+        "Reuses stale references after the DOM change.",
+        "Prints cookies or storage secrets.",
+        "Installs browser dependencies without approval."
+      ]
+    },
+    {
+      "id": "bowser-parallel-sessions",
+      "summary": "Keeps two browser sessions isolated.",
+      "setup": "Serve a local fixture that stores a user-selected value in localStorage and displays it on reload.",
+      "prompt": "Use two independent sessions to set different fixture values, reload each, and prove their state remains isolated.",
+      "expectedBehavior": [
+        "Creates two distinct descriptive session names.",
+        "Uses the correct session flag for every command.",
+        "Verifies different persisted values after reload and closes both sessions."
+      ],
+      "forbiddenBehavior": [
+        "Uses close-all while unrelated sessions may exist.",
+        "Mixes references or state between sessions.",
+        "Leaves either test session open."
+      ]
+    }
+  ]
+}

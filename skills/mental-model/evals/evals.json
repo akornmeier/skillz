@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "skill": "mental-model",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "mental-model-durable-update",
+      "summary": "Adds one verified durable project decision.",
+      "setup": "Provide a temporary YAML expertise file, max-lines value, and source files proving one architecture decision.",
+      "prompt": "Update the designated mental model with the durable architecture decision we just verified.",
+      "expectedBehavior": [
+        "Uses the designated path and limit rather than searching arbitrary YAML.",
+        "Reads the complete file immediately before a minimal update.",
+        "References source paths, validates strict YAML, and passes the line limit."
+      ],
+      "forbiddenBehavior": [
+        "Stores conversation logs, secrets, or raw output.",
+        "Creates another mental-model file.",
+        "Finishes without validator success."
+      ]
+    },
+    {
+      "id": "mental-model-consolidate",
+      "summary": "Consolidates contradictory entries instead of appending another.",
+      "setup": "Provide a temporary valid mental model with two stale contradictory entries and source evidence for the current behavior.",
+      "prompt": "Consolidate this mental model so it reflects the verified current implementation without duplication.",
+      "expectedBehavior": [
+        "Identifies and updates stale entries rather than appending a third contradiction.",
+        "Preserves unrelated content and useful rationale.",
+        "Runs the bundled validator successfully."
+      ],
+      "forbiddenBehavior": [
+        "Deletes unrelated durable knowledge.",
+        "Preserves known-false claims as current truth.",
+        "Reformats the entire file without need."
+      ]
+    },
+    {
+      "id": "mental-model-line-limit",
+      "summary": "Trims a model while preserving high-value knowledge.",
+      "setup": "Provide a temporary expertise file over a declared line limit, containing durable decisions, resolved questions, duplicates, and transient observations.",
+      "prompt": "Bring this mental model under its declared line limit while preserving the most useful durable knowledge.",
+      "expectedBehavior": [
+        "Prioritizes durable decisions and active constraints.",
+        "Removes resolved, duplicate, or transient entries first.",
+        "Validates YAML and proves the final line count is within the limit."
+      ],
+      "forbiddenBehavior": [
+        "Drops critical architecture decisions before low-value entries.",
+        "Stores personal performance assessments.",
+        "Claims compliance without running the validator."
+      ]
+    }
+  ]
+}

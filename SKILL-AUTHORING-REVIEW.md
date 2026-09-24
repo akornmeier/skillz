@@ -1,6 +1,6 @@
 # Skill authoring review
 
-This review covers all 23 skills installed under `~/.agents/skills/`: 13 locally maintained skills and 10 additional global skills. It compares them with Anthropic's [Skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices), with emphasis on discoverability, context efficiency, progressive disclosure, portability, safety, deterministic workflows, and evaluation coverage.
+This review began with 23 skills installed under `~/.agents/skills/`: 13 locally maintained skills and 10 additional global skills. After consolidating the overlapping motion family and adding three more packages, the current repository contains 20 discoverable skills. It compares them with Anthropic's [Skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices), with emphasis on discoverability, context efficiency, progressive disclosure, portability, safety, deterministic workflows, and evaluation coverage.
 
 ## Implementation progress
 
@@ -15,24 +15,31 @@ This review covers all 23 skills installed under `~/.agents/skills/`: 13 locally
 - [x] Flattened UX and Prototype reference routing, added all identified reference tables of contents, and removed duplicated D3 routing.
 - [x] Reduced `infographic-builder/SKILL.md` from 248 to about 100 lines and added strict quality-gate validation.
 - [x] Hardened Prototype safety and added a zero-dependency structural SVG validator.
-- [x] Added a provider-neutral evaluation suite for all 13 audited skills with 39 self-contained cases, three capability profiles, reproducibility records, and definition validation (117 minimum fresh runs).
+- [x] Migrated the original 39-case suite from `pi-harness`, merged it with later per-skill coverage, and colocated 74 cases across the 17 packages present at migration time. Shared profiles, run records, and dynamic definition validation now live under `evals/` (222 minimum fresh runs).
 - [x] Reworked `diagram-design` for concise discovery, immutable project-local styling, offline assets, accessible SVG, deterministic validation, and provider-neutral evaluation coverage.
+- [x] Updated the four remaining packages identified by the follow-up audit: `find-skills`, `karpathy-guidelines`, `shadcn-vue`, and `unslop`.
+- [x] Added third-person routing metadata, compatibility boundaries, scoped workflows, and 18 provider-neutral evaluation cases across those four packages.
+- [x] Removed inert or harness-specific shadcn-vue frontmatter, replaced assumed command interpolation with explicit context discovery, pinned-version guidance, mutation approval, and verification loops, and linked every long reference directly.
+- [x] Completed a read-only audit of the newly added `meta-skill`, `thermo-nuclear-code-quality-review`, and `voyage-embeddings` packages; implementation and repository-schema evaluation migration remain pending.
 
 ## Repository-wide findings
 
 ### Already working well
 
-- Pi loads all 13 skills with zero diagnostics.
+- Pi 0.84.3 loads all 20 current skills with zero diagnostics.
 - Every skill name satisfies the 64-character lowercase-letter, number, and hyphen rules.
 - Every description is below the 1,024-character limit.
 - Every `SKILL.md` body is below the recommended 500-line limit.
 - No Windows-style paths were found.
-- All 13 skills use standard `<name>/SKILL.md` packaging.
-- `bowser`, `d3-viz`, `gauntlet-loop`, `infographic-builder`, `planf3`, `prototype`, and `ux-design` use progressive disclosure.
+- All 20 current skills use standard `<name>/SKILL.md` packaging.
+- `bowser`, `d3-viz`, `diagram-design`, `emil-design-eng`, `gauntlet-loop`, `infographic-builder`, `meta-skill`, `planf3`, `shadcn-vue`, `ux-design`, and `voyage-embeddings` use progressive disclosure.
 
 ### Highest-priority improvements
 
-1. **Execute the evaluation matrix.** Definitions cover all 13 audited skills with three self-contained cases each. Run all 39 cases across Pi's fast/economical, balanced/default, and highest-reasoning profiles with fresh sessions, equivalent tools, and complete reproducibility records.
+1. **Harden `voyage-embeddings` before use.** Its ingest path can disclose full local source and paths, incur paid API and Pinecone writes, and retry permanent failures without a dry run, cost estimate, data-classification gate, or immediate approval.
+2. **Resolve the thermo-nuclear review contract.** Define read-only review versus approval-gated repair and document the Pi-specific explicit-only routing fallback before use in other harnesses.
+3. **Repair `meta-skill` portability.** Its scanner misses this repository by default and its vendored root-relative web links currently block repository evaluation validation.
+4. **Restore and execute the evaluation matrix.** Add repository-schema suites for the three new packages, then run every case across Pi's fast/economical, balanced/default, and highest-reasoning profiles with fresh sessions, equivalent tools, and complete reproducibility records.
 
 ## Per-skill recommendations
 
@@ -96,7 +103,7 @@ This review covers all 23 skills installed under `~/.agents/skills/`: 13 locally
 
 **Implemented:** Concise third-person discovery metadata, portable path and browser guidance, explicit optional-image dependencies and approval, a self-contained inline-SVG fallback, and deterministic validation for placeholders, repeat markers, metadata, offline resources, figures, duplicate IDs, required CSS variables, and append-only updates. Every workflow now validates and repairs plan artifacts.
 
-**Evaluation coverage:** The central suite replaces the dependent historical scenarios with independent create, update, and build fixtures plus reproducibility requirements. Execute them across all configured profiles.
+**Evaluation coverage:** The package suite replaces the dependent historical scenarios with independent create, update, and build fixtures plus reproducibility requirements. Execute them across all configured profiles.
 
 ### `prototype` — authoring update complete
 
@@ -122,7 +129,7 @@ This review covers all 23 skills installed under `~/.agents/skills/`: 13 locally
 2. **Completed:** Harden `elevenlabs-tts` and the remaining `planf3` paid or executable workflows.
 3. **Completed:** Standardize the remaining descriptions; package layout is now standardized.
 4. **Completed:** Flatten references and add missing tables of contents.
-5. **Definitions completed; execution pending:** Run all 39 cases across Pi's supported model profiles: fast/economical, balanced/default, and highest-reasoning. Use fresh sessions with equivalent tools and settings, record the actual provider, model ID, thinking level, Pi version, and relevant configuration, and test every model intended for production use.
+5. **Original definitions completed; execution pending:** Preserve the existing 74 cases, add repository-schema coverage for packages introduced later, then run the expanded matrix across Pi's fast/economical, balanced/default, and highest-reasoning profiles. Use fresh sessions with equivalent tools and settings, record provider, model ID, thinking level, Pi version, skill and fixture revisions, and relevant configuration, and test every model intended for production use.
 
 ---
 
@@ -152,138 +159,64 @@ Evidence collected locally:
 - Findings below do not rely on model evaluations, network-dependent commands, package installs, or mutating skill workflows.
 - A strict cross-harness `agentskills` validator is not installed locally. Cross-harness findings below are schema reviews, not claimed validator runs.
 
-No file inside these ten skill packages was changed.
+The initial audit was read-only. The motion-family consolidation and the four-package follow-up below subsequently implemented the actionable authoring changes.
 
-### Package metrics
+### Current package metrics
 
-| Skill | `SKILL.md` lines | Description chars | Supporting files | Priority |
-| --- | ---: | ---: | --- | --- |
-| `animation-vocabulary` | 173 | 424 | None | Medium |
-| `apple-design` | 282 | 425 | None | High |
-| `emil-design-eng` | 679 | 155 | None | Highest |
-| `find-animation-opportunities` | 132 | 358 | None | Medium |
-| `find-skills` | 142 | 303 | None | High |
-| `improve-animations` | 101 | 447 | `AUDIT.md`, `PLAN-TEMPLATE.md` | High |
-| `karpathy-guidelines` | 67 | 219 | None | Low |
-| `review-animations` | 112 | 159 | `STANDARDS.md` | High |
-| `shadcn-vue` | 231 | 393 | Seven Markdown references | High |
-| `unslop` | 80 | 49 | None | High |
+| Skill                 | `SKILL.md` lines | Description chars | Supporting files                       | Status   |
+| --------------------- | ---------------: | ----------------: | -------------------------------------- | -------- |
+| `find-skills`         |               69 |               261 | Four provider-neutral evaluation cases | Updated  |
+| `karpathy-guidelines` |               56 |               291 | Four provider-neutral evaluation cases | Updated  |
+| `shadcn-vue`          |              102 |               364 | Seven references and six eval cases    | Updated  |
+| `unslop`              |               63 |               324 | Four provider-neutral evaluation cases | Updated  |
 
-### Repository-wide findings
+### Follow-up status
 
-#### Working well
-
-- All ten packages use the standard `<name>/SKILL.md` layout and load in Pi without diagnostics.
-- Names, directory matches, description lengths, and local links are valid.
-- `find-animation-opportunities`, `improve-animations`, and `review-animations` distinguish discovery, planning, and review better than most overlapping skill families.
-- `improve-animations`, `review-animations`, and `shadcn-vue` use direct supporting references for their main workflows.
-- `find-animation-opportunities` and `improve-animations` explicitly treat repository content as untrusted data.
-- `shadcn-vue` requires confirmation before overwrite and asks for diff review when updating installed components.
-
-#### Main gaps
-
-1. **No behavioral evaluation coverage.** None of these ten packages includes durable cases, fixtures, grading records, or run evidence. Adding three cases per skill would add 30 cases and 90 minimum profile runs, taking the complete collection to 69 cases and 207 minimum runs.
-2. **Motion-skill routing overlap is high.** `apple-design`, `emil-design-eng`, `find-animation-opportunities`, `improve-animations`, and `review-animations` share motion, animation, review, and implementation language. There is no routing confusion matrix or negative-case evidence.
-3. **Progressive disclosure is uneven.** `emil-design-eng` is 679 lines and exceeds the recommended 500-line entry-file ceiling. `apple-design` and `animation-vocabulary` also keep reusable catalogs in the entry file.
-4. **Motion doctrine is duplicated.** Exact durations, easing curves, frequency rules, and broad “never” claims recur across four packages, creating drift and making evidence hard to update consistently.
-5. **Portability metadata is missing.** None of the ten declares `compatibility`, despite network, Node/package-runner, browser, subagent, worktree, or harness-specific assumptions.
-6. **Two packages use harness-specific frontmatter.** `review-animations` uses Pi's `disable-model-invocation`; `shadcn-vue` uses unsupported `user-invocable` plus experimental `allowed-tools` with Claude-style `Bash(...)` patterns. These choices need explicit portability documentation.
-7. **Safety gates need strengthening.** `find-skills` recommends global non-interactive installation; `shadcn-vue` can fetch registries and mutate projects. Both should require capability checks, package/content inspection, explicit approval immediately before mutation, and post-action verification.
-8. **Long references need navigation.** `improve-animations/AUDIT.md` is 116 lines, `review-animations/STANDARDS.md` is 188 lines, and `shadcn-vue/rules/icons.md` is 111 lines; none has a contents section. Other long `shadcn-vue` references already do.
-9. **Provenance is incomplete.** Eight packages retain installer provenance in `.skill-lock.json`; `karpathy-guidelines` and `unslop` do not. Only `karpathy-guidelines` declares a license in frontmatter.
-10. **Time-sensitive claims are embedded.** Install counts, download counts, leaderboards, mutable `@latest` commands, and dated platform guidance can become stale without a source version or verification step.
+- The overlapping motion packages were consolidated into the 52-line `emil-design-eng` router with direct references, deterministic package validation, and 20 evaluation cases.
+- All four remaining packages now use specific third-person descriptions with what-and-when routing language and compatibility metadata.
+- Every current entry file is below 500 lines; all shadcn-vue references over 100 lines have contents sections and direct links from `SKILL.md`.
+- `find-skills` now separates ordinary direct help from explicit capability discovery, treats packages as untrusted, and requires inspect, approve, install, and verify steps.
+- `shadcn-vue` no longer uses unsupported `user-invocable`, experimental command-pattern frontmatter, inert interpolation, mutable `@latest` examples, or assumed network access. Registry and preset workflows use explicit preview, approval, and verification loops.
+- `karpathy-guidelines` now scales ceremony to task risk and permits minimal adjacent changes required to keep the repository valid.
+- `unslop` now routes only for requested prose editing and prioritizes semantic, factual, formatting, quotation, legal-text, and exact-string preservation over blanket style bans.
+- At completion of that follow-up, Pi 0.84.3 loaded the then-current 17 packages with zero diagnostics and all local Markdown links resolved.
+- Those 17 packages own `evals/evals.json`; shared profiles, the run-record schema, and a validator that dynamically discovers packages live under repository-root `evals/`. The three packages added later are audited separately below and do not yet meet that contract.
+- Remaining work is behavioral: execute the 74 defined cases across every production model profile and record results. Provenance or license metadata should not be invented where upstream evidence is unavailable.
 
 ### Per-skill findings
 
-#### `animation-vocabulary`
+#### `find-skills` — authoring and safety update complete
 
-**Working well:** Precise reverse-lookup trigger, clear non-goal, bounded answer format, and no execution risk.
+**Implemented:** Narrowed routing to explicit discovery or capability-extension intent; added runtime compatibility and pinned-version guidance; replaced popularity-based trust with inspection of package code, dependencies, permissions, license, and provenance; removed global non-interactive installation defaults; and added explicit approval plus post-install verification.
 
-**Findings:** The entire 173-line glossary loads for each lookup. Its “mirrored snapshot” claim names an unavailable project `/vocabulary` page but records no source revision or synchronization check.
+**Evaluation coverage:** Four cases cover a direct-help near miss, read-only candidate search, a malicious package, and global installation without sufficient approval. Execute them across all configured profiles.
 
-**Recommendation:** Before splitting, compare the current monolith with a short router plus glossary reference. Evaluate ambiguous pairs, out-of-glossary requests, top-1 accuracy, acceptable-alternate recall, invented-term rate, and token cost.
+#### `karpathy-guidelines` — authoring update complete
 
-#### `apple-design`
+**Implemented:** Kept the entry file compact, made routing risk-specific, scaled planning and clarification to task complexity, clarified that project instructions take precedence, and defined when adjacent edits are required rather than unrelated scope.
 
-**Working well:** Concrete interaction guidance, accessibility coverage, and useful web translations of platform design concepts.
+**Evaluation coverage:** Four cases cover trivial edits, material ambiguity, required call-site changes, and speculative architecture. Execute them against a no-skill baseline across all configured profiles.
 
-**Findings:** The 282-line entry file spans gestures, springs, materials, typography, accessibility, and general design foundations, causing overlap with motion skills and `ux-design`. It contains dated and platform-specific claims without bundled sources or compatibility notes. Some absolute implementation advice needs browser and library qualification.
+#### `shadcn-vue` — authoring and safety update complete
 
-**Recommendation:** Split durable theory from task routing only after traces show which sections are used. Add separate gesture, reduced-motion, typography, and general-review cases, including negative routing against `ux-design` and the motion-review skills.
+**Implemented:** Replaced harness-specific frontmatter and inert command interpolation with an explicit project-context preflight; added installed-or-approved CLI version resolution and offline fallback; condensed `SKILL.md` into a 102-line router; linked all seven references including MCP; added the missing icons contents section; made MCP names fully qualified; and standardized inspect, preview, approve, mutate, diff, validate, and report loops for registry, component, and preset changes.
 
-#### `emil-design-eng`
+**Evaluation coverage:** Six cases cover local offline composition, untrusted registry installation, local-change-preserving updates, destructive preset choices, network failure, and a React routing boundary. Execute them with representative Vite and Nuxt fixtures across all configured profiles.
 
-**Working well:** Numerous concrete examples, an explicit review format, and substantial edge-case coverage.
+#### `unslop` — authoring update complete
 
-**Findings:** At 679 lines and 27.3 KB, this is the clearest progressive-disclosure problem. The description says what knowledge it contains but not when it should load. A canned first response delays work and promotes an external course. Large sections duplicate the animation audit and review packages. No license, source revision, compatibility contract, or eval evidence is included.
+**Implemented:** Replaced “Must always apply” with explicit prose-editing triggers and negative boundaries; made semantic and protected-span preservation the first quality gate; converted punctuation, voice, and formatting bans into contextual heuristics; and added concrete rewrite and preservation examples.
 
-**Recommendation:** Make this the first refactor target: create a concise router, move focused topics into one-level references, remove the canned greeting, state routing boundaries, and test against general UI, animation implementation, and code-review prompts.
-
-#### `find-animation-opportunities`
-
-**Working well:** Strong routing boundaries, explicit read-only behavior, output cap, rejected-candidate requirement, and an untrusted-content rule.
-
-**Findings:** It duplicates exact motion doctrine instead of routing to one maintained source. “Whole app” completion lacks a concrete coverage record. Its handoff to `improve-animations` crosses from read-only discovery into a workflow that writes plans.
-
-**Recommendation:** Add fixtures with too little, appropriate, and excessive motion, plus a zero-opportunity case. Grade suggestion precision, rejection quality, source citation accuracy, cap compliance, and unauthorized mutation count.
-
-#### `find-skills`
-
-**Working well:** Practical search flow and a quality-check step before recommendation.
-
-**Findings:** The description can capture broad “how do I” questions that Pi can answer directly. Popularity and stars are treated as trust proxies. The global `npx skills add ... -g -y` step lacks an immediate approval and package-inspection gate. Node, network, GitHub, and package-runner requirements are undeclared.
-
-**Recommendation:** Narrow discovery to explicit skill-search or capability-extension intent. Require inspection of `SKILL.md`, scripts, assets, license, provenance, network behavior, and tool permissions before recommendation or installation. Evaluate direct-help false positives, no-result behavior, malicious packages, and install requests without approval.
-
-#### `improve-animations`
-
-**Working well:** Concise entry file, direct references, source-code protection, phased workflow, evidence requirements, and clear separation from single-diff review.
-
-**Findings:** “Read-only” applies only to source code because the skill writes plan files, and `execute` delegates mutations. Subagents and isolated worktrees are harness capabilities without compatibility or fallback guidance. `AUDIT.md` needs a contents section. Plan numbering, stale commit checks, and plan-index consistency are prose-only.
-
-**Recommendation:** Clarify artifact-writing and execution boundaries in discovery metadata. Add capability fallbacks and deterministic plan validation. Evaluate audit-only, plan creation, no-subagent fallback, stale-plan reconciliation, and approval before execution.
-
-#### `karpathy-guidelines`
-
-**Working well:** Small, licensed, self-contained, third-person description, explicit tradeoff, and no unnecessary references.
-
-**Findings:** Its scope covers most coding work, so routing may overlap nearly every implementation skill. Subjective caution rules lack examples of legitimate exceptions beyond the opening tradeoff.
-
-**Recommendation:** Keep the package compact. Evaluate trivial fixes, ambiguous requirements, hidden scope traps, and required adjacent changes. Measure unrelated edits, requirement coverage, clarification churn, solution size, and task success against a no-skill baseline.
-
-#### `review-animations`
-
-**Working well:** Focused review scope, direct standards reference, evidence-oriented verdict format, and deliberate manual invocation in Pi.
-
-**Findings:** `disable-model-invocation` is Pi-specific and should be documented as a portability choice. `STANDARDS.md` needs a contents section. Standards duplicate other motion packages and rely on broad technical absolutes. The package should state its no-modification boundary more directly.
-
-**Recommendation:** Verify explicit `/skill:emil-design-eng review` behavior in Pi and define behavior for other intended harnesses. Evaluate clean diffs, subtle regressions, non-motion diffs, and intentional exceptions; grade precision, severity agreement, citation accuracy, and refusal correctness.
-
-#### `shadcn-vue`
-
-**Working well:** Specific ecosystem routing, project-context awareness, direct references, substantial examples, diff-first updates, overwrite confirmation, and registry import checks.
-
-**Findings:** Pi ignores `user-invocable`, so the field does not enforce its apparent intent. `allowed-tools` is experimental and uses harness-specific command patterns. Claude-style ``!`...` `` interpolation in “Current Project Context” is inert in Pi, yet later instructions assume injected JSON. Network, Node, package runner, mutable `@latest`, and registry requirements are undeclared. `mcp.md` is orphaned from `SKILL.md`; `rules/icons.md` needs a contents section. Mutating CLI operations need a single explicit approval policy.
-
-**Recommendation:** Replace assumed interpolation with an explicit capability-checked context command, document supported runners and offline behavior, link or remove `mcp.md`, and define preview/approval/verify steps for every mutation. Test Vite/Nuxt, package runners, aliases, Tailwind versions, icon libraries, existing-component merges, preset refusal, registry ambiguity, and offline failure using pinned CLI versions in eval records.
-
-#### `unslop`
-
-**Working well:** Small, self-contained, and free of runtime dependencies or side effects.
-
-**Findings:** The 49-character description says “Must always apply” instead of defining a routing condition. Blanket punctuation and style bans can damage quoted text, legal copy, code-adjacent prose, house style, accessibility text, or explicit preservation requests. No examples demonstrate semantic or protected-span preservation.
-
-**Recommendation:** Narrow routing to explicit prose-editing requests and make preservation constraints primary. Evaluate marketing copy, technical docs, terse chat, quotations, legal text, Markdown, exact strings, and “do not rewrite” cases. Grade semantic preservation, unwanted-edit rate, protected-span changes, and human preference.
+**Evaluation coverage:** Four cases cover marketing prose, protected technical Markdown, legal-text refusal boundaries, and house-style exceptions. Grade protected-span changes, semantic preservation, and human preference across all configured profiles.
 
 ### Recommended implementation order
 
-1. Add provider-neutral routing and boundary eval definitions for all ten skills: three cases each across fast/economical, balanced/default, and highest-reasoning profiles.
-2. Harden approval and package-inspection workflows in `find-skills` and `shadcn-vue` before using their mutating paths.
-3. Refactor `emil-design-eng` for progressive disclosure, then measure whether `apple-design` and `animation-vocabulary` benefit from similar splits.
-4. Clarify Pi-only and cross-harness behavior in `review-animations` and `shadcn-vue`.
-5. Add missing reference contents sections and deterministic validation for animation plans.
-6. Consolidate duplicated motion doctrine only after evaluations identify which shared rules improve outcomes.
-7. Add or restore provenance and license metadata for globally tracked third-party packages.
+1. **Completed:** Consolidate the motion family under `emil-design-eng` and add direct progressive routing, validation, and evaluations.
+2. **Completed:** Harden package and registry mutation workflows in `find-skills` and `shadcn-vue`.
+3. **Completed:** Clarify shadcn-vue portability, remove unsupported frontmatter, eliminate stale mutable-version examples, and add missing reference navigation.
+4. **Completed:** Tighten `karpathy-guidelines` scope and make `unslop` preserve meaning and protected text.
+5. **Definitions completed; execution pending:** Run every evaluation with fresh sessions across fast/economical, balanced/default, and highest-reasoning profiles.
+6. **Evidence pending:** Restore license or provenance metadata only when authoritative upstream evidence is available.
 
 ---
 
@@ -317,14 +250,14 @@ The correct goal is **one discoverable router, not one giant skill file**.
 
 ### Consolidation verdict by package
 
-| Package | Verdict | Content retained in umbrella | Important boundary |
-| --- | --- | --- | --- |
-| `animation-vocabulary` | Fold completely | Focused terminology glossary and short disambiguation behavior | Naming mode must not load implementation standards. |
-| `apple-design` | Fold completely, then deduplicate | Gesture continuity, velocity handoff, momentum, rubber-banding, materials, typography, and platform-inspired principles | Apple-inspired guidance extends shared standards; it does not own all UX or static visual design. |
-| `find-animation-opportunities` | Fold completely | Read-only opportunity workflow, rejection gate, evidence format, and suggestion cap | Opportunity mode never edits source and must allow “nothing should animate.” |
-| `prototype` | Fold UI and interaction prototyping; keep logic explicit-only | UI variants, interaction-state experiments, isolation, cleanup, and promotion boundaries | General business-logic or data-shape prototypes should not automatically trigger a design skill. Preserve them only as `/skill:emil-design-eng prototype logic ...` or later split them into a separate `logic-prototype` skill. |
-| `review-animations` | Fold completely | Read-only motion-review workflow, evidence table, severity, verdict, and truthful visual-verification rules | Review mode reports findings and does not silently implement them. |
-| `emil-design-eng` | Rewrite as router | Shared craft principles plus build, tune, and debug routing | Remove the promotional canned greeting and the 679-line manual from the entry file. |
+| Package                        | Verdict                                                       | Content retained in umbrella                                                                                            | Important boundary                                                                                                                                                                                                               |
+| ------------------------------ | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `animation-vocabulary`         | Fold completely                                               | Focused terminology glossary and short disambiguation behavior                                                          | Naming mode must not load implementation standards.                                                                                                                                                                              |
+| `apple-design`                 | Fold completely, then deduplicate                             | Gesture continuity, velocity handoff, momentum, rubber-banding, materials, typography, and platform-inspired principles | Apple-inspired guidance extends shared standards; it does not own all UX or static visual design.                                                                                                                                |
+| `find-animation-opportunities` | Fold completely                                               | Read-only opportunity workflow, rejection gate, evidence format, and suggestion cap                                     | Opportunity mode never edits source and must allow “nothing should animate.”                                                                                                                                                     |
+| `prototype`                    | Fold UI and interaction prototyping; keep logic explicit-only | UI variants, interaction-state experiments, isolation, cleanup, and promotion boundaries                                | General business-logic or data-shape prototypes should not automatically trigger a design skill. Preserve them only as `/skill:emil-design-eng prototype logic ...` or later split them into a separate `logic-prototype` skill. |
+| `review-animations`            | Fold completely                                               | Read-only motion-review workflow, evidence table, severity, verdict, and truthful visual-verification rules             | Review mode reports findings and does not silently implement them.                                                                                                                                                               |
+| `emil-design-eng`              | Rewrite as router                                             | Shared craft principles plus build, tune, and debug routing                                                             | Remove the promotional canned greeting and the 679-line manual from the entry file.                                                                                                                                              |
 
 ### Proposed package architecture
 
@@ -366,16 +299,16 @@ Recommended umbrella description:
 
 Recommended modes:
 
-| Intent | Mode | Minimum context |
-| --- | --- | --- |
-| Build, fix, tune, or debug motion | `apply` | Principles, standards, apply workflow |
-| Review animation code or a motion diff | `review` | Standards, review workflow |
-| Find places where motion would help | `opportunities` | Principles, opportunity workflow |
-| Name an animation effect | `name` | Vocabulary only |
-| Design Apple-style gestures, materials, or typography | `apple` | Apple reference; standards only when implementing motion |
-| Explore UI or interaction variants | `prototype ui` / `prototype interaction` | Prototype workflow |
-| Explore business logic explicitly | `prototype logic` | Prototype workflow, explicit invocation only |
-| Broad design-engineering advice | `advise` | Smallest relevant leaf set |
+| Intent                                                | Mode                                     | Minimum context                                          |
+| ----------------------------------------------------- | ---------------------------------------- | -------------------------------------------------------- |
+| Build, fix, tune, or debug motion                     | `apply`                                  | Principles, standards, apply workflow                    |
+| Review animation code or a motion diff                | `review`                                 | Standards, review workflow                               |
+| Find places where motion would help                   | `opportunities`                          | Principles, opportunity workflow                         |
+| Name an animation effect                              | `name`                                   | Vocabulary only                                          |
+| Design Apple-style gestures, materials, or typography | `apple`                                  | Apple reference; standards only when implementing motion |
+| Explore UI or interaction variants                    | `prototype ui` / `prototype interaction` | Prototype workflow                                       |
+| Explore business logic explicitly                     | `prototype logic`                        | Prototype workflow, explicit invocation only             |
+| Broad design-engineering advice                       | `advise`                                 | Smallest relevant leaf set                               |
 
 Examples:
 
@@ -452,3 +385,101 @@ Use fresh sessions and equivalent tooling. Record provider, model ID, thinking l
 ### Focused recommendation
 
 Proceed with a single discoverable `emil-design-eng` router. The five subordinate packages and `improve-animations` were folded into the umbrella; their temporary hidden aliases were later removed. Auto-route only UI/interaction prototyping and keep logic prototyping explicit.
+
+
+---
+
+## Audit of newly added skill packages (2026-08-28)
+
+### Scope and evidence
+
+This read-only package audit covers the three new, untracked skill directories: `meta-skill`, `thermo-nuclear-code-quality-review`, and `voyage-embeddings`. No skill package source was changed.
+
+Evidence:
+
+- Compared every bundled file with Anthropic's [Skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) supplied for this review, the Agent Skills guidance vendored by `meta-skill`, and current Pi skill-loading behavior.
+- Pi `0.84.3` loaded all 20 discoverable packages through `DefaultResourceLoader` with zero diagnostics. Pi's current behavior is lenient: most schema violations warn but still load; malformed skills or declared skills without `description` do not load; unknown fields are ignored; collisions warn and keep the first skill found.
+- `meta-skill/scripts/scan.py skills` reported 20 packages, zero broken, 8 flagged, and 12 mechanically clean. Its no-argument invocation from a directory without `.claude/skills` reported zero scanned because it defaults only to Claude Code locations. Scanner flags are evidence, not behavioral grades.
+- AST parsing passed for all three bundled Python scripts. No model evaluation, API call, package installation, Pinecone mutation, or paid Voyage request was run.
+- Repository evaluation validation currently stops on a web-root link inside `meta-skill`'s vendored docs; additional root-relative and illustrative example links would also need snapshot-aware handling. Even after that blocker, the three packages do not satisfy the repository's current per-skill evaluation contract.
+- None of the three packages has installer provenance in `.skill-lock.json` or a declared package license; do not infer either without authoritative upstream evidence.
+
+### Package metrics
+
+| Skill | `SKILL.md` lines | Body lines | Description chars | Supporting files | Priority |
+| --- | ---: | ---: | ---: | --- | --- |
+| `meta-skill` | 49 | 44 | 545 | 11 files, including vendored docs and legacy `evals.md` | High |
+| `thermo-nuclear-code-quality-review` | 192 | 186 | 253 | None | High |
+| `voyage-embeddings` | 176 | 171 | 678 | One reference, two scripts, one legacy eval file | Highest |
+
+All three names match their directories, satisfy the portable name grammar, and avoid reserved words. Their descriptions are non-empty, free of XML tags, and below 1,024 characters. Every entry body is below 500 lines, and no Windows-style resource path was found.
+
+### Concise current audit checklist
+
+- **Frontmatter and discovery:** Require frontmatter at line 1, `name` and non-empty `description`; keep name at 64 characters or fewer using lowercase letters, numbers, and single hyphens; match directory name for Agent Skills portability; avoid reserved `anthropic` and `claude`; keep description at 1,024 characters or fewer and free of XML tags. Test both intended activation and near-miss non-activation.
+- **Descriptions:** Write in third person. State what the skill does and when it should load using terms users actually type. Put implementation detail in the body, not discovery metadata.
+- **Context and references:** Keep `SKILL.md` body under 500 lines. Link every needed reference directly from `SKILL.md`, attach a clear “read it when” condition, avoid nested reference chains, and add a contents section to references over 100 lines. Remove unreachable files and duplicated sources of truth.
+- **Workflows and feedback:** Give complex tasks explicit ordered steps and decision points. For quality-critical or mutating work, use inspect/plan → validate → execute → verify, then repair and repeat until the validator passes. Never mark an unexecuted check complete.
+- **Scripts, safety, and dependencies:** State whether each script should be executed or read. Document inputs, outputs, exit behavior, dependencies, supported versions, and environment limits. Preflight tools and credentials; inspect untrusted input; require approval immediately before installs, network calls, paid requests, destructive actions, publication, or external data writes; prefer dry runs, atomic output, idempotency, bounded retries, and actionable errors.
+- **Portability:** Use relative forward-slash paths and capability checks. Avoid personal absolute paths, assumed home-directory config, missing sibling skills, harness-only tool names, and silent network/package assumptions. Document fallbacks, especially because Claude API Skills have no network access or runtime package installation.
+- **Time-sensitive content:** Avoid mutable `latest` guidance, current model/catalog/status/pricing claims, and dated personal decisions in durable instructions. Put legacy behavior in an “old patterns” section; otherwise cite a source/version or require runtime verification before acting.
+- **Evaluation coverage:** Create at least three representative evaluations before expanding instructions. Include baseline behavior without the skill, positive discovery, near misses, workflow outcomes, dependency/error paths, and safety boundaries. Run fresh sessions across every production model profile, capture loaded files/tool calls/diffs, and distinguish definitions from recorded run evidence.
+
+### Pi loading and cross-harness notes
+
+- Pi discovers recursive `<name>/SKILL.md` packages in `~/.agents/skills/`, `~/.pi/agent/skills/`, project equivalents, packages, settings, and explicit `--skill` paths. Root `.md` discovery differs by location. `--no-skills` disables discovery, while explicit `--skill` remains additive.
+- Pi permits a declared name to differ from its directory, but the Agent Skills standard requires a match. Treat mismatch as a portability finding even when Pi loads it.
+- Pi supports optional `license`, `compatibility`, `metadata`, experimental `allowed-tools`, and `disable-model-invocation`. Broad Anthropic Skill surfaces guarantee only `name` and `description`; Claude Code separately supports `allowed-tools`. Unknown fields may be ignored elsewhere, so any behavior that depends on an optional field needs an explicit compatibility note and a safe fallback.
+- `disable-model-invocation: true` hides a skill from Pi's model metadata and requires `/skill:name`. Other harnesses may ignore it and auto-discover the skill, reversing the intended routing policy.
+- For Pi debugging: run with `--verbose`, confirm the location and valid description, check duplicate names, and use `/skill:name` or explicit `--skill <path>` to separate discovery failure from instruction failure. Restart after package changes because metadata is loaded at startup.
+
+### `meta-skill` — high priority
+
+**Working well:** Valid portable core frontmatter, specific third-person discovery language, a 44-line body, direct one-level routing, focused workflows, and deterministic mechanical scanning.
+
+**Findings:**
+
+- The audit workflow is broken for this repository's global location. Its documented no-argument scan defaults to `~/.claude/skills` and `.claude/skills`; it scanned zero packages here. The workflow also says to pass directories only when the user names them, so it does not recover automatically for `~/.agents/skills`.
+- The package claims Claude Code scope and hardcodes Claude locations, `claude doctor`, Claude-only fresh-session commands, and Claude 5 model assumptions without `compatibility` or Pi fallbacks.
+- Direct reference depth is good, but `docs/claude_code_agent_skills.md` (603 lines) and `docs/claude_code_agent_skills_overview.md` (311 lines) lack contents sections. Their vendored web-root and illustrative example links are interpreted as broken local links by this repository's validator.
+- Vendored guidance and the Claude 5 context reference are dated snapshots. They identify their dates, but authoring decisions can still drift unless the workflow refreshes or compares them with live guidance.
+- `evals.md` contains two executable scenarios plus a measurement and historical run notes, not the repository's required `evals/evals.json` contract. Coverage lacks a third independent task, Pi/cross-harness behavior, the global-location scanner failure, current capability profiles, and fresh run records.
+- The scanner's trigger regex produces false positives for valid wording such as “Use for” and treats intentional explicit-only routing as an automatic defect. Its output should not be presented as standards validation.
+
+**Recommendation:** Make location discovery capability-based, pass the resolved skills root explicitly, declare supported harnesses, add ToCs or smaller snapshots, make link validation snapshot-aware for vendored web and example links, and migrate at least three cases to the repository evaluation schema with Pi and Claude Code fixtures.
+
+### `thermo-nuclear-code-quality-review` — high priority
+
+**Working well:** Valid matching name, specific trigger terms, no dependencies or references, and a 186-line body below the 500-line guidance.
+
+**Findings:**
+
+- Description opens with imperative “Run” rather than strict third-person “Runs.” More importantly, Pi never exposes that description for automatic discovery because `disable-model-invocation: true` makes the package explicit-only.
+- `disable-model-invocation` is a Pi-specific routing dependency. A harness that ignores it may auto-load an intentionally extreme review persona for ordinary maintainability requests.
+- Scope says “review,” but instructions say to “go for” ambitious restructuring. No read-only boundary, mutation approval, target/diff selection, repository-policy check, test loop, or output distinction between findings and applied edits exists.
+- Repeated absolutes and the fixed 1,000-line blocker consume most of the body without evidence, exception handling, or a feedback mechanism. This risks aggressive over-refactoring and low-value duplication rather than high-conviction review.
+- No `evals/evals.json`, baseline, discovery/explicit-invocation test, clean-diff case, false-positive case, behavior-preservation case, or unauthorized-mutation assertion exists.
+
+**Recommendation:** Keep explicit-only intent but document cross-harness fallback, choose review-only versus approval-gated repair, turn the body into a concise evidence-based workflow, require behavior-preserving verification for edits, and add evaluations for clean, structurally poor, justified-large-file, and no-mutation scenarios.
+
+### `voyage-embeddings` — highest priority
+
+**Working well:** Valid matching frontmatter, strong trigger vocabulary, a 171-line body, direct one-level references, explicit document/query asymmetry, parallel migration guidance, stable IDs, bounded batches, and clear script entry points.
+
+**Findings:**
+
+- Portability is undeclared despite hard dependencies on network access, paid Voyage/Pinecone APIs, `voyageai`, `pinecone`, credentials, Pinecone CLI, Claude Code environment loading, Tony-specific config files, and an absent `pinecone-query` sibling skill. Claude API cannot satisfy runtime network or install assumptions.
+- `references/models.md` is 141 lines without a contents section. Model generations, support status, dimensions, pricing ranges, storage cost, API behavior, “current index” state, and the dated personal migration decision are time-sensitive. Some claims are internally overbroad, such as saying all models support every output dimension while the same table lists fixed-dimension domain models.
+- Upsert sends complete local source text and paths to external services and stores them in Pinecone metadata. The workflow lacks data-classification, repository-sensitivity, cost estimate, redaction, dry-run, and immediate approval gates.
+- Dependencies are unpinned and only surfaced by an import failure suggesting global `pip install`. No lock/setup file, supported SDK versions, isolated environment, or API compatibility test exists.
+- `embed_and_upsert.py` retries every exception, including permanent and potentially billable failures; does not preflight index dimension/metric; hashes text without source identity, so identical content from different files collides; loads whole files and all records into memory; and has no post-upsert count/sample verification. Migration instructions mention deleting the old index without a dedicated destructive-action gate.
+- Three evaluation definitions exist, but they use an obsolete schema (`skill_name`, numeric IDs, `expected_output`) and fail the repository contract (`schema`, `skill`, profiles, setup, expected and forbidden behaviors). They test advice only, with no baseline, near miss, dependency failure, mock API, privacy/cost refusal, retry behavior, model mismatch, or recorded execution.
+
+**Recommendation:** Separate durable provider guidance from Tony-specific migration state, add compatibility and runtime-verification notes, add a ToC, pin/test dependencies, require inspect/estimate/approve before external writes, add dry-run and index preflight/postflight checks, narrow retries, and replace the old eval definitions with mocked safety and workflow cases under the repository schema.
+
+### Priority order
+
+1. Harden `voyage-embeddings` before any real ingest or migration; current path can disclose source and incur paid external writes.
+2. Resolve `thermo-nuclear-code-quality-review`'s review-versus-edit contract and explicit-only portability before using it outside Pi.
+3. Repair `meta-skill`'s global-root discovery and evaluation-validator integration so future audits produce trustworthy coverage.
+4. Run fresh evaluation matrices only after definitions validate; current package presence and syntax checks are not behavioral evidence.

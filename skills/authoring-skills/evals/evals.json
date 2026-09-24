@@ -1,0 +1,139 @@
+{
+  "scenarios": [
+    {
+      "id": "A-create",
+      "skills": [
+        "authoring-skills"
+      ],
+      "query": "make me a skill that runs our smoke tests",
+      "files": [],
+      "expected_behavior": [
+        "Fires from the description alone, with no slash command",
+        "Writes evals/evals.json for the new skill before writing its SKILL.md body",
+        "The new skill's description is third person and states both what it does and when to use it",
+        "The new skill's name matches its directory name",
+        "Runs scripts/lint_skill.py on the new skill and the run exits 0",
+        "Reads only the sections of references/authoring-guidelines.md that its Contents list names for the decisions at hand, not the whole file unconditionally"
+      ]
+    },
+    {
+      "id": "B-improve",
+      "skills": [
+        "authoring-skills"
+      ],
+      "query": "make thermo-nuclear-code-quality-review more token efficient",
+      "files": [
+        "~/.agents/skills/thermo-nuclear-code-quality-review/SKILL.md"
+      ],
+      "expected_behavior": [
+        "Runs scripts/lint_skill.py on the target before editing anything",
+        "Reads references/review-rubric.md and records a verdict for every dimension",
+        "Reports forced tokens before and after, using the linter's numbers",
+        "Every instruction cut is one the model would follow unprompted",
+        "No instruction that is an opinion of the skill's author is removed"
+      ]
+    },
+    {
+      "id": "C-audit",
+      "skills": [
+        "authoring-skills"
+      ],
+      "query": "audit my skills",
+      "files": [],
+      "expected_behavior": [
+        "Runs scripts/lint_skill.py once across ~/.agents/skills rather than once per skill",
+        "Reports the worst skill first",
+        "Grades only FLAGGED skills against the rubric",
+        "States how many skills were graded versus only scanned"
+      ]
+    }
+  ],
+  "baseline": {
+    "source": "meta-skill/evals.md, recorded 2026-07-25",
+    "improve_route": {
+      "runs": 4,
+      "fired": 2,
+      "firing_runs_that_opened_rubric": 0,
+      "firing_runs_total": 3,
+      "note": "Scenario B must fire on at least as many runs proportionally and must open the rubric on at least one firing run to beat this."
+    },
+    "create_route": {
+      "runs": 1,
+      "fired": 1,
+      "note": "Fired from the description, read create workflow, template, and rubric; zero docs/ reads."
+    }
+  },
+  "results": {
+    "date": "2026-09-04",
+    "method": "claude -p from a scratch directory, --output-format stream-json, meta-skill archived for the duration; files read taken from the transcript's tool calls",
+    "A-create": {
+      "runs": 2,
+      "fired": 2,
+      "files_read": [
+        "workflows/create-skill.md",
+        "templates/SKILL.md",
+        "templates/evals.json",
+        "references/authoring-guidelines.md (Descriptions and subtraction sections via sed, not the whole file)",
+        "references/review-rubric.md"
+      ],
+      "verdicts": {
+        "fires from description": "2/2",
+        "evals.json before body": "2/2",
+        "description third person, what + when": "2/2",
+        "name matches directory": "2/2",
+        "lint_skill.py run, exit 0": "2/2",
+        "guidelines read by section only": "2/2"
+      },
+      "produced": "a 22-line and a 26-line .claude/skills/smoke-tests, both PASS on the linter; run 2 ended at 10 turns after launching its own nested evals in the background, a -p artefact rather than a skill defect"
+    },
+    "B-improve": {
+      "runs": 2,
+      "fired": 2,
+      "rubric_opened": 2,
+      "files_read": [
+        "workflows/improve-skill.md",
+        "references/review-rubric.md",
+        "references/authoring-guidelines.md (subtraction, frontmatter, and progressive-disclosure sections)"
+      ],
+      "verdicts": {
+        "linter run before any edit": "2/2",
+        "rubric read and verdict per dimension": "2/2",
+        "forced tokens before and after reported": "2/2",
+        "every cut an unprompted instruction": "2/2",
+        "no author opinion removed": "2/2"
+      },
+      "forced_tokens": {
+        "before": 3109,
+        "after_run1": 958,
+        "after_run2": 1106
+      },
+      "lines": {
+        "before": 192,
+        "after_run1": 55,
+        "after_run2": 50
+      },
+      "baseline_comparison": "meta-skill baseline was 2 of 4 fired and 0 of 3 opened the rubric; this run is 2 of 2 and 2 of 2"
+    },
+    "C-audit": {
+      "runs": 3,
+      "fired": 3,
+      "note": "run 2 was cut off by the account's session usage limit before writing the report and was rerun; runs 1 and 3 counted",
+      "files_read": [
+        "workflows/audit-skills.md",
+        "references/review-rubric.md (by each grader)"
+      ],
+      "verdicts": {
+        "linter run once across ~/.agents/skills": "2/2",
+        "worst first": "2/2",
+        "graded only FLAGGED skills": "2/2 (16 graders, then 6 after linter fixes reduced the flagged set)",
+        "states graded versus scanned": "2/2"
+      },
+      "report": "specs/skill-health-2026-09-04.md written in the working directory on both counted runs"
+    },
+    "linter_fixes_from_evals": [
+      "budget-route no longer fires on single-route skills",
+      "./.claude/skills symlink root no longer reported as a skill",
+      "scripts count as referrers for the orphan check"
+    ]
+  }
+}

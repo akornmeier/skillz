@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "skill": "unslop",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "unslop-marketing-rewrite",
+      "summary": "Marketing rewrite.",
+      "setup": "Use this exact source text: \"This groundbreaking release serves as a testament to our enduring commitment to innovation. It adds offline sync, CSV export, and audit logs. Startup falls from 2.1 seconds to 1.4 seconds.\"",
+      "prompt": "Humanize this launch paragraph while preserving every feature and number: \"This groundbreaking release serves as a testament to our enduring commitment to innovation. It adds offline sync, CSV export, and audit logs. Startup falls from 2.1 seconds to 1.4 seconds.\"",
+      "expectedBehavior": [
+        "routes to unslop",
+        "removes unsupported puffery and filler",
+        "preserves every feature, number, and level of certainty",
+        "does not invent an opinion or anecdote"
+      ],
+      "forbiddenBehavior": [
+        "Changes protected text, facts, certainty, links, code, or defined terms.",
+        "Invents claims, sources, opinions, anecdotes, or house-style rules."
+      ]
+    },
+    {
+      "id": "unslop-protected-technical-text",
+      "summary": "Protected technical text.",
+      "setup": "Use Markdown containing headings, https://example.test/docs, `createServices()`, the API name ServicesClient, and quoted output \"READY\". Mark those spans immutable.",
+      "prompt": "Tighten this Markdown documentation, but do not change links, code spans, API names, quoted output, or headings.",
+      "expectedBehavior": [
+        "preserves all protected spans byte-for-byte",
+        "keeps Markdown structure",
+        "improves only editable prose"
+      ],
+      "forbiddenBehavior": [
+        "Changes protected text, facts, certainty, links, code, or defined terms.",
+        "Invents claims, sources, opinions, anecdotes, or house-style rules."
+      ]
+    },
+    {
+      "id": "unslop-legal-near-miss",
+      "summary": "Legal near miss.",
+      "setup": "Use a contract excerpt where \"Services\" and \"Effective Date\" are defined terms and the user requires exact punctuation.",
+      "prompt": "Please proofread this contract excerpt. Defined terms and punctuation must remain exact.",
+      "expectedBehavior": [
+        "does not automatically rewrite protected legal text",
+        "asks whether comments-only review is acceptable or limits edits to explicitly unprotected text"
+      ],
+      "forbiddenBehavior": [
+        "Changes protected text, facts, certainty, links, code, or defined terms.",
+        "Invents claims, sources, opinions, anecdotes, or house-style rules."
+      ]
+    },
+    {
+      "id": "unslop-house-style-exception",
+      "summary": "House style exception.",
+      "setup": "Use a first-person essay containing deliberate curly quotes and two em dashes, plus vague and repetitive filler that can be edited independently.",
+      "prompt": "Edit this essay to our house style, which deliberately uses curly quotes, first person, and occasional em dashes.",
+      "expectedBehavior": [
+        "follows the stated house style",
+        "does not apply punctuation or first-person bans mechanically",
+        "preserves the author's voice while removing vague and repetitive language"
+      ],
+      "forbiddenBehavior": [
+        "Changes protected text, facts, certainty, links, code, or defined terms.",
+        "Invents claims, sources, opinions, anecdotes, or house-style rules."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "skill": "ux-design",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "ux-design-evidence-based-critique",
+      "summary": "Produces a prioritized UX critique tied to observed evidence.",
+      "setup": "Provide screenshots, implementation states, analytics excerpts, user context, and three seeded usability issues.",
+      "prompt": "Review this flow for UX problems and prioritize actionable recommendations.",
+      "expectedBehavior": [
+        "Inspects available evidence and routes directly to relevant law groups and the review checklist.",
+        "Uses a small set of principles as diagnostic lenses, labels evidence levels, and names tradeoffs.",
+        "Prioritizes findings by harm, frequency, criticality, confidence, and cost."
+      ],
+      "forbiddenBehavior": [
+        "Uses the removed reference index.",
+        "Claims laws prove recommendations.",
+        "Invents user research or conversion impact."
+      ]
+    },
+    {
+      "id": "ux-design-implementation-guidance",
+      "summary": "Translates UX findings into verifiable implementation criteria.",
+      "setup": "Provide a form component with responsive, loading, error, success, keyboard, and touch requirements.",
+      "prompt": "Improve this form's interaction design and implement the highest-priority fixes with acceptance criteria.",
+      "expectedBehavior": [
+        "Connects each change to a specific user behavior and smallest useful design move.",
+        "Includes acceptance criteria for relevant states and input methods.",
+        "Runs repository checks and proposes falsifiable validation signals."
+      ],
+      "forbiddenBehavior": [
+        "Applies named laws as universal numeric thresholds.",
+        "Hides necessary complexity without preserving access.",
+        "Claims unrun accessibility checks passed."
+      ]
+    },
+    {
+      "id": "ux-design-accessibility-overrides-heuristic",
+      "summary": "Lets accessibility and observed behavior outrank a convenient heuristic.",
+      "setup": "Provide a design where hiding advanced controls would reduce apparent choice overload but would block keyboard users and a measured expert workflow.",
+      "prompt": "Should we hide these controls to simplify the interface? Review the evidence and recommend a direction.",
+      "expectedBehavior": [
+        "Treats accessibility requirements and observed expert behavior as higher-priority evidence.",
+        "Explains the heuristic conflict and recommends a compliant alternative.",
+        "Defines a test capable of disproving the recommendation."
+      ],
+      "forbiddenBehavior": [
+        "Uses choice overload to justify inaccessible hiding.",
+        "Treats accessibility as a preference.",
+        "Invents certainty or measured improvement."
+      ]
+    }
+  ]
+}

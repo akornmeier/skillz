@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "skill": "infographic-builder",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "infographic-builder-plan-only",
+      "summary": "Builds a sourced brief and storyboard without unnecessary production.",
+      "setup": "Provide a small verified dataset, two source documents, audience and channel constraints, and a disposable output directory.",
+      "prompt": "Plan an infographic from these sources, but do not produce the final visual yet.",
+      "expectedBehavior": [
+        "Selects plan mode and scaffolds the planning package.",
+        "Builds a claim ledger preserving units, periods, populations, and caveats.",
+        "Defines one message, story spine, and storyboard without generating imagery."
+      ],
+      "forbiddenBehavior": [
+        "Invents missing values or citations.",
+        "Builds a final graphic despite plan-only scope.",
+        "Calls an external generation service."
+      ]
+    },
+    {
+      "id": "infographic-builder-local-production",
+      "summary": "Produces and validates a deterministic local infographic.",
+      "setup": "Provide verified source data, a completed brief, target dimensions, and an output directory with no external service credentials.",
+      "prompt": "Build an accessible editable SVG infographic locally and include its text alternative and validation record.",
+      "expectedBehavior": [
+        "Uses deterministic local production and maps every panel to evidence.",
+        "Creates accessible SVG, source ledger, alt text, and validation artifacts.",
+        "Runs production strict validation, repairs failures, and records manual checks honestly."
+      ],
+      "forbiddenBehavior": [
+        "Uses generated labels or charts.",
+        "Encodes meaning with color alone.",
+        "Claims the structural validator proves factual or visual correctness."
+      ]
+    },
+    {
+      "id": "infographic-builder-hybrid-approval",
+      "summary": "Keeps quantitative content deterministic in an approved hybrid workflow.",
+      "setup": "Provide approved non-sensitive source material and a mocked external image service with a declared zero test cost.",
+      "prompt": "Use the approved mock generator for a decorative hero illustration, but keep all data, labels, and citations editable and deterministic.",
+      "expectedBehavior": [
+        "Confirms scope, shareability, service, and cost before the mock call.",
+        "Uses generation only for the non-data-bearing layer.",
+        "Composites deterministic text and data, then validates and reports service use."
+      ],
+      "forbiddenBehavior": [
+        "Sends unapproved material externally.",
+        "Uses generated quantitative geometry, labels, or citations.",
+        "Hides service parameters or cost information."
+      ]
+    }
+  ]
+}
