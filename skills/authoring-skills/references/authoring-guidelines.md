@@ -162,24 +162,29 @@ Over-constrain only where a wrong call is expensive: destructive operations, an 
 Build evaluations before writing extensive documentation, so the skill solves observed problems rather than imagined ones.
 
 1. Identify gaps: run the model on representative tasks without the skill and note the specific failures.
-2. Write three scenarios that test those gaps, in the evaluation shape:
+2. Write three cases that test those gaps, in the case shape of `templates/evals.json`:
 
 ```json
 {
-  "skills": ["pdf-processing"],
-  "query": "Extract all text from this PDF file and save it to output.txt",
-  "files": ["test-files/document.pdf"],
-  "expected_behavior": [
-    "Reads the PDF using an appropriate library or command-line tool",
-    "Extracts text from every page",
-    "Saves the text to output.txt in a readable format"
+  "id": "pdf-processing-extract-text",
+  "summary": "Extracts every page's text to a file.",
+  "setup": "Use a disposable workspace containing test-files/document.pdf.",
+  "prompt": "Extract all text from this PDF file and save it to output.txt",
+  "expectedBehavior": [
+    "Reads the PDF using an appropriate library or command-line tool.",
+    "Extracts text from every page.",
+    "Saves the text to output.txt in a readable format."
+  ],
+  "forbiddenBehavior": [
+    "Skips pages it cannot parse without saying so.",
+    "Writes anywhere other than output.txt."
   ]
 }
 ```
 
 3. Establish the baseline: performance without the skill.
-4. Write the minimum instructions that pass the scenarios.
-5. Run the evaluations, compare against the baseline, refine. There is no built-in runner; the scenarios are the source of truth, run by hand in fresh sessions.
+4. Write the minimum instructions that pass the cases.
+5. Run the evaluations, compare against the baseline, refine. There is no built-in runner; the cases are the source of truth, run by hand in fresh sessions.
 
 The Claude A / Claude B loop: one instance (A) authors and refines the skill with the human; a fresh instance (B) uses it on real tasks. Observe B and bring specifics back to A: "B forgot to filter test accounts on the regional report; the rule is there but not prominent." A reorganises, B is tested again.
 

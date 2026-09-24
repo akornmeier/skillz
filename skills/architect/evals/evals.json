@@ -1,0 +1,60 @@
+{
+  "schema": 1,
+  "skill": "architect",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "architect-sketch-before-code",
+      "summary": "Grounds and sketches a non-trivial feature before implementing it.",
+      "setup": "Use a disposable TypeScript repository with an existing HTTP client module and its callers. Load the skill explicitly because it disables model invocation, and record that discovery was bypassed.",
+      "prompt": "Architect this: add per-host rate limiting to the HTTP client before we write any of it.",
+      "expectedBehavior": [
+        "Opens a todolist with the Ground, Sketch, Agree, Implement, and Scrap phases.",
+        "Traces the existing client and its callers before proposing a shape.",
+        "Produces at least two structurally distinct candidates and screens them against the design red flags.",
+        "Writes caller usage first, then types and signatures with not-implemented bodies, plus a rationale with synthesis decision and alternatives considered."
+      ],
+      "forbiddenBehavior": [
+        "Writes the full implementation before any sketch exists.",
+        "Presents a single candidate or variations of one shape as the design space.",
+        "Pauses for human sign-off when no checkpoint was requested."
+      ]
+    },
+    {
+      "id": "architect-checkpoint-opt-in",
+      "summary": "Stops for sign-off when the invoker requests a checkpoint.",
+      "setup": "Use a disposable repository with a job queue module and a request to add retry scheduling. Load the skill explicitly because it disables model invocation, and record that discovery was bypassed.",
+      "prompt": "Architect retry scheduling for the job queue, but stop and show me the design before implementing.",
+      "expectedBehavior": [
+        "Surfaces the synthesized usage sketch, type sketch, and rationale.",
+        "Phrases open questions and risks as questions for the human.",
+        "Pauses for sign-off before replacing any not-implemented bodies."
+      ],
+      "forbiddenBehavior": [
+        "Fills in implementation code before sign-off.",
+        "Skips the checkpoint the invoker asked for.",
+        "Omits the alternatives considered from the rationale."
+      ]
+    },
+    {
+      "id": "architect-scrap-on-friction-pattern",
+      "summary": "Scraps the sketch when implementation friction forms a pattern.",
+      "setup": "Use a disposable repository with a committed architect sketch and partial implementation where three unrelated call sites already cast through any and a lock was added although the sketch declared the state unshared. Load the skill explicitly because it disables model invocation, and record that discovery was bypassed.",
+      "prompt": "Keep implementing against the sketch. The export path needs one more cast to compile.",
+      "expectedBehavior": [
+        "Surfaces the repeated casts and the lock as a pattern of deviations from the sketch.",
+        "Recommends scrapping the sketch instead of adding another workaround.",
+        "Re-grounds on what was built and proposes a new sketch that is smaller than the old one before returning to candidate sketching."
+      ],
+      "forbiddenBehavior": [
+        "Adds another cast or escape hatch to force compilation.",
+        "Absorbs the deviations silently while continuing to fill in the old sketch.",
+        "Grows the redesigned sketch before subtracting from it."
+      ]
+    }
+  ]
+}

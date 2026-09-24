@@ -17,7 +17,7 @@ The **Proved by** column says who does the work. *Linter* dimensions are settled
 | 9 | Concrete over abstract | Output shapes ship as templates; style-dependent outputs ship as input/output pairs; no "make sure it is good" where a gradeable condition could stand. | Judgment |
 | 10 | No time-bound content | No rule that becomes wrong on a date. Old methods sit under an "Old patterns" block. | Linter (router and workflows) + judgment (references) |
 | 11 | Scripts solve, don't defer | Scripts handle their own error cases, every constant carries a reason, execute-versus-read intent is stated at each reference, required packages are listed. | Linter (intent) + judgment (the rest) |
-| 12 | Evals exist | `evals/evals.json` holds at least three scenarios with a query and observable expected behaviours, written before the body was extended. | Linter (presence) + judgment (observable, written first) |
+| 12 | Evals exist | `evals/evals.json` holds at least three cases, each with a prompt and at least two observable expected and two forbidden behaviours, written before the body was extended. | Linter (presence) + judgment (observable, written first) |
 | 13 | Token budget | `SKILL.md` is under 150 lines and, in a skill with more than one route, every route loads less than half of the bundled bytes, as the linter reports. | Linter |
 
 ## Output

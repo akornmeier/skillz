@@ -291,7 +291,7 @@ def lint_skill(skill_dir):
     evals_path = os.path.join(skill_dir, "evals", "evals.json")
     if not os.path.isfile(evals_path):
         add("evals-missing", "WARN", "no evals/evals.json",
-            "write three scenarios (query + expected_behavior) before extending the body")
+            "write three cases (prompt + expected and forbidden behaviours) before extending the body")
     summary["fail"] = sum(1 for x in F if x.level == "FAIL")
     summary["warn"] = sum(1 for x in F if x.level == "WARN")
     return F, summary

@@ -1,50 +1,60 @@
 {
-  "scenarios": [
+  "schema": 1,
+  "skill": "authoring-skills",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
     {
-      "id": "A-create",
-      "skills": [
-        "authoring-skills"
+      "id": "authoring-skills-create",
+      "summary": "Creates a new skill evals-first and lints it clean.",
+      "setup": "Use a disposable project workspace and a disposable skills root containing only authoring-skills; no smoke-test skill exists yet. Expose it to automatic discovery; do not force-load it.",
+      "prompt": "make me a skill that runs our smoke tests",
+      "expectedBehavior": [
+        "Fires from the description alone, with no slash command.",
+        "Writes evals/evals.json for the new skill before writing its SKILL.md body.",
+        "The new skill's description is third person and states both what it does and when to use it.",
+        "The new skill's name matches its directory name.",
+        "Runs scripts/lint_skill.py on the new skill and the run exits 0.",
+        "Reads only the sections of references/authoring-guidelines.md that its Contents list names for the decisions at hand."
       ],
-      "query": "make me a skill that runs our smoke tests",
-      "files": [],
-      "expected_behavior": [
-        "Fires from the description alone, with no slash command",
-        "Writes evals/evals.json for the new skill before writing its SKILL.md body",
-        "The new skill's description is third person and states both what it does and when to use it",
-        "The new skill's name matches its directory name",
-        "Runs scripts/lint_skill.py on the new skill and the run exits 0",
-        "Reads only the sections of references/authoring-guidelines.md that its Contents list names for the decisions at hand, not the whole file unconditionally"
+      "forbiddenBehavior": [
+        "Reads the whole of references/authoring-guidelines.md unconditionally.",
+        "Writes the new skill's SKILL.md body before its evals/evals.json."
       ]
     },
     {
-      "id": "B-improve",
-      "skills": [
-        "authoring-skills"
+      "id": "authoring-skills-improve",
+      "summary": "Shrinks an existing skill using linter numbers and the rubric.",
+      "setup": "Use a disposable skills root containing authoring-skills and a copy of this repository's skills/thermo-nuclear-code-quality-review as the target fixture. Expose it to automatic discovery; do not force-load it.",
+      "prompt": "make thermo-nuclear-code-quality-review more token efficient",
+      "expectedBehavior": [
+        "Runs scripts/lint_skill.py on the target before editing anything.",
+        "Reads references/review-rubric.md and records a verdict for every dimension.",
+        "Reports forced tokens before and after, using the linter's numbers.",
+        "Every instruction cut is one the model would follow unprompted."
       ],
-      "query": "make thermo-nuclear-code-quality-review more token efficient",
-      "files": [
-        "~/.agents/skills/thermo-nuclear-code-quality-review/SKILL.md"
-      ],
-      "expected_behavior": [
-        "Runs scripts/lint_skill.py on the target before editing anything",
-        "Reads references/review-rubric.md and records a verdict for every dimension",
-        "Reports forced tokens before and after, using the linter's numbers",
-        "Every instruction cut is one the model would follow unprompted",
-        "No instruction that is an opinion of the skill's author is removed"
+      "forbiddenBehavior": [
+        "Removes an instruction that is an opinion of the skill's author.",
+        "Edits the target before running the linter on it."
       ]
     },
     {
-      "id": "C-audit",
-      "skills": [
-        "authoring-skills"
+      "id": "authoring-skills-audit",
+      "summary": "Health-checks a skills root with one linter pass and grades only flagged skills.",
+      "setup": "Use a disposable skills root, configured as the root the linter scans, holding authoring-skills plus copies of several skills of which at least one is FLAGGED and at least one is CLEAN by the linter. Expose it to automatic discovery; do not force-load it.",
+      "prompt": "audit my skills",
+      "expectedBehavior": [
+        "Runs scripts/lint_skill.py once across the skills root rather than once per skill.",
+        "Reports the worst skill first.",
+        "Grades only FLAGGED skills against the rubric.",
+        "States how many skills were graded versus only scanned."
       ],
-      "query": "audit my skills",
-      "files": [],
-      "expected_behavior": [
-        "Runs scripts/lint_skill.py once across ~/.agents/skills rather than once per skill",
-        "Reports the worst skill first",
-        "Grades only FLAGGED skills against the rubric",
-        "States how many skills were graded versus only scanned"
+      "forbiddenBehavior": [
+        "Runs scripts/lint_skill.py separately for each skill.",
+        "Grades CLEAN skills against the rubric or implies they passed it."
       ]
     }
   ],
