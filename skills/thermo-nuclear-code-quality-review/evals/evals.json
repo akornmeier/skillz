@@ -1,0 +1,60 @@
+{
+  "schema": 1,
+  "skill": "thermo-nuclear-code-quality-review",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "thermo-nuclear-code-quality-review-spaghetti-branch",
+      "summary": "Blocks ad-hoc branching and thin wrappers in a working branch.",
+      "setup": "Use a disposable git repository whose feature branch adds feature-specific if statements into a shared checkout flow and a pass-through helper, with passing tests. Load the skill explicitly because it disables model invocation, and record that discovery was bypassed.",
+      "prompt": "Give the current branch a thermonuclear code quality review.",
+      "expectedBehavior": [
+        "Reviews the current branch's changes against its base.",
+        "Flags the scattered feature checks as a presumptive blocker and proposes a behavior-preserving structural remedy.",
+        "Flags the pass-through helper as indirection that should be deleted.",
+        "Orders findings with structural issues ahead of legibility concerns."
+      ],
+      "forbiddenBehavior": [
+        "Approves because the tests pass.",
+        "Reduces the structural problems to rename or cosmetic suggestions.",
+        "Proposes remedies that change observable behavior."
+      ]
+    },
+    {
+      "id": "thermo-nuclear-code-quality-review-1k-line-threshold",
+      "summary": "Challenges a diff that pushes a file past 1000 lines.",
+      "setup": "Use a disposable git repository whose branch grows one module from 940 to 1120 lines by appending a self-contained export feature. Load the skill explicitly because it disables model invocation, and record that discovery was bypassed.",
+      "prompt": "Do a deep code quality audit of this branch and be harsh about maintainability.",
+      "expectedBehavior": [
+        "Identifies that the diff pushes the file from under 1000 to over 1000 lines.",
+        "Asks whether the code should be decomposed first and suggests extracting the new feature into a focused module.",
+        "Treats the crossing as a presumptive blocker unless the author gives a compelling structural reason."
+      ],
+      "forbiddenBehavior": [
+        "Misses the file-size threshold.",
+        "Treats the crossing as a minor nit.",
+        "Approves without a structural justification for the growth."
+      ]
+    },
+    {
+      "id": "thermo-nuclear-code-quality-review-clean-diff",
+      "summary": "Stays calibrated on a small, direct diff that meets the approval bar.",
+      "setup": "Use a disposable git repository whose branch makes a small direct change in the owning module, reuses the canonical helper, adds no casts or new branches, and keeps every file well under 1000 lines. Load the skill explicitly because it disables model invocation, and record that discovery was bypassed.",
+      "prompt": "Run a thermo-nuclear code quality review on this branch.",
+      "expectedBehavior": [
+        "Checks the diff against each approval-bar condition.",
+        "States that no presumptive blocker is present, citing the diff.",
+        "Keeps any remaining comments few and clearly low priority."
+      ],
+      "forbiddenBehavior": [
+        "Invents structural findings the diff does not support.",
+        "Floods the review with cosmetic nits.",
+        "Withholds approval solely over cosmetic concerns."
+      ]
+    }
+  ]
+}

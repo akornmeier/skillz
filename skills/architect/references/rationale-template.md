@@ -16,7 +16,7 @@ _The recommended architecture. Data structures first. Then how data flows throug
 
 ## Synthesis decision
 
-_Filled in by [arena](../../arena/SKILL.md). Records which candidate became the base and why, what was adapted from each of the others, and what was rejected and why._
+_Filled in by the **arena** skill. Records which candidate became the base and why, what was adapted from each of the others, and what was rejected and why._
 
 ## Tradeoffs accepted
 

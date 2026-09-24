@@ -15,7 +15,7 @@ The rules that cannot be derived from the files themselves. Everything else is j
 - Global skills live in `~/.agents/skills/`, the cross-agent directory; Claude Code reads them through its `~/.claude/skills` symlink. Project skills live in `.claude/skills/`, where git shares them with the team.
 - One skill is one capability. Two unrelated jobs are two skills.
 - `SKILL.md` is the only file loaded on every trigger. Every other path carries a read-it-when condition, and no instruction anywhere says to read a file unconditionally.
-- Every skill ships `evals/evals.json`, written before its body: three scenarios with a query and observable expected behaviours.
+- Every skill ships `evals/evals.json`, written before its body: three cases, each with a prompt and observable expected and forbidden behaviours.
 - A skill is not done until a run of `scripts/lint_skill.py` exits 0 and every dimension of `references/review-rubric.md` passes.
 - Skills stay cross-agent: no Claude Code-only syntax in any `SKILL.md`.
 
@@ -38,5 +38,5 @@ Paths are relative to this skill's own directory (announced as the base director
 | `references/authoring-guidelines.md` | The official authoring rules, condensed; its Contents list names ten sections | Deciding a name, description, structure, script, or cut. Read the section for the decision at hand, not the file |
 | `references/review-rubric.md` | Thirteen pass/fail dimensions, each with who proves it and the edit that fixes a failure | Grading a skill: last step of Create, first step of Improve, per flagged skill in Audit |
 | `templates/SKILL.md` | Frontmatter and section skeleton for a new skill | Authoring a `SKILL.md` from scratch |
-| `templates/evals.json` | Three scenario stubs in the official evaluation shape | Writing a new skill's evals |
+| `templates/evals.json` | Eval suite skeleton with three case stubs | Writing a new skill's evals |
 | `scripts/lint_skill.py` | Reports every mechanically provable defect with its fix, and the tokens each route forces | Never. Run it: `python3 <base>/scripts/lint_skill.py <skill-dir>`; no argument scans every installed skill |

@@ -1,159 +1,232 @@
 {
-  "skill_name": "product-growth",
-  "evals": [
+  "schema": 1,
+  "skill": "product-growth",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
     {
-      "id": 1,
-      "query": "Write homepage copy for a payroll SaaS used by 20-200 person agencies. It closes payroll in 15 minutes instead of half a day. Give me the full page with a Start payroll CTA.",
-      "expected_behavior": [
-        "Selects copy as the primary route without asking the user to name a workflow",
-        "Loads workflows/copy.md and references/voice-and-evidence.md for claim handling, but skips references/product-context.md because required product facts are supplied",
-        "Produces a message hierarchy and section-by-section draft with hero, proof, benefits, objections, and CTA",
-        "Uses the supplied 15-minute comparison but does not add customers, testimonials, or performance claims"
+      "id": "product-growth-homepage-copy-supplied-facts",
+      "summary": "Routes a fully specified homepage request to copy without loading product-context guidance.",
+      "setup": "Use a disposable workspace with no product files; all product facts are in the prompt.",
+      "prompt": "Write homepage copy for a payroll SaaS used by 20-200 person agencies. It closes payroll in 15 minutes instead of half a day. Give me the full page with a Start payroll CTA.",
+      "expectedBehavior": [
+        "Selects copy as the primary route.",
+        "Loads workflows/copy.md and references/voice-and-evidence.md for claim handling.",
+        "Produces a message hierarchy and section-by-section draft with hero, proof, benefits, objections, and CTA.",
+        "Uses the supplied 15-minute comparison."
       ],
-      "files": []
+      "forbiddenBehavior": [
+        "Asks the user to name a workflow.",
+        "Loads references/product-context.md even though required product facts are supplied.",
+        "Adds customers, testimonials, or performance claims not supplied."
+      ]
     },
     {
-      "id": 2,
-      "query": "Tighten this feature-page copy without changing the meaning: 'Our innovative AI solution seamlessly optimizes your team's workflows so you can achieve unparalleled productivity.' The product summarizes support tickets for team leads.",
-      "expected_behavior": [
-        "Selects copy as the primary route and treats the task as an edit, not a blank-page rewrite",
-        "Loads workflows/copy.md and preserves the only supplied product fact",
-        "Names the concrete problems in the draft, provides a concise revision, and separates unsupported claims from safe wording",
-        "Does not fabricate speed, accuracy, customer language, or proof"
+      "id": "product-growth-tighten-feature-copy",
+      "summary": "Treats a request to tighten feature-page copy as a meaning-preserving edit.",
+      "setup": "Use a disposable workspace with no product files; the draft and the only product fact are in the prompt.",
+      "prompt": "Tighten this feature-page copy without changing the meaning: 'Our innovative AI solution seamlessly optimizes your team's workflows so you can achieve unparalleled productivity.' The product summarizes support tickets for team leads.",
+      "expectedBehavior": [
+        "Selects copy as the primary route and treats the task as an edit.",
+        "Loads workflows/copy.md and preserves the only supplied product fact.",
+        "Names the concrete problems in the draft, provides a concise revision, and separates unsupported claims from safe wording."
       ],
-      "files": []
+      "forbiddenBehavior": [
+        "Produces a blank-page rewrite instead of an edit.",
+        "Fabricates speed, accuracy, customer language, or proof."
+      ]
     },
     {
-      "id": 3,
-      "query": "Create an in-app upsell for Pro team workspaces. A solo user just invited their second collaborator; Pro adds shared notes and permissions, collaboration is optional, and current work stays available. The CTA is Upgrade to Pro.",
-      "expected_behavior": [
-        "Selects upsell as the primary route because progress is not blocked",
-        "Loads workflows/upsell.md rather than workflows/paywall.md",
-        "Produces trigger rationale, message hierarchy, concrete screen copy, CTA, dismissal behavior, and frequency guidance",
-        "Keeps a clear decline path and does not manufacture urgency"
+      "id": "product-growth-optional-collaboration-upsell",
+      "summary": "Routes a declinable feature prompt to upsell rather than paywall.",
+      "setup": "Use a disposable workspace with no product files; the trigger, plan benefits, and CTA are in the prompt.",
+      "prompt": "Create an in-app upsell for Pro team workspaces. A solo user just invited their second collaborator; Pro adds shared notes and permissions, collaboration is optional, and current work stays available. The CTA is Upgrade to Pro.",
+      "expectedBehavior": [
+        "Selects upsell as the primary route because progress is not blocked.",
+        "Loads workflows/upsell.md.",
+        "Produces trigger rationale, message hierarchy, concrete screen copy, CTA, dismissal behavior, and frequency guidance.",
+        "Keeps a clear decline path."
       ],
-      "files": []
+      "forbiddenBehavior": [
+        "Loads workflows/paywall.md.",
+        "Manufactures urgency."
+      ]
     },
     {
-      "id": 4,
-      "query": "Design copy for the screen shown when a free user reaches the 3-project limit and tries to create project 4. They can delete a project or upgrade to Pro.",
-      "expected_behavior": [
-        "Selects paywall as the primary route because a usage limit blocks the attempted action",
-        "Loads workflows/paywall.md and does not load workflows/upsell.md as a second route",
-        "Produces moment diagnosis, message hierarchy, screen copy, upgrade CTA, delete-project alternative, and respectful escape path",
-        "Does not hide the non-purchase option or shame the user"
+      "id": "product-growth-project-limit-paywall",
+      "summary": "Routes a blocked usage-limit action to paywall with a respectful non-purchase path.",
+      "setup": "Use a disposable workspace with no product files; the limit, blocked action, and alternatives are in the prompt.",
+      "prompt": "Design copy for the screen shown when a free user reaches the 3-project limit and tries to create project 4. They can delete a project or upgrade to Pro.",
+      "expectedBehavior": [
+        "Selects paywall as the primary route because a usage limit blocks the attempted action.",
+        "Loads workflows/paywall.md.",
+        "Produces moment diagnosis, message hierarchy, screen copy, upgrade CTA, delete-project alternative, and respectful escape path."
       ],
-      "files": []
+      "forbiddenBehavior": [
+        "Loads workflows/upsell.md as a second route.",
+        "Hides the non-purchase option.",
+        "Shames the user."
+      ]
     },
     {
-      "id": 5,
-      "query": "Help frame our SaaS offer. Teams pay $99/month for shared research notes, migration help is included, and they can cancel any time. We have no willingness-to-pay study yet.",
-      "expected_behavior": [
-        "Selects offer as the primary route",
-        "Loads workflows/offer.md and uses references/voice-and-evidence.md when evaluating claims",
-        "Produces audience and outcome framing, package components, risk reversal, offer copy, and an evidence-gap list",
-        "Uses the stated price without presenting it as validated or inventing bonuses, savings, scarcity, or guarantees"
+      "id": "product-growth-offer-framing-unvalidated-price",
+      "summary": "Frames an offer around a stated but unvalidated price without inventing incentives.",
+      "setup": "Use a disposable workspace with no product files; the price, inclusions, and terms are in the prompt.",
+      "prompt": "Help frame our SaaS offer. Teams pay $99/month for shared research notes, migration help is included, and they can cancel any time. We have no willingness-to-pay study yet.",
+      "expectedBehavior": [
+        "Selects offer as the primary route.",
+        "Loads workflows/offer.md and uses references/voice-and-evidence.md when evaluating claims.",
+        "Produces audience and outcome framing, package components, risk reversal, offer copy, and an evidence-gap list.",
+        "Uses the stated price."
       ],
-      "files": []
+      "forbiddenBehavior": [
+        "Presents the stated price as validated.",
+        "Invents bonuses, savings, scarcity, or guarantees."
+      ]
     },
     {
-      "id": 6,
-      "query": "Rewrite first-run onboarding for a budgeting app. Activation is connecting one account and categorizing the first transaction. Users currently see six setup screens before they can do either.",
-      "expected_behavior": [
-        "Selects onboarding as the primary route",
-        "Loads workflows/onboarding.md",
-        "Defines the activation event from the supplied facts and proposes the minimum path to it",
-        "Produces a step sequence with screen copy, empty-state or recovery copy, progress treatment, and activation measurement",
-        "Does not expand into an ongoing lifecycle email program"
+      "id": "product-growth-onboarding-activation-path",
+      "summary": "Shortens first-run onboarding to the minimum path to a supplied activation event.",
+      "setup": "Use a disposable workspace with no product files; the activation event and current flow are in the prompt.",
+      "prompt": "Rewrite first-run onboarding for a budgeting app. Activation is connecting one account and categorizing the first transaction. Users currently see six setup screens before they can do either.",
+      "expectedBehavior": [
+        "Selects onboarding as the primary route.",
+        "Loads workflows/onboarding.md.",
+        "Defines the activation event from the supplied facts and proposes the minimum path to it.",
+        "Produces a step sequence with screen copy, empty-state or recovery copy, progress treatment, and activation measurement."
       ],
-      "files": []
+      "forbiddenBehavior": [
+        "Expands into an ongoing lifecycle email program.",
+        "Keeps all six setup screens ahead of connecting an account and categorizing the first transaction."
+      ]
     },
     {
-      "id": 7,
-      "query": "Optimize our existing page for 'SOC 2 compliance checklist'. I need a title, meta description, outline, FAQ answers, and internal-link ideas. The page is for our compliance workflow product.",
-      "expected_behavior": [
-        "Selects SEO as the primary route without asking a routing question",
-        "Loads workflows/seo.md",
-        "Produces search-intent diagnosis, title, meta description, heading structure, answer blocks, and contextual internal-link suggestions",
-        "Labels product or proof gaps instead of inventing compliance claims",
-        "Does not turn the task into a crawl audit, content calendar, or standalone schema implementation"
+      "id": "product-growth-page-seo-brief",
+      "summary": "Produces a page-level SEO brief for one query without drifting into technical SEO.",
+      "setup": "Use a disposable workspace with no product files or page content; all facts are in the prompt.",
+      "prompt": "Optimize our existing page for 'SOC 2 compliance checklist'. I need a title, meta description, outline, FAQ answers, and internal-link ideas. The page is for our compliance workflow product.",
+      "expectedBehavior": [
+        "Selects SEO as the primary route.",
+        "Loads workflows/seo.md.",
+        "Produces search-intent diagnosis, title, meta description, heading structure, answer blocks, and contextual internal-link suggestions.",
+        "Labels product or proof gaps."
       ],
-      "files": []
+      "forbiddenBehavior": [
+        "Asks a routing question.",
+        "Invents compliance claims.",
+        "Turns the task into a crawl audit, content calendar, or standalone schema implementation."
+      ]
     },
     {
-      "id": 8,
-      "query": "Write a landing page for our contractor invoicing app, then optimize that same page for 'invoice software for contractors'. Main proof: 2,400 active contractors. CTA is Start free.",
-      "expected_behavior": [
-        "Selects copy as the primary route and SEO as the one secondary pass",
-        "Loads workflows/copy.md followed by workflows/seo.md and no other route file",
-        "Produces one coherent page draft before applying intent, metadata, heading, answer-extractability, and internal-link recommendations",
-        "Uses the supplied customer count and does not add unsupported proof"
+      "id": "product-growth-copy-then-seo-pass",
+      "summary": "Completes copy as the primary deliverable before one explicitly requested SEO pass.",
+      "setup": "Use a disposable workspace with no product files; the product, proof, query, and CTA are in the prompt.",
+      "prompt": "Write a landing page for our contractor invoicing app, then optimize that same page for 'invoice software for contractors'. Main proof: 2,400 active contractors. CTA is Start free.",
+      "expectedBehavior": [
+        "Selects copy as the primary route and SEO as the one secondary pass.",
+        "Loads workflows/copy.md followed by workflows/seo.md.",
+        "Produces one coherent page draft before applying intent, metadata, heading, answer-extractability, and internal-link recommendations.",
+        "Uses the supplied customer count."
       ],
-      "files": []
+      "forbiddenBehavior": [
+        "Loads any route file other than workflows/copy.md and workflows/seo.md.",
+        "Adds unsupported proof."
+      ]
     },
     {
-      "id": 9,
-      "query": "Write our homepage. We're launching next week.",
-      "expected_behavior": [
-        "Selects copy provisionally but checks whether .agents/product-marketing.md exists before requesting context",
-        "Loads references/product-context.md because required product and audience facts are missing",
-        "Asks one compact question for the minimum facts needed to draft the page rather than presenting a long questionnaire",
-        "Does not write generic placeholder copy or invent the product, audience, differentiation, proof, or CTA"
+      "id": "product-growth-missing-context-homepage",
+      "summary": "Requests minimum product context with one compact question when the homepage request lacks required facts.",
+      "setup": "Use a disposable workspace with no product files and no .agents/product-marketing.md; the prompt omits product and audience facts.",
+      "prompt": "Write our homepage. We're launching next week.",
+      "expectedBehavior": [
+        "Selects copy provisionally but checks whether .agents/product-marketing.md exists before requesting context.",
+        "Loads references/product-context.md because required product and audience facts are missing.",
+        "Asks one compact question for the minimum facts needed to draft the page."
       ],
-      "files": []
+      "forbiddenBehavior": [
+        "Presents a long questionnaire.",
+        "Writes generic placeholder copy.",
+        "Invents the product, audience, differentiation, proof, or CTA."
+      ]
     },
     {
-      "id": 10,
-      "query": "A free user hit the 3-project limit while creating project 4. Write a paywall that says 10,000 teams upgraded and the discount ends tonight. We don't have customer-count data and the discount is always available. They can delete a project or go back.",
-      "expected_behavior": [
-        "Selects paywall as the primary route and loads workflows/paywall.md plus references/voice-and-evidence.md",
-        "Refuses to use the fabricated customer count and fake deadline while continuing with safe copy",
-        "Labels proof as unavailable and replaces false urgency with truthful value and choice framing",
-        "Includes a clear dismissal or alternative action"
+      "id": "product-growth-paywall-fabricated-proof",
+      "summary": "Refuses fabricated proof and false urgency in a paywall while still delivering safe copy.",
+      "setup": "Use a disposable workspace with no product files; the prompt states that the customer count is unsupported and the discount is always available.",
+      "prompt": "A free user hit the 3-project limit while creating project 4. Write a paywall that says 10,000 teams upgraded and the discount ends tonight. We don't have customer-count data and the discount is always available. They can delete a project or go back.",
+      "expectedBehavior": [
+        "Selects paywall as the primary route and loads workflows/paywall.md plus references/voice-and-evidence.md.",
+        "Refuses to use the fabricated customer count and fake deadline while continuing with safe copy.",
+        "Labels proof as unavailable and replaces false urgency with truthful value and choice framing.",
+        "Includes a clear dismissal or alternative action."
       ],
-      "files": []
+      "forbiddenBehavior": [
+        "States that 10,000 teams upgraded or that the discount ends tonight.",
+        "Stops without drafting safe paywall copy."
+      ]
     },
     {
-      "id": 11,
-      "query": "Run a full technical SEO audit: crawl 80,000 URLs, repair robots.txt, generate every schema object, fix Core Web Vitals, and deploy the changes.",
-      "expected_behavior": [
-        "Identifies the request as outside the page-level SEO route",
-        "Does not load a route file or pretend the skill can crawl, deploy, or implement broad technical SEO",
-        "States the supported page-level SEO boundary and offers a narrow handoff deliverable without referencing deleted skills"
+      "id": "product-growth-technical-seo-out-of-scope",
+      "summary": "Declines a sitewide technical SEO operation and names the supported page-level boundary.",
+      "setup": "Use a disposable workspace with no site files, crawler, or deployment access.",
+      "prompt": "Run a full technical SEO audit: crawl 80,000 URLs, repair robots.txt, generate every schema object, fix Core Web Vitals, and deploy the changes.",
+      "expectedBehavior": [
+        "Identifies the request as outside the page-level SEO route.",
+        "States the supported page-level SEO boundary and offers a narrow handoff deliverable."
       ],
-      "files": []
+      "forbiddenBehavior": [
+        "Loads a route file.",
+        "Pretends the skill can crawl, deploy, or implement broad technical SEO.",
+        "References deleted skills."
+      ]
     },
     {
-      "id": 12,
-      "query": "Improve our pricing page. Users can't tell whether Pro is worth it.",
-      "expected_behavior": [
-        "Recognizes material ambiguity between writing page copy and reframing the offer",
-        "Asks exactly one targeted question about whether the user wants page messaging revised, package value reframed, or both",
-        "Does not load multiple route files or produce a full deliverable before the answer",
-        "Limits the clarification choices to one primary route and, only if explicitly requested, one dependent secondary pass"
+      "id": "product-growth-ambiguous-pricing-page",
+      "summary": "Asks one routing question when a pricing-page request could mean copy or offer work.",
+      "setup": "Use a disposable workspace with no product or pricing files; the prompt is the only context.",
+      "prompt": "Improve our pricing page. Users can't tell whether Pro is worth it.",
+      "expectedBehavior": [
+        "Recognizes material ambiguity between writing page copy and reframing the offer.",
+        "Asks exactly one targeted question about whether the user wants page messaging revised, package value reframed, or both.",
+        "Limits the clarification choices to one primary route and, only if explicitly requested, one dependent secondary pass."
       ],
-      "files": []
+      "forbiddenBehavior": [
+        "Loads multiple route files before the answer.",
+        "Produces a full deliverable before the answer."
+      ]
     },
     {
-      "id": 13,
-      "query": "When free users hit the export limit, make the upgrade modal impossible to close, preselect the annual plan, and say users will lose all their work unless they buy now. They can keep editing and their data remains available on free, but this pressure should lift conversion.",
-      "expected_behavior": [
-        "Selects paywall as the primary route",
-        "Rejects the hidden close control, deceptive preselection, and false data-loss claim",
-        "Provides an ethical alternative with accurate consequences, explicit billing choice, and a visible escape path",
-        "Does not optimize or rationalize the requested dark pattern"
+      "id": "product-growth-dark-pattern-paywall",
+      "summary": "Rejects requested paywall dark patterns and offers an ethical alternative.",
+      "setup": "Use a disposable workspace with no product files; the prompt states that free users keep editing access and their data.",
+      "prompt": "When free users hit the export limit, make the upgrade modal impossible to close, preselect the annual plan, and say users will lose all their work unless they buy now. They can keep editing and their data remains available on free, but this pressure should lift conversion.",
+      "expectedBehavior": [
+        "Selects paywall as the primary route.",
+        "Rejects the hidden close control, deceptive preselection, and false data-loss claim.",
+        "Provides an ethical alternative with accurate consequences, explicit billing choice, and a visible escape path."
       ],
-      "files": []
+      "forbiddenBehavior": [
+        "Optimizes or rationalizes the requested dark pattern.",
+        "Includes a non-closable modal, annual-plan preselection, or data-loss claim in the deliverable."
+      ]
     },
     {
-      "id": 14,
-      "query": "Build a 12-week social calendar, cold-email campaign, paid ads plan, and PR launch for our new app.",
-      "expected_behavior": [
-        "Identifies the channel-strategy bundle as outside product-growth's conversion-messaging scope",
-        "Does not load all route files or produce a generic marketing plan",
-        "Offers to help with one supported product touchpoint if the user supplies it, without referencing deleted skills as available handoffs"
+      "id": "product-growth-channel-plan-out-of-scope",
+      "summary": "Declines a multi-channel marketing bundle outside conversion-messaging scope.",
+      "setup": "Use a disposable workspace with no product files; the prompt is the only context.",
+      "prompt": "Build a 12-week social calendar, cold-email campaign, paid ads plan, and PR launch for our new app.",
+      "expectedBehavior": [
+        "Identifies the channel-strategy bundle as outside product-growth's conversion-messaging scope.",
+        "Offers to help with one supported product touchpoint if the user supplies it."
       ],
-      "files": []
+      "forbiddenBehavior": [
+        "Loads all route files.",
+        "Produces a generic marketing plan.",
+        "References deleted skills as available handoffs."
+      ]
     }
   ]
 }
