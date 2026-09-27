@@ -29,6 +29,7 @@ evals/
 ## Management
 
 - Pi discovers these skills automatically; no `settings.json` mapping is required.
+- When this repository is cloned elsewhere, `scripts/link-skills.sh` symlinks each skill into `~/.agents/skills` (Pi) and `~/.claude/skills` (Claude Code), and prunes links to skills removed from the repository. Pass `-n` for a dry run or other directories as arguments. Run it once with `--install-hooks` to relink automatically after every `git pull`, merge or rebase.
 - Keep project-specific configuration in the project that consumes a skill rather than modifying the installed skill package.
 - `.skill-lock.json` retains installer metadata for third-party skills. Locally maintained skills in this repository are intentionally not lock-managed.
 - Generated dependencies and caches are ignored. A skill with a package manifest should install its dependencies within its own directory.
