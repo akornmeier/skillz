@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan: Authoring-skills tuning loop</title>
+<style>
+  /* ===== VISUAL IDENTITY =====
+     Source of truth for this page AND every inline SVG in it. Diagrams reference
+     these roles via var() and never hardcode hex. */
+  :root {
+    --bg:            #f7f8f6;
+    --paper-2:       #ffffff;
+    --ink:           #1a1d1b;
+    --muted:         #585e5a;
+    --soft:          #878d89;
+    --rule:          rgba(26, 29, 27, 0.12);
+    --rule-solid:    #dfe3e0;
+    --accent:        #2f6f5e;
+    --accent-tint:   rgba(47, 111, 94, 0.09);
+
+    --sans:  'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --mono:  'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --serif: ui-serif, 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 4rem 1.5rem 6rem;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  main { max-width: 60rem; margin: 0 auto; }
+
+  h1 {
+    font-family: var(--serif);
+    font-size: 2.5rem;
+    font-weight: 400;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    margin: 0 0 1rem;
+  }
+  h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    margin: 3.5rem 0 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  h3 { font-size: 1.0625rem; font-weight: 600; margin: 2rem 0 0.5rem; }
+  h4 {
+    font-family: var(--mono);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 1.5rem 0 0.5rem;
+  }
+  p  { margin: 0 0 1rem; max-width: 46rem; }
+  a  { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.85em;
+    background: rgba(26, 29, 27, 0.05);
+    border-radius: 4px;
+    padding: 0.1em 0.35em;
+  }
+  pre {
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 1rem 1.25rem;
+    overflow-x: auto;
+    font-size: 0.8125rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+
+  /* --- header + metadata --- */
+  header { margin-bottom: 2.5rem; }
+  details.meta {
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    background: var(--paper-2);
+    padding: 0.625rem 1rem;
+    font-size: 0.8125rem;
+  }
+  details.meta summary {
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  details.meta dl {
+    display: grid;
+    grid-template-columns: 8rem 1fr;
+    gap: 0.25rem 1rem;
+    margin: 0.875rem 0 0.25rem;
+  }
+  details.meta dt {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--soft);
+    padding-top: 0.15rem;
+  }
+  details.meta dd { margin: 0; color: var(--muted); font-family: var(--mono); font-size: 0.75rem; word-break: break-word; }
+
+  /* --- figures --- */
+  figure {
+    margin: 2rem auto;
+    padding: 0;
+    text-align: center;
+  }
+  figure svg, figure img { display: block; width: 100%; max-width: 100%; height: auto; margin: 0 auto; }
+  figcaption {
+    margin-top: 0.875rem;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--soft);
+    max-width: 40rem;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  figure svg text { font-family: var(--sans); }
+  figure svg .mono { font-family: var(--mono); }
+
+  /* --- tables --- */
+  table { border-collapse: collapse; width: 100%; font-size: 0.875rem; margin: 0 0 1rem; }
+  th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--soft);
+    font-weight: 500;
+  }
+  td code { white-space: nowrap; }
+
+  /* --- relevant files --- */
+  .files ul { list-style: none; padding: 0; margin: 0 0 1rem; }
+  .files li { padding: 0.375rem 0; border-bottom: 1px solid var(--rule); font-size: 0.9375rem; }
+  .tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-radius: 2px;
+    padding: 0.1rem 0.35rem;
+    margin-right: 0.4rem;
+    border: 1px solid;
+  }
+  .tag.existing { color: var(--muted); border-color: var(--rule-solid); }
+  .tag.new      { color: var(--accent); border-color: var(--accent); background: var(--accent-tint); }
+
+  /* --- phases --- */
+  .phase {
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 1.25rem 1.5rem 1.5rem;
+    margin: 1.5rem 0;
+  }
+  .phase h3 { margin-top: 0.25rem; }
+  ul.checklist { list-style: none; padding: 0; margin: 0 0 1rem; }
+  ul.checklist li { padding: 0.25rem 0; font-size: 0.9375rem; line-height: 1.55; }
+  code.status {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--soft);
+    background: none;
+    padding: 0;
+    margin-right: 0.4rem;
+  }
+  .loop {
+    border-left: 2px solid var(--accent);
+    background: var(--accent-tint);
+    border-radius: 0 4px 4px 0;
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+  .loop strong { color: var(--ink); }
+
+  /* --- questionables / notes / amendments --- */
+  #questionables details, #notes details, #amendments details {
+    border-bottom: 1px solid var(--rule);
+    padding: 0.625rem 0;
+  }
+  #questionables summary, #notes summary, #amendments summary {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9375rem;
+  }
+  .qa-answer, #amendments details p { margin: 0.5rem 0 0; color: var(--muted); font-size: 0.9375rem; }
+</style>
+</head>
+<body>
+<main>
+
+  <!-- ===== HEADER + UPDATABLE METADATA ===== -->
+  <header>
+    <h1>Plan: Authoring-skills tuning loop</h1>
+    <details class="meta">
+      <summary>Metadata</summary>
+      <dl>
+        <dt>created</dt>      <dd>2026-10-08T15:51:09Z</dd>
+        <dt>modified</dt>     <dd>2026-10-08T15:51:09Z; 2026-10-08T16:26:48Z</dd>
+        <dt>commits</dt>      <dd>b2cd6da (HEAD at planning time); e9af550 (feat(authoring-skills): add observed tuning loop, phases 1–4)</dd>
+        <dt>agent name</dt>   <dd>Claude Fable 5.1 (Claude Code); Claude Fable 5.1 (Claude Code, build)</dd>
+        <dt>session id</dt>   <dd>2ab62f78-42d0-4417-a162-b88fa5d18f3a; 91f90725-c2d4-4fe0-bcd6-d94f966d9ca6 (build)</dd>
+        <dt>back refs</dt>    <dd>SKILL-AUTHORING-REVIEW.md; https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices</dd>
+        <dt>forward refs</dt> <dd>none</dd>
+      </dl>
+    </details>
+  </header>
+
+  <figure>
+    <svg viewBox="0 0 960 300" role="img" aria-labelledby="hero-t hero-d">
+      <title id="hero-t">Static review becomes an observed tuning loop</title>
+      <desc id="hero-d">Left: the current Improve route runs lint, grade, subtract, redistribute and report once. Right: the upgraded route adds an observe, diagnose, refine, retest cycle driven by a fresh session using the skill on a real task.</desc>
+      <g font-size="13" fill="var(--ink)">
+        <text x="40" y="36" font-weight="600">Today: one static pass</text>
+        <g class="mono" font-size="12" text-anchor="middle">
+          <rect x="40" y="60" width="88" height="40" rx="6" fill="var(--paper-2)" stroke="var(--rule-solid)"/><text x="84" y="85">lint</text>
+          <rect x="148" y="60" width="88" height="40" rx="6" fill="var(--paper-2)" stroke="var(--rule-solid)"/><text x="192" y="85">grade</text>
+          <rect x="256" y="60" width="88" height="40" rx="6" fill="var(--paper-2)" stroke="var(--rule-solid)"/><text x="300" y="85">subtract</text>
+          <rect x="364" y="60" width="88" height="40" rx="6" fill="var(--paper-2)" stroke="var(--rule-solid)"/><text x="408" y="85">report</text>
+          <path d="M128 80 H148 M236 80 H256 M344 80 H364" stroke="var(--soft)" stroke-width="1.5"/>
+        </g>
+        <text x="40" y="140" fill="var(--muted)" font-size="12">Nothing in the route watches a fresh instance use the skill.</text>
+
+        <text x="520" y="36" font-weight="600">After: the static pass, then an observed loop</text>
+        <g class="mono" font-size="12" text-anchor="middle">
+          <rect x="520" y="60" width="88" height="40" rx="6" fill="var(--paper-2)" stroke="var(--rule-solid)"/><text x="564" y="85">static pass</text>
+          <path d="M608 80 H640" stroke="var(--soft)" stroke-width="1.5"/>
+          <circle cx="760" cy="170" r="96" fill="none" stroke="var(--rule-solid)" stroke-width="1.5" stroke-dasharray="4 4"/>
+          <rect x="716" y="56" width="88" height="34" rx="6" fill="var(--accent-tint)" stroke="var(--accent)"/><text x="760" y="78" fill="var(--ink)">observe</text>
+          <rect x="836" y="152" width="88" height="34" rx="6" fill="var(--accent-tint)" stroke="var(--accent)"/><text x="880" y="174" fill="var(--ink)">diagnose</text>
+          <rect x="716" y="250" width="88" height="34" rx="6" fill="var(--accent-tint)" stroke="var(--accent)"/><text x="760" y="272" fill="var(--ink)">refine</text>
+          <rect x="596" y="152" width="88" height="34" rx="6" fill="var(--accent-tint)" stroke="var(--accent)"/><text x="640" y="174" fill="var(--ink)">retest</text>
+          <path d="M808 88 L836 150" stroke="var(--accent)" stroke-width="1.5"/>
+          <path d="M836 188 L808 248" stroke="var(--accent)" stroke-width="1.5"/>
+          <path d="M712 250 L684 188" stroke="var(--accent)" stroke-width="1.5"/>
+          <path d="M684 150 L712 92" stroke="var(--accent)" stroke-width="1.5"/>
+        </g>
+        <text x="760" y="176" text-anchor="middle" fill="var(--muted)" font-size="11">fresh session,</text>
+        <text x="760" y="192" text-anchor="middle" fill="var(--muted)" font-size="11">real task</text>
+      </g>
+    </svg>
+    <figcaption>The Improve route keeps its static pass and gains the doc's observe, diagnose, refine, retest cycle.</figcaption>
+  </figure>
+
+  <!-- ===== PURPOSE / PROBLEM / SOLUTION ===== -->
+  <section id="purpose">
+    <h2>Purpose</h2>
+    <p>Bring <code>skills/authoring-skills</code> up to the current Anthropic skill-authoring best practices so it is the one place this repository goes to tune and improve an existing skill. The user chose to update the existing skill rather than add a second meta-skill.</p>
+  </section>
+
+  <section id="problem">
+    <h2>Problem</h2>
+    <p>Most of the live guidance is already captured: the condensed reference, the linter's 26 checks, and the 13-dimension rubric cover frontmatter, naming, descriptions, progressive disclosure, feedback loops, content rules, and script hygiene. What is missing is the doc's core procedure for improving a skill that already exists: use it with a fresh instance on real work, watch how that instance navigates the files, bring specific observations back, refine, and test again. The Improve route today is a single static pass. It lints, grades, cuts, redistributes, and reports without ever running the skill. The navigation signals the doc names (unexpected read order, missed references, a file read on every run, a file never read) have no tool that extracts them from a transcript, so the last eval round extracted them by hand.</p>
+    <figure>
+      <svg viewBox="0 0 960 230" role="img" aria-labelledby="prob-t prob-d">
+        <title id="prob-t">Coverage of the live doc by the current skill</title>
+        <desc id="prob-d">Twelve doc topics drawn as boxes. Nine are filled, meaning they are covered by the guidelines reference, linter, or rubric. Three are outlined only: iterating on existing skills, observing navigation, and the per-model test matrix.</desc>
+        <g font-size="12" text-anchor="middle" fill="var(--ink)">
+          <rect x="20" y="30" width="140" height="44" rx="6" fill="var(--accent-tint)" stroke="var(--accent)"/><text x="90" y="57">Conciseness</text>
+          <rect x="175" y="30" width="140" height="44" rx="6" fill="var(--accent-tint)" stroke="var(--accent)"/><text x="245" y="57">Degrees of freedom</text>
+          <rect x="330" y="30" width="140" height="44" rx="6" fill="var(--accent-tint)" stroke="var(--accent)"/><text x="400" y="57">Frontmatter, naming</text>
+          <rect x="485" y="30" width="140" height="44" rx="6" fill="var(--accent-tint)" stroke="var(--accent)"/><text x="555" y="57">Descriptions</text>
+          <rect x="640" y="30" width="140" height="44" rx="6" fill="var(--accent-tint)" stroke="var(--accent)"/><text x="710" y="57">Progressive disclosure</text>
+          <rect x="795" y="30" width="140" height="44" rx="6" fill="var(--accent-tint)" stroke="var(--accent)"/><text x="865" y="57">Workflows, loops</text>
+
+          <rect x="20" y="100" width="140" height="44" rx="6" fill="var(--accent-tint)" stroke="var(--accent)"/><text x="90" y="127">Content rules</text>
+          <rect x="175" y="100" width="140" height="44" rx="6" fill="var(--accent-tint)" stroke="var(--accent)"/><text x="245" y="127">Evals first</text>
+          <rect x="330" y="100" width="140" height="44" rx="6" fill="var(--accent-tint)" stroke="var(--accent)"/><text x="400" y="127">Scripts, runtime</text>
+          <rect x="485" y="100" width="140" height="44" rx="6" fill="var(--paper-2)" stroke="var(--ink)" stroke-dasharray="5 3"/><text x="555" y="121">Iterating on</text><text x="555" y="136">existing skills</text>
+          <rect x="640" y="100" width="140" height="44" rx="6" fill="var(--paper-2)" stroke="var(--ink)" stroke-dasharray="5 3"/><text x="710" y="121">Observing</text><text x="710" y="136">navigation</text>
+          <rect x="795" y="100" width="140" height="44" rx="6" fill="var(--paper-2)" stroke="var(--ink)" stroke-dasharray="5 3"/><text x="865" y="121">Per-model</text><text x="865" y="136">test matrix</text>
+        </g>
+        <g font-size="11" fill="var(--muted)">
+          <rect x="20" y="180" width="14" height="14" rx="3" fill="var(--accent-tint)" stroke="var(--accent)"/><text x="42" y="192">covered by guidelines reference, linter, or rubric</text>
+          <rect x="380" y="180" width="14" height="14" rx="3" fill="var(--paper-2)" stroke="var(--ink)" stroke-dasharray="5 3"/><text x="402" y="192">mentioned at most in passing, no procedure or tool</text>
+        </g>
+      </svg>
+      <figcaption>Coverage of the live doc by the current skill. The three dashed topics are what this plan adds.</figcaption>
+    </figure>
+  </section>
+
+  <section id="solution">
+    <h2>Solution</h2>
+    <p>Four coordinated edits inside <code>skills/authoring-skills</code>. First, refresh the condensed guidelines so every section of the live doc has a home. Second, add the tuning loop: a new <code>references/tuning-diagnostics.md</code> that owns the Claude A / Claude B cycle, the four navigation signals, and a symptom-to-edit table, plus a rewritten Improve workflow that ends in an observed run rather than a report. Third, make observation mechanical with <code>scripts/trace_skill_use.py</code>, which reads a fresh-session transcript and prints whether the skill fired, which bundled files were read in what order, which reads were partial, and which files were never opened. Fourth, add a rubric dimension for observed behaviour and a linter check for unjustified script constants, update the skill's own evals, and dogfood the loop on one real target before committing.</p>
+    <figure>
+      <svg viewBox="0 0 960 260" role="img" aria-labelledby="sol-t sol-d">
+        <title id="sol-t">The upgraded Improve route and the files that serve each step</title>
+        <desc id="sol-d">A horizontal flow: locate, lint, grade, subtract, redistribute, then observe, diagnose, refine, retest, report. Under the static steps sit the linter and rubric. Under observe sits the trace script and a fresh session. Under diagnose sits the tuning diagnostics reference.</desc>
+        <g class="mono" font-size="11" text-anchor="middle" fill="var(--ink)">
+          <rect x="20" y="40" width="80" height="36" rx="6" fill="var(--paper-2)" stroke="var(--rule-solid)"/><text x="60" y="62">lint</text>
+          <rect x="112" y="40" width="80" height="36" rx="6" fill="var(--paper-2)" stroke="var(--rule-solid)"/><text x="152" y="62">grade</text>
+          <rect x="204" y="40" width="80" height="36" rx="6" fill="var(--paper-2)" stroke="var(--rule-solid)"/><text x="244" y="62">subtract</text>
+          <rect x="296" y="40" width="80" height="36" rx="6" fill="var(--paper-2)" stroke="var(--rule-solid)"/><text x="336" y="62">redistribute</text>
+          <rect x="388" y="40" width="80" height="36" rx="6" fill="var(--accent-tint)" stroke="var(--accent)"/><text x="428" y="62">observe</text>
+          <rect x="480" y="40" width="80" height="36" rx="6" fill="var(--accent-tint)" stroke="var(--accent)"/><text x="520" y="62">diagnose</text>
+          <rect x="572" y="40" width="80" height="36" rx="6" fill="var(--accent-tint)" stroke="var(--accent)"/><text x="612" y="62">refine</text>
+          <rect x="664" y="40" width="80" height="36" rx="6" fill="var(--accent-tint)" stroke="var(--accent)"/><text x="704" y="62">retest</text>
+          <rect x="756" y="40" width="80" height="36" rx="6" fill="var(--paper-2)" stroke="var(--rule-solid)"/><text x="796" y="62">report</text>
+          <path d="M100 58 H112 M192 58 H204 M284 58 H296 M376 58 H388 M468 58 H480 M560 58 H572 M652 58 H664 M744 58 H756" stroke="var(--soft)" stroke-width="1.5"/>
+          <path d="M704 76 C704 104 428 104 428 76" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="4 3"/>
+          <text x="566" y="124" fill="var(--muted)" font-size="10">until traces match intended routes</text>
+        </g>
+        <g font-size="11" fill="var(--muted)">
+          <path d="M152 76 V150 M428 76 V150 M520 76 V150" stroke="var(--rule-solid)" stroke-width="1" stroke-dasharray="2 3"/>
+          <rect x="60" y="150" width="184" height="60" rx="6" fill="var(--paper-2)" stroke="var(--rule-solid)"/>
+          <text x="152" y="172" text-anchor="middle" fill="var(--ink)" class="mono">lint_skill.py</text>
+          <text x="152" y="190" text-anchor="middle" fill="var(--ink)" class="mono">review-rubric.md</text>
+          <text x="152" y="204" text-anchor="middle" font-size="10">+ dimension 14, script-constants</text>
+          <rect x="336" y="150" width="184" height="60" rx="6" fill="var(--accent-tint)" stroke="var(--accent)"/>
+          <text x="428" y="172" text-anchor="middle" fill="var(--ink)" class="mono">trace_skill_use.py</text>
+          <text x="428" y="190" text-anchor="middle" font-size="10">fresh session, real task,</text>
+          <text x="428" y="204" text-anchor="middle" font-size="10">one run per required profile</text>
+          <rect x="536" y="150" width="184" height="60" rx="6" fill="var(--accent-tint)" stroke="var(--accent)"/>
+          <text x="628" y="172" text-anchor="middle" fill="var(--ink)" class="mono">tuning-diagnostics.md</text>
+          <text x="628" y="190" text-anchor="middle" font-size="10">four navigation signals,</text>
+          <text x="628" y="204" text-anchor="middle" font-size="10">symptom to edit table</text>
+        </g>
+      </svg>
+      <figcaption>The rewritten Improve route. Tinted steps and files are new; the rest already exists.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ===== RELEVANT FILES ===== -->
+  <section id="files" class="files">
+    <h2>Relevant Files</h2>
+
+    <h3>Existing Files</h3>
+    <ul>
+      <li><span class="tag existing">existing</span> <code>skills/authoring-skills/SKILL.md</code> — router; its description, Contracts, and Files table change</li>
+      <li><span class="tag existing">existing</span> <code>skills/authoring-skills/references/authoring-guidelines.md</code> — condensed doc; gains the per-model matrix and platform notes, loses the paragraphs the new reference owns</li>
+      <li><span class="tag existing">existing</span> <code>skills/authoring-skills/references/review-rubric.md</code> — gains dimension 14 and three amended dimensions</li>
+      <li><span class="tag existing">existing</span> <code>skills/authoring-skills/workflows/improve-skill.md</code> — rewritten around the observe, diagnose, refine, retest loop</li>
+      <li><span class="tag existing">existing</span> <code>skills/authoring-skills/workflows/create-skill.md</code> — step 9 points at the trace script for recording files read</li>
+      <li><span class="tag existing">existing</span> <code>skills/authoring-skills/scripts/lint_skill.py</code> — gains the <code>script-constants</code> check</li>
+      <li><span class="tag existing">existing</span> <code>skills/authoring-skills/evals/evals.json</code> — improve case extended, fourth case added</li>
+      <li><span class="tag existing">existing</span> <code>evals/scripts/validate-cases.mjs</code> — run only; proves the eval definitions and local links</li>
+      <li><span class="tag existing">existing</span> <code>evals/run-record.schema.json</code> — shape of the dogfood run record</li>
+      <li><span class="tag existing">existing</span> <code>SKILL-AUTHORING-REVIEW.md</code> — progress list gains one line</li>
+    </ul>
+
+    <h3>New Files</h3>
+    <ul>
+      <li><span class="tag new">new</span> <code>skills/authoring-skills/references/tuning-diagnostics.md</code> — owns the iterate loop, the navigation signals, and the symptom-to-edit table</li>
+      <li><span class="tag new">new</span> <code>skills/authoring-skills/scripts/trace_skill_use.py</code> — turns a transcript into a navigation report</li>
+      <li><span class="tag new">new</span> <code>skills/authoring-skills/evals/fixtures/trace-sample.jsonl</code> — a small stream-json transcript the trace script's self-test and eval setup use</li>
+    </ul>
+  </section>
+
+  <!-- ===== IMPLEMENTATION PHASES ===== -->
+  <section id="phases">
+    <h2>Implementation Phases</h2>
+    <p><strong>IMPORTANT:</strong> Execute every phase and task step by step, in order, top to bottom.</p>
+    <p>Status markers: <code>[]</code> idle · <code>[wip]</code> in progress · <code>[x]</code> complete · <code>[f]</code> failed. All start as <code>[]</code>; the Build Plan workflow updates them as it works.</p>
+
+    <div class="phase">
+      <h3><code class="status">[x]</code> Phase 1: Refresh the guidelines reference</h3>
+      <p>Make <code>references/authoring-guidelines.md</code> a faithful condensation of the live doc, with the paragraphs the new tuning reference will own removed so each idea lives in one file. The doc is already fetched; the coverage map in Notes lists every section and where it lands.</p>
+
+      <h4>1. Add what the doc says and the reference does not</h4>
+      <ul class="checklist">
+        <li><code class="status">[x]</code> In <em>Eval-driven development</em>, replace the single "test with every model" line with the doc's three-question matrix: fast profile, does the skill give enough guidance; balanced, is it clear and efficient; strongest, does it avoid over-explaining. Map the doc's model names to the repo's three capability profiles rather than naming models.</li>
+        <li><code class="status">[x]</code> In <em>Scripts</em>, add the platform note on package installation (claude.ai can install from npm and PyPI; the API code-execution environment cannot and has no network) and the four reasons a bundled script beats generated code.</li>
+        <li><code class="status">[x]</code> In <em>Workflows and feedback loops</em>, add the doc's "when to use" list for plan-validate-execute (batch, destructive, complex validation rules, high stakes) if absent.</li>
+        <li><code class="status">[x]</code> Add "workflows that outgrow a screen move to their own file and are routed from a table" only if that sentence is not already in <em>Progressive disclosure</em>.</li>
+      </ul>
+
+      <h4>2. Move what the tuning reference will own</h4>
+      <ul class="checklist">
+        <li><code class="status">[x]</code> Cut the Claude A / Claude B paragraph and the "watch how B navigates" paragraph from <em>Eval-driven development</em>; Phase 2 recreates them, expanded, in <code>references/tuning-diagnostics.md</code>. Leave one sentence: "Improving a skill from observed runs is the Improve route; its signals and edits are in the tuning reference" so a reader knows where it went without a nested reference link.</li>
+        <li><code class="status">[x]</code> Keep the Contents list accurate: every section listed exists as a heading and every heading is listed.</li>
+      </ul>
+
+      <h4>3. Testing Strategy</h4>
+      <p>Mechanical checks only. The linter proves the reference still has a Contents list and is reachable; the eval validator proves local links; a shell loop proves Contents and headings agree.</p>
+      <ul class="checklist">
+        <li><code class="status">[x]</code> <code>python3 skills/authoring-skills/scripts/lint_skill.py skills/authoring-skills</code> — exits 0</li>
+        <li><code class="status">[x]</code> <code>node evals/scripts/validate-cases.mjs</code> — passes; no broken local link</li>
+        <li><code class="status">[x]</code> <code>grep -E '^## ' skills/authoring-skills/references/authoring-guidelines.md | sed 's/^## //' | grep -v '^Contents$' | while read -r h; do grep -qxF "- $h" skills/authoring-skills/references/authoring-guidelines.md || echo "missing from Contents: $h"; done</code> — prints nothing</li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[x]</code> Phase 2: Add the tuning loop</h3>
+      <p>Create the reference that owns the iterate procedure, rewrite the Improve workflow around it, extend the rubric, and update the router. This is the substance of the request; the script in Phase 3 only makes one step of it cheaper.</p>
+
+      <h4>1. Write references/tuning-diagnostics.md</h4>
+      <ul class="checklist">
+        <li><code class="status">[x]</code> Open with a <code>## Contents</code> list (the file will exceed 100 lines). Sections: The loop; Capturing a run; Navigation signals; Symptom to edit; Report shape.</li>
+        <li><code class="status">[x]</code> <em>The loop</em>: the doc's six steps for iterating on an existing skill, in the repo's terms. Use the skill in a real workflow, not a test scenario; observe where the fresh instance struggles, succeeds, or chooses unexpectedly; bring the specific observation back with the current SKILL.md; apply the edit (reorganise for prominence, stronger modal, restructure the workflow); test again on the same prompt; repeat as new scenarios appear. Include the doc's "why this works" in one sentence.</li>
+        <li><code class="status">[x]</code> <em>Capturing a run</em>: a fresh session per required profile with the skill discoverable and not force-loaded, following the run contract in <code>evals/README.md</code>; save the transcript; run <code>scripts/trace_skill_use.py &lt;skill-dir&gt; &lt;transcript&gt;</code>; when a fresh session cannot be run, write "observation skipped: &lt;reason&gt;" in the report and grade dimension 14 as failing with that reason. Show the Claude Code invocation that produces a parseable transcript (<code>claude -p "&lt;prompt&gt;" --output-format stream-json --verbose &gt; run.jsonl</code>) and name the Pi equivalent as "use the text fallback on its printed transcript".</li>
+        <li><code class="status">[x]</code> <em>Navigation signals</em>: the doc's four, each with what it means and the edit it implies. Unexpected read order means the structure is not intuitive. A reference never followed means the link or its condition is not prominent. A file read on every run belongs in SKILL.md. A file never read is unnecessary or badly signalled. Add the partial-read signal (head, sed -n, limit) which means a nested or long file without a Contents list.</li>
+        <li><code class="status">[x]</code> <em>Symptom to edit</em>: one table, columns Symptom, Likely cause, Edit, Rubric dimension. Rows at minimum: never fires; fires on the wrong prompts; rule present but ignored; files read in unexpected order; reference never followed; same reference read every run; bundled file never read; partial reads; works on the strongest profile and fails on the fast one; picks inconsistently among listed options; skips a validation step; errors in a batch or destructive step; a script fails and the instance improvises; "tool not found" on an MCP tool; output shape varies; output style is off. Each Edit names a concrete change and the doc pattern behind it (prominence or stronger modal, description phrases, boundary clause, inline, delete or re-signal, flatten or add Contents, more guidance for the fast profile, default plus escape hatch, validator loop with "only proceed when it passes", plan-validate-execute, solve-don't-defer with verbose errors, fully qualified <code>Server:tool</code>, strict template, input/output pairs).</li>
+        <li><code class="status">[x]</code> <em>Report shape</em>: a table with one row per observed symptom: symptom, evidence (trace line or transcript excerpt), edit applied, retest result. Followed by the before/after numbers the current workflow already reports.</li>
+        <li><code class="status">[x]</code> Keep the file under 150 lines; prose stays terse because the reader is the model.</li>
+      </ul>
+
+      <h4>2. Rewrite workflows/improve-skill.md</h4>
+      <ul class="checklist">
+        <li><code class="status">[x]</code> Keep steps Locate, Lint, Grade, Subtract, Redistribute, Re-lint and regrade as they are.</li>
+        <li><code class="status">[x]</code> Insert Observe: capture one fresh-session run per required profile on a real prompt for the target skill (the target's own <code>evals/evals.json</code> prompts are the default source), run the trace script, read <em>Navigation signals</em> and <em>Symptom to edit</em> in <code>references/tuning-diagnostics.md</code>.</li>
+        <li><code class="status">[x]</code> Insert Diagnose: every failed expected behaviour and every navigation signal maps to one row of the table; a symptom with no edit is reported, not fixed.</li>
+        <li><code class="status">[x]</code> Insert Refine and Retest: apply the edits, re-lint, rerun the same prompts, compare traces. Exit when the traces show the intended routes and the evals pass, or when a remaining failure is kept deliberately with its reason.</li>
+        <li><code class="status">[x]</code> Extend Report with the report shape from the tuning reference, placed before the existing before/after numbers. State the narrow-ask rule still holds: "it never triggers" runs the whole route, and the observed run is the proof that the new description fires.</li>
+        <li><code class="status">[x]</code> Keep the workflow under 30 lines; depth stays in the reference.</li>
+      </ul>
+
+      <h4>3. Extend references/review-rubric.md</h4>
+      <ul class="checklist">
+        <li><code class="status">[x]</code> Add dimension 14, Observed behaviour: passes when a fresh session per required profile has used the skill on a real prompt since its last edit, the trace shows SKILL.md read first, every reference the task needed was opened in full, no bundled file was read on every run, and no bundled file went unread across all runs without a stated reason. Proved by: trace script (reads, order, partial reads) plus judgment (whether the files read were the right ones).</li>
+        <li><code class="status">[x]</code> Amend dimension 3 to add "workflows are numbered steps, and quality-critical steps sit inside a validator loop that proceeds only on pass".</li>
+        <li><code class="status">[x]</code> Amend dimension 9 to add "one default with an escape hatch, never a menu of equivalent options".</li>
+        <li><code class="status">[x]</code> Amend dimension 11 to add "MCP tools are named <code>Server:tool</code>" and "validators report the specific problem and the valid alternatives". Note that <code>script-constants</code> now proves the voodoo-constant clause mechanically.</li>
+        <li><code class="status">[x]</code> Keep the Output section unchanged so existing eval expectations about verdict lines still hold.</li>
+      </ul>
+
+      <h4>4. Update SKILL.md</h4>
+      <ul class="checklist">
+        <li><code class="status">[x]</code> Description: add the tuning phrases a user types, in third person, for example "tune this skill", "Claude ignores the rule in my skill", "my skill reads the wrong files", "the skill works on the big model but not the small one". Stay under 1,024 characters.</li>
+        <li><code class="status">[x]</code> Contracts: add "An Improve run ends with an observed fresh-session run, or an explicit note that observation was skipped and why."</li>
+        <li><code class="status">[x]</code> Files table: add <code>references/tuning-diagnostics.md</code> (read it when diagnosing an observed run or deciding what edit a symptom implies) and <code>scripts/trace_skill_use.py</code> (never read; run it on a saved transcript). Update the guidelines row's "Contents list names ten sections" if the count changes.</li>
+        <li><code class="status">[x]</code> Workflow table Improve row: extend "When to call it" with "or to tune it against observed runs".</li>
+        <li><code class="status">[x]</code> In <code>workflows/create-skill.md</code> step 9, add "record files read with <code>scripts/trace_skill_use.py</code>" so Create and Improve observe the same way.</li>
+      </ul>
+
+      <h4>5. Testing Strategy</h4>
+      <p>Linter for the mechanical dimensions, eval validator for links, and a self-grade against the extended rubric recorded in the build report. The trace script does not exist yet, so dimension 14 is graded by hand in this phase and re-graded mechanically in Phase 4.</p>
+      <ul class="checklist">
+        <li><code class="status">[x]</code> <code>python3 skills/authoring-skills/scripts/lint_skill.py skills/authoring-skills</code> — exits 0; SKILL.md under 150 lines; no route above 50% of bundled bytes, or the remaining WARN is named in the report with the reason it stays</li>
+        <li><code class="status">[x]</code> <code>node evals/scripts/validate-cases.mjs</code> — passes</li>
+        <li><code class="status">[x]</code> <code>wc -l skills/authoring-skills/references/tuning-diagnostics.md skills/authoring-skills/workflows/improve-skill.md</code> — under 150 and under 30</li>
+        <li><code class="status">[x]</code> <code>grep -c '' skills/authoring-skills/SKILL.md; awk '/^description:/{print length($0)}' skills/authoring-skills/SKILL.md</code> — under 150 lines; description length under 1024</li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[x]</code> Phase 3: Make observation mechanical</h3>
+      <p>A bundled script for the deterministic part of observing a run, and one new linter check the doc asks for. Both follow the doc's own script rules: solve rather than defer, justify every constant, print specific errors.</p>
+      <figure>
+        <svg viewBox="0 0 960 170" role="img" aria-labelledby="ph3-t ph3-d">
+          <title id="ph3-t">What the trace script consumes and produces</title>
+          <desc id="ph3-d">A transcript file flows into trace_skill_use.py, which emits four facts: whether the skill fired, the ordered list of bundled files read, which reads were partial, and which bundled files were never read.</desc>
+          <g font-size="12" text-anchor="middle" fill="var(--ink)">
+            <rect x="30" y="50" width="200" height="70" rx="6" fill="var(--paper-2)" stroke="var(--rule-solid)"/>
+            <text x="130" y="78" class="mono">run.jsonl</text>
+            <text x="130" y="98" fill="var(--muted)" font-size="10">stream-json, or any text (fallback)</text>
+            <path d="M230 85 H300" stroke="var(--soft)" stroke-width="1.5"/>
+            <rect x="300" y="40" width="220" height="90" rx="6" fill="var(--accent-tint)" stroke="var(--accent)"/>
+            <text x="410" y="74" class="mono">trace_skill_use.py</text>
+            <text x="410" y="94" fill="var(--muted)" font-size="10">args: skill dir, transcript</text>
+            <text x="410" y="110" fill="var(--muted)" font-size="10">flags: --format, --json</text>
+            <path d="M520 85 H590" stroke="var(--soft)" stroke-width="1.5"/>
+            <g text-anchor="start" font-size="11">
+              <rect x="590" y="22" width="340" height="126" rx="6" fill="var(--paper-2)" stroke="var(--rule-solid)"/>
+              <text x="606" y="46"><tspan class="mono" fill="var(--accent)">fired</tspan>  SKILL.md was read, and at which step</text>
+              <text x="606" y="72"><tspan class="mono" fill="var(--accent)">read</tspan>   bundled files in order, with the tool used</text>
+              <text x="606" y="98"><tspan class="mono" fill="var(--accent)">partial</tspan> reads via head, sed -n, offset or limit</text>
+              <text x="606" y="124"><tspan class="mono" fill="var(--accent)">unread</tspan> bundled files no step opened</text>
+            </g>
+          </g>
+        </svg>
+        <figcaption>The trace script turns a saved transcript into the four navigation facts the doc says to watch.</figcaption>
+      </figure>
+
+      <h4>1. Write scripts/trace_skill_use.py</h4>
+      <ul class="checklist">
+        <li><code class="status">[x]</code> Usage: <code>python3 trace_skill_use.py &lt;skill-dir&gt; &lt;transcript&gt; [--format stream-json|text] [--json]</code>. Default format is stream-json; auto-switch to text with a printed note when the first non-empty line is not JSON.</li>
+        <li><code class="status">[x]</code> stream-json mode: walk each event's <code>tool_use</code> blocks; classify <code>Read</code> by <code>file_path</code>, <code>Bash</code> by scanning <code>command</code> for paths under the skill dir, <code>Grep</code>/<code>Glob</code> by <code>path</code>. A read is partial when Read carries <code>offset</code> or <code>limit</code>, or the Bash command contains <code>head</code>, <code>tail</code>, or <code>sed -n</code> before the path.</li>
+        <li><code class="status">[x]</code> text mode: regex every path that resolves under the skill dir, in order of appearance; mark partial by the same shell patterns on the same line. State in the output that order and partiality are approximate in this mode.</li>
+        <li><code class="status">[x]</code> Resolve the skill dir to its real path so the <code>~/.claude/skills</code> symlink and <code>~/.agents/skills</code> both match; enumerate bundled files once (every file under the skill dir except <code>evals/</code>) to compute unread.</li>
+        <li><code class="status">[x]</code> Output: the four facts as labelled lines, or one JSON object with <code>--json</code> whose keys are <code>fired</code>, <code>reads</code> (ordered, each with <code>path</code>, <code>tool</code>, <code>partial</code>, <code>step</code>), <code>unread</code>, <code>format</code>.</li>
+        <li><code class="status">[x]</code> Errors solve rather than defer: a missing or empty transcript, or a skill dir without SKILL.md, prints what was expected and where and exits 2; a line that fails to parse as JSON is skipped and counted, never fatal. Every constant (the shell partial-read patterns, the skipped-line cap if any) carries a one-line comment giving its reason.</li>
+        <li><code class="status">[x]</code> No third-party imports; Python 3 standard library only, like the linter.</li>
+      </ul>
+
+      <h4>2. Add the script-constants linter check</h4>
+      <ul class="checklist">
+        <li><code class="status">[x]</code> In <code>scripts/lint_skill.py</code>, add check id <code>script-constants</code>, WARN level: for each <code>scripts/*.py</code> in the linted skill, an assignment at column zero of an ALL_CAPS name to a numeric literal with no <code>#</code> on that line or the line above. Fix text: "add a one-line comment above it saying why it has this value".</li>
+        <li><code class="status">[x]</code> Add the id to the module docstring's check list if one exists, and to the Proved-by column of rubric dimension 11.</li>
+        <li><code class="status">[x]</code> Make sure the linter's own constants pass the new check.</li>
+      </ul>
+
+      <h4>3. Write the fixture transcript</h4>
+      <ul class="checklist">
+        <li><code class="status">[x]</code> <code>evals/fixtures/trace-sample.jsonl</code>: eight to twelve stream-json events for a session that reads <code>authoring-skills/SKILL.md</code>, then <code>workflows/improve-skill.md</code>, then runs <code>sed -n 1,40p</code> on the guidelines, then reads the rubric in full. The expected output is therefore: fired yes at step 1; four reads, one partial; unread lists the remaining bundled files. Record that expectation as a comment in the test command below rather than in the fixture, which must stay pure JSONL.</li>
+      </ul>
+
+      <h4>4. Testing Strategy</h4>
+      <p>Run the script on the fixture and on a deliberately bad input; run the linter on a throwaway skill with a voodoo constant and on authoring-skills itself.</p>
+      <ul class="checklist">
+        <li><code class="status">[x]</code> <code>python3 -m py_compile skills/authoring-skills/scripts/trace_skill_use.py skills/authoring-skills/scripts/lint_skill.py</code> — compiles</li>
+        <li><code class="status">[x]</code> <code>python3 skills/authoring-skills/scripts/trace_skill_use.py skills/authoring-skills skills/authoring-skills/evals/fixtures/trace-sample.jsonl</code> — prints fired yes, four reads with exactly one partial, and a non-empty unread list</li>
+        <li><code class="status">[x]</code> <code>python3 skills/authoring-skills/scripts/trace_skill_use.py skills/authoring-skills skills/authoring-skills/evals/fixtures/trace-sample.jsonl --json | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["fired"] and len(d["reads"])==4 and sum(r["partial"] for r in d["reads"])==1'</code> — asserts pass</li>
+        <li><code class="status">[x]</code> <code>python3 skills/authoring-skills/scripts/trace_skill_use.py skills/authoring-skills /dev/null; echo "exit $?"</code> — exits 2 with a message naming the expected format</li>
+        <li><code class="status">[x]</code> <code>S=$(mktemp -d)/voodoo &amp;&amp; mkdir -p "$S/scripts" "$S/evals" &amp;&amp; printf -- '---\nname: voodoo\ndescription: Lints nothing. Use when testing the linter.\n---\n# voodoo\nRun `scripts/x.py` to lint.\n' &gt; "$S/SKILL.md" &amp;&amp; printf 'TIMEOUT = 47\n' &gt; "$S/scripts/x.py" &amp;&amp; echo '{"schema":1,"skill":"voodoo","requiredProfiles":["balanced/default"],"cases":[]}' &gt; "$S/evals/evals.json" &amp;&amp; python3 skills/authoring-skills/scripts/lint_skill.py "$S" | grep script-constants</code> — prints one WARN line</li>
+        <li><code class="status">[x]</code> <code>python3 skills/authoring-skills/scripts/lint_skill.py skills/authoring-skills</code> — exits 0 with no script-constants finding</li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+
+    <div class="phase">
+      <h3><code class="status">[x]</code> Phase 4: Evals, dogfood, sweep, commit</h3>
+      <p>Update the skill's own evals to demand the loop, prove the loop on one real target, sweep the coupled documents, and commit.</p>
+
+      <h4>1. Update evals/evals.json</h4>
+      <ul class="checklist">
+        <li><code class="status">[x]</code> Case <code>authoring-skills-improve</code>: add expected behaviours "After the static pass, captures a fresh-session run of the target or states that observation was skipped and why", "Reads references/tuning-diagnostics.md when mapping an observation to an edit", "The report has one row per observed symptom with the edit applied". Add forbidden behaviour "Claims an observed run without a transcript or trace output".</li>
+        <li><code class="status">[x]</code> Add case <code>authoring-skills-tune-trigger</code>: setup is a disposable skills root with authoring-skills plus a fixture skill whose description is first person and names no trigger phrase; prompt "my smoke-tests skill never fires when I ask it to run the smoke tests". Expected: runs the linter first; grades dimension 1 as failing; rewrites the description in third person with the user's phrase; verifies with a fresh session that the rewritten skill fires, or states why it could not. Forbidden: edits before linting; leaves the description in first person; declares the fix proven without a run or a stated skip.</li>
+        <li><code class="status">[x]</code> Leave the existing <code>baseline</code> and <code>results</code> blocks untouched; append nothing to them until a run happens.</li>
+      </ul>
+
+      <h4>2. Dogfood the Improve route once</h4>
+      <ul class="checklist">
+        <li><code class="status">[x]</code> From a scratch workspace in the session scratchpad, copy <code>skills/thermo-nuclear-code-quality-review</code> as the fixture target, as the improve case's setup describes. Do not place it under <code>skills/</code>.</li>
+        <li><code class="status">[x]</code> Run one balanced-profile fresh session with the prompt "make thermo-nuclear-code-quality-review more token efficient", saving stream-json output to the scratchpad. This is one model run; the full three-profile matrix is follow-up work and stays listed in Notes.</li>
+        <li><code class="status">[x]</code> Run the trace script on that transcript against the authoring-skills directory. Record fired, reads, partial, and unread in a run record at <code>evals/runs/authoring-skills-improve/balanced-default.json</code> conforming to <code>evals/run-record.schema.json</code> (the directory is git-ignored; the record is evidence for the build report, not a commit).</li>
+        <li><code class="status">[x]</code> Grade dimension 14 for authoring-skills from that trace. If the fresh instance did not open <code>references/tuning-diagnostics.md</code> during its own Improve pass, that is a missed-connection signal: apply the table's edit (make the Observe step's read condition more prominent), rerun, and record both runs.</li>
+      </ul>
+
+      <h4>3. Sweep coupled artifacts</h4>
+      <ul class="checklist">
+        <li><code class="status">[x]</code> <code>SKILL-AUTHORING-REVIEW.md</code>: append one checked progress line describing this upgrade; leave the rest of the file alone.</li>
+        <li><code class="status">[x]</code> <code>README.md</code>: no change expected; confirm by reading its Validation section once.</li>
+        <li><code class="status">[x]</code> <code>grep -rn "improve-skill\|review-rubric\|authoring-guidelines" skills/authoring-skills evals README.md SKILL-AUTHORING-REVIEW.md</code> — every hit still points at a file that exists and at a section that still exists.</li>
+        <li><code class="status">[x]</code> Confirm <code>skills/.trash/</code> stays out of the commit; it predates this work.</li>
+      </ul>
+
+      <h4>4. Commit</h4>
+      <ul class="checklist">
+        <li><code class="status">[x]</code> Stage only <code>skills/authoring-skills/</code>, <code>SKILL-AUTHORING-REVIEW.md</code>, and <code>specs/authoring-skills-tuning-loop.html</code>.</li>
+        <li><code class="status">[x]</code> Commit on main (the repo's convention per its recent history) with subject <code>feat(authoring-skills): add observed tuning loop from current best practices</code> and the session's attribution trailer.</li>
+        <li><code class="status">[x]</code> Append the commit SHA to this plan's metadata commits list and add an Amendments entry, then re-validate the plan.</li>
+      </ul>
+
+      <h4>5. Testing Strategy</h4>
+      <p>The repository's own validators plus the evidence of one real run. A test that would pass without the dogfood run is not enough here, because the point of the phase is that the loop was executed, not described.</p>
+      <ul class="checklist">
+        <li><code class="status">[x]</code> <code>node evals/scripts/validate-cases.mjs</code> — passes with the fourth case</li>
+        <li><code class="status">[x]</code> <code>python3 skills/authoring-skills/scripts/lint_skill.py</code> — whole-root scan; authoring-skills shows 0 FAIL</li>
+        <li><code class="status">[x]</code> <code>test -s evals/runs/authoring-skills-improve/balanced-default.json &amp;&amp; python3 -c 'import json; json.load(open("evals/runs/authoring-skills-improve/balanced-default.json"))'</code> — the run record exists and parses</li>
+        <li><code class="status">[x]</code> <code>git status --porcelain skills/authoring-skills SKILL-AUTHORING-REVIEW.md specs</code> — prints nothing after the commit</li>
+        <li><code class="status">[x]</code> <code>git log -1 --stat</code> — shows the commit touching only the intended paths</li>
+      </ul>
+      <div class="loop">
+        🔁 <strong>Do not exit this phase until every box above is checked.</strong>
+        If any command fails, fix the cause and re-run — loop until all pass.
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== GLOBAL VALIDATION ===== -->
+  <section id="validation">
+    <h2>Validation Commands</h2>
+    <p>Execute these commands to validate the entire plan is complete:</p>
+    <ul class="checklist">
+      <li><code class="status">[x]</code> <code>python3 skills/authoring-skills/scripts/lint_skill.py skills/authoring-skills</code> — exits 0; the skill still lints clean after every edit</li>
+      <li><code class="status">[x]</code> <code>node evals/scripts/validate-cases.mjs</code> — eval definitions and local links valid across the repo</li>
+      <li><code class="status">[x]</code> <code>python3 skills/authoring-skills/scripts/trace_skill_use.py skills/authoring-skills skills/authoring-skills/evals/fixtures/trace-sample.jsonl</code> — the trace script works on its fixture</li>
+      <li><code class="status">[x]</code> <code>test -f skills/authoring-skills/references/tuning-diagnostics.md &amp;&amp; grep -q '^## Contents' skills/authoring-skills/references/tuning-diagnostics.md</code> — the new reference exists with a Contents list</li>
+      <li><code class="status">[x]</code> <code>grep -q 'Observed behaviour' skills/authoring-skills/references/review-rubric.md &amp;&amp; grep -qi 'observe' skills/authoring-skills/workflows/improve-skill.md</code> — rubric and workflow carry the loop</li>
+      <li><code class="status">[x]</code> <code>python3 /Users/tk/.claude/skills/planf3/scripts/validate_plan.py specs/authoring-skills-tuning-loop.html</code> — this plan remains structurally valid after its amendments</li>
+      <li><code class="status">[x]</code> <code>git log -1 --format=%s</code> — prints the feat(authoring-skills) subject</li>
+    </ul>
+    <div class="loop">
+      🔁 <strong>The plan is not complete until every box is checked and every command passes. If for some reason a step is not possible to complete, mark it with [f] and move on if possible.</strong>
+    </div>
+  </section>
+
+  <!-- ===== NOTES ===== -->
+  <section id="notes">
+    <h2>Notes</h2>
+
+    <h3>Decision: update, not add</h3>
+    <p>The user stated a preference for updating the existing skill. It is also what the skill's own contracts require: one capability per skill, each idea in exactly one file. A second meta-skill for tuning would duplicate the Improve route and split the guidelines across two copies.</p>
+
+    <h3>Coverage map: live doc section to its home in the skill</h3>
+    <table>
+      <thead><tr><th>Doc section</th><th>Lives in</th><th>Status after this plan</th></tr></thead>
+      <tbody>
+        <tr><td>Concise is key</td><td>guidelines: Content rules, Subtraction test; rubric 4</td><td>unchanged</td></tr>
+        <tr><td>Degrees of freedom</td><td>guidelines: Degrees of freedom</td><td>unchanged</td></tr>
+        <tr><td>Test with all models</td><td>guidelines: Eval-driven development; evals requiredProfiles; rubric 14</td><td>matrix added; dimension 14 new</td></tr>
+        <tr><td>Frontmatter, naming, descriptions</td><td>guidelines; linter name-*, description-*; rubric 1</td><td>unchanged</td></tr>
+        <tr><td>Progressive disclosure, nesting, Contents lists</td><td>guidelines; linter ref-depth, ref-toc, ref-orphan; rubric 2, 3, 6</td><td>unchanged</td></tr>
+        <tr><td>Workflows, checklists, feedback loops</td><td>guidelines; rubric 3</td><td>dimension 3 amended</td></tr>
+        <tr><td>Time-sensitive content, terminology</td><td>guidelines; linter body-dates; rubric 8, 10</td><td>unchanged</td></tr>
+        <tr><td>Template, examples, conditional workflow patterns</td><td>guidelines; rubric 9</td><td>dimension 9 amended</td></tr>
+        <tr><td>Build evaluations first</td><td>guidelines; templates/evals.json; rubric 12</td><td>unchanged</td></tr>
+        <tr><td>Develop iteratively (creating)</td><td>workflows/create-skill.md</td><td>step 9 gains the trace script</td></tr>
+        <tr><td>Iterating on existing Skills; Observe navigation; Team feedback</td><td>references/tuning-diagnostics.md; workflows/improve-skill.md; scripts/trace_skill_use.py; rubric 14</td><td>new</td></tr>
+        <tr><td>Anti-patterns: Windows paths; too many options</td><td>linter body-paths; rubric 9</td><td>dimension 9 amended</td></tr>
+        <tr><td>Scripts: solve don't defer, constants, utility scripts, visual analysis, verifiable intermediates, packages, runtime, MCP names</td><td>guidelines: Scripts; linter ref-intent, script-constants; rubric 11</td><td>platform note added; check and dimension 11 amended</td></tr>
+        <tr><td>Checklist for effective Skills</td><td>rubric, all dimensions</td><td>fully mapped once 14 exists</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Linter checks that already exist</h3>
+    <p>So the build does not re-specify them: <code>skill-loads</code>, <code>name-missing</code>, <code>name-format</code>, <code>name-length</code>, <code>name-reserved</code>, <code>name-dir</code>, <code>description-missing</code>, <code>description-length</code>, <code>description-person</code>, <code>description-tags</code>, <code>description-thin</code>, <code>description-trigger</code>, <code>description-what</code>, <code>description-autofire</code>, <code>body-length</code>, <code>body-paths</code>, <code>body-dates</code>, <code>body-unprompted</code>, <code>budget-route</code>, <code>ref-missing</code>, <code>ref-depth</code>, <code>ref-intent</code>, <code>ref-orphan</code>, <code>ref-toc</code>, <code>evals-missing</code>, <code>disable-model-invocation</code>. The one addition is <code>script-constants</code>.</p>
+
+    <h3>Current linter state of the target</h3>
+    <p>authoring-skills passes with one WARN: the Create route loads 66% of bundled bytes because it reads the guidelines, the rubric, and both templates. Adding the tuning reference raises the denominator and lowers that share without any other change. If the WARN survives Phase 2, the fix is to split the Subtraction test and Eval-driven development sections out of the guidelines into their own reference files, each with its own Files-table row, so the Create route stops paying for the Improve route's depth. That split is conditional and is not a task unless the WARN persists.</p>
+
+    <h3>Out of scope, listed so it is not silently dropped</h3>
+    <ul>
+      <li>Running the full three-profile eval matrix for the four authoring-skills cases. Phase 4 runs one profile of one case as proof of the loop; the matrix remains the repo's standing follow-up per <code>evals/README.md</code>.</li>
+      <li>A structured parser for Pi's transcript format. The text fallback covers it approximately; a dedicated mode can be added when Pi's print format is pinned.</li>
+      <li>Tuning any skill other than authoring-skills itself. Once the loop exists, the Audit route's worst-four list is the queue.</li>
+    </ul>
+
+    <h3>Risks</h3>
+    <ul>
+      <li>Transcript format drift: Claude Code's stream-json event shape may change. The script keys on <code>tool_use</code> blocks with <code>name</code> and <code>input</code>, the most stable part, and falls back to text mode rather than failing.</li>
+      <li>Cost and availability of fresh-session runs: the workflow has an explicit "observation skipped: reason" path so the route can still finish, but dimension 14 then fails honestly rather than being waved through.</li>
+      <li>Reference growth: the tuning reference must not become a second guidelines file. The single-source rule is enforced by moving the A/B paragraphs out of the guidelines in Phase 1, not copying them.</li>
+    </ul>
+  </section>
+
+  <!-- ===== AMENDMENTS ===== -->
+  <section id="amendments">
+    <h2>Amendments</h2>
+    <details>
+      <summary>2026-10-08T16:26:48Z — Build run: phases 1–4 executed, committed as e9af550</summary>
+      <p>All four phases built in one session. Deviations from the plan text, each kept deliberately: (1) the Phase 1 Contents check needed <code>grep -- "- $h"</code> because the heading list starts with a hyphen; the intent passed. (2) Phase 2's "lint exits 0" could not pass before Phase 3 created <code>scripts/trace_skill_use.py</code>, so the script was written before Phase 2's checks were closed. (3) The budget-route WARN was cleared not by splitting the guidelines but by a linter correction: routes were being charged for <code>evals/evals.json</code>, a file the bundle itself excludes; with that fixed every route is under 50%. (4) The trace script lists executed scripts under <em>runs</em> rather than <em>reads</em>, counts a Skill-tool load as a <code>SKILL.md</code> read, and matches copies of the skill whose directory name contains the skill name, because the dogfood instance copied the skill into its workspace and read from there. (5) The tuning reference is 84 lines, under the 100-line Contents threshold, but keeps its Contents list as the plan and validation command require. Dogfood: one balanced-profile <code>claude -p</code> run (claude-fable-5-1, 47 turns, 45 tool calls); fired at step 1, read the Improve workflow, rubric, guidelines, and <code>references/tuning-diagnostics.md</code> in full; dimension 14 for authoring-skills graded PASS, so the rerun condition did not arise. One symptom observed: the instance's own nested fresh session was refused because it wrapped <code>claude -p</code> in cd/env-prefixed compound commands; one sentence was added to <em>Capturing a run</em> and is not yet retested. The run also tried to install its rewrite over the real global target; the permission mode denied it and the repository was untouched. The plan is committed separately after this commit so the SHA could be recorded here, so <code>git log -1</code> shows the plan commit and <code>git log -2</code> the feat commit.</p>
+    </details>
+  </section>
+
+</main>
+</body>
+</html>
