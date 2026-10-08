@@ -34,7 +34,7 @@ python3 <base>/scripts/trace_skill_use.py <skill-dir> run.jsonl
 
 Run that as one plain command: a `cd` or an environment-variable prefix in front of it makes the non-interactive permission check refuse the whole line, so set the working directory in the step before and pass fixture paths in the prompt.
 
-Pi prints a plain transcript rather than JSON. Run `scripts/trace_skill_use.py` on that printed transcript and it uses the text fallback, where read order and partiality are approximate.
+Under Pi, `pi --no-session --mode json -p "<prompt>" > run.jsonl` gives the equivalent event stream and the trace script detects it. A plain `pi -p` transcript also works, through the text fallback, where read order and partiality are approximate.
 
 The trace prints four facts: whether the skill fired and at which step, every bundled file read in order with partial reads marked, the bundled files never opened, and the format it parsed. Judgment supplies the fifth: whether the files read were the right ones for the task.
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Turn a saved fresh-session transcript into a skill navigation report.
 
-usage: trace_skill_use.py <skill-dir> <transcript> [--format stream-json|text] [--json]
+usage: trace_skill_use.py <skill-dir> <transcript> [--format stream-json|pi-json|text] [--json]
 
 Prints the four facts the tuning loop watches: whether the skill fired and at which
 tool step, every bundled file read in order with partial reads marked, the bundled
@@ -10,11 +10,13 @@ listed apart from reads, since running a script is not reading it. Judgment supp
 the fifth fact, whether the files read were the right ones.
 
 stream-json is Claude Code's `--output-format stream-json --verbose` output, one JSON
-event per line; tool_use blocks are classified by tool and input. text is any printed
-transcript (Pi's, or a pasted session): every path under the skill dir is taken in
-order of appearance, and order and partiality are approximate. With no --format the
-script reads stream-json and switches to text, with a printed note, when the first
-non-empty line is not JSON. The skill dir is resolved to its real path, so the
+event per line; tool_use blocks are classified by tool and input. pi-json is Pi's
+`--mode json -p` output, one event per line; each tool_execution_start event is one
+call. text is any printed transcript (`pi -p` without --mode json, or a pasted
+session): every path under the skill dir is taken in order of appearance, and order
+and partiality are approximate. With no --format the script picks pi-json when the
+first event is Pi's session header, stream-json for any other JSON, and text, with a
+printed note, when the first non-empty line is not JSON. The skill dir is resolved to its real path, so the
 ~/.claude/skills symlink and ~/.agents/skills match, and a copy of the skill elsewhere
 (a disposable eval root) matches when its directory name contains the skill name.
 
@@ -206,6 +208,25 @@ def parse_stream_json(lines, trace):
                             trace.fire("skill loaded", step=trace.step + 1)
 
 
+def parse_pi_json(lines, trace):
+    """Pi emits one tool_execution_start per call; message_end and turn_end repeat the
+    same toolCall, so only the start event is counted."""
+    for raw in lines:
+        raw = raw.strip()
+        if not raw:
+            continue
+        try:
+            event = json.loads(raw)
+        except ValueError:
+            trace.skipped += 1
+            continue
+        if not isinstance(event, dict):
+            trace.skipped += 1
+            continue
+        if event.get("type") == "tool_execution_start":
+            trace.tool_use(str(event.get("toolName", "")), event.get("args"))
+
+
 def parse_text(lines, trace):
     for line in lines:
         trace.step += 1  # each line is one step; order is approximate in this mode
@@ -230,13 +251,14 @@ def main(argv):
     if len(args) != 2:
         die(f"expected <skill-dir> <transcript>, got {len(args)} argument(s). " + __doc__.strip().split("\n")[2])
     skill_dir, transcript = args
-    if fmt not in (None, "stream-json", "text"):
-        die(f"unknown --format '{fmt}'; valid: stream-json, text")
+    if fmt not in (None, "stream-json", "pi-json", "text"):
+        die(f"unknown --format '{fmt}'; valid: stream-json, pi-json, text")
     if not os.path.isfile(os.path.join(skill_dir, "SKILL.md")):
         die(f"no SKILL.md in {skill_dir}; pass the skill directory, the one holding SKILL.md")
     if not os.path.exists(transcript):
         die(f"transcript not found: {transcript}. Expected a file saved from "
-            "`claude -p \"<prompt>\" --output-format stream-json --verbose > run.jsonl` or a printed text transcript")
+            "`claude -p \"<prompt>\" --output-format stream-json --verbose > run.jsonl`, "
+            "`pi --no-session --mode json -p \"<prompt>\" > run.jsonl`, or a printed text transcript")
     with open(transcript, encoding="utf-8", errors="replace") as fh:
         lines = fh.read().split("\n")
     if not any(l.strip() for l in lines):
@@ -245,14 +267,19 @@ def main(argv):
     if fmt is None:
         first = next(l for l in lines if l.strip()).lstrip()
         if first.startswith("{"):
-            fmt = "stream-json"
+            try:
+                head = json.loads(first)
+            except ValueError:
+                head = {}
+            # Pi's first event is {"type": "session", "version": N, ...}; Claude Code's is never "session".
+            fmt = "pi-json" if isinstance(head, dict) and head.get("type") == "session" else "stream-json"
         else:
             fmt = "text"
             note = "first non-empty line is not JSON; reading as text, so read order and partiality are approximate"
 
     files = bundled_files(skill_dir)
     trace = Trace(Resolver(skill_dir, files))
-    (parse_stream_json if fmt == "stream-json" else parse_text)(lines, trace)
+    {"stream-json": parse_stream_json, "pi-json": parse_pi_json, "text": parse_text}[fmt](lines, trace)
 
     touched = {r["path"] for r in trace.reads} | {r["path"] for r in trace.runs}
     unread = [f for f in files if f not in touched]
