@@ -105,7 +105,7 @@ The validator loop is the single most effective pattern: run validator → fix e
 
 Conditional workflows guide decision points: "Creating new content? → Creation workflow. Editing? → Editing workflow."
 
-For batch, destructive, or high-stakes operations, use plan → validate plan → execute → verify, with the plan as a structured file a script can check before anything is touched.
+Use plan → validate plan → execute → verify when the operation is a batch, destructive, governed by complex validation rules, or high-stakes: the plan is a structured file a script can check before anything is touched.
 
 ## Content rules
 
@@ -133,8 +133,8 @@ Verbose (≈150 tokens): "PDF (Portable Document Format) files are a common file
 - No voodoo constants. Every configuration value carries a one-line comment saying why it has that value. If the author cannot justify it, the model cannot either.
 - Verbose validators. Error messages name the specific problem and the valid alternatives: "Field 'signature_date' not found. Available fields: customer_name, order_total".
 - State intent for every script reference. "Run `analyze_form.py` to extract fields" means execute; "See `analyze_form.py` for the extraction algorithm" means read. Execution is preferred: only the output costs tokens.
-- Prefer a bundled script to generated code for anything deterministic. It is more reliable, cheaper, and consistent across uses.
-- List required packages and verify they are available where the skill will run. Claude API code execution has no network and no package installation.
+- Prefer a bundled script to generated code for anything deterministic, for four reasons: it is more reliable than code written on the spot, it costs no output tokens to produce, it saves the time of writing it, and it behaves the same on every use.
+- List required packages and verify they are available where the skill will run. Claude.ai and Claude Code can install from npm and PyPI; the Claude API code-execution environment has no network and cannot install anything, so a skill meant for it ships with only what the runtime already has.
 - MCP tools are always fully qualified: `ServerName:tool_name`. A bare tool name fails when several servers are present.
 - When inputs can be rendered as images, render them and let the model look.
 
@@ -186,8 +186,12 @@ Build evaluations before writing extensive documentation, so the skill solves ob
 4. Write the minimum instructions that pass the cases.
 5. Run the evaluations, compare against the baseline, refine. There is no built-in runner; the cases are the source of truth, run by hand in fresh sessions.
 
-The Claude A / Claude B loop: one instance (A) authors and refines the skill with the human; a fresh instance (B) uses it on real tasks. Observe B and bring specifics back to A: "B forgot to filter test accounts on the regional report; the rule is there but not prominent." A reorganises, B is tested again.
+Test on every capability profile the skill will run on (the three in `requiredProfiles`), asking one question per profile:
 
-Watch how B navigates: files read in an unexpected order mean the structure is not intuitive; a reference never followed means the link is not prominent; a file read on every run belongs in `SKILL.md`; a file never read is unnecessary or badly signalled.
+| Profile | Question |
+| --- | --- |
+| fast/economical | Does the skill give enough guidance for a model that fills fewer gaps itself? |
+| balanced/default | Is it clear and efficient, with no step the model has to infer? |
+| highest-reasoning | Does it avoid over-explaining what this model already knows? |
 
-Test with every model the skill will run on. Haiku needs more guidance, Opus needs less explanation; instructions should work for all of them.
+One set of instructions should pass all three. Improving a skill from observed runs is the Improve route; its signals and edits are in the tuning reference.

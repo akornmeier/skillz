@@ -21,6 +21,7 @@ This review began with 23 skills installed under `~/.agents/skills/`: 13 locally
 - [x] Added third-person routing metadata, compatibility boundaries, scoped workflows, and 18 provider-neutral evaluation cases across those four packages.
 - [x] Removed inert or harness-specific shadcn-vue frontmatter, replaced assumed command interpolation with explicit context discovery, pinned-version guidance, mutation approval, and verification loops, and linked every long reference directly.
 - [x] Completed a read-only audit of the newly added `meta-skill`, `thermo-nuclear-code-quality-review`, and `voyage-embeddings` packages; implementation and repository-schema evaluation migration remain pending.
+- [x] Brought `authoring-skills` onto the current best-practices doc: refreshed the condensed guidelines with the per-profile test matrix and platform notes, added `references/tuning-diagnostics.md` (observe, diagnose, refine, retest loop with navigation signals and a symptom-to-edit table), rewrote the Improve route to end in an observed fresh-session run, added rubric dimension 14 and the `script-constants` linter check, and shipped `scripts/trace_skill_use.py` to turn a transcript into a navigation report.
 
 ## Repository-wide findings
 

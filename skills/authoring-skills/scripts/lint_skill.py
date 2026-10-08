@@ -10,6 +10,12 @@ Every finding is one line:  <skill> · <check> — FAIL|WARN: <what>. Fix: <edit
 Then a summary block per skill with the bytes and approximate tokens (bytes / 4,
 an estimate) forced on every trigger, and the same per route. Exit 1 on any FAIL.
 
+Checks: skill-loads, frontmatter, name-missing, name-format, name-length, name-reserved,
+name-dir, description-missing, description-length, description-person, description-tags,
+description-thin, description-trigger, description-what, description-autofire, body-length,
+body-paths, body-dates, body-unprompted, ref-missing, ref-depth, ref-intent, ref-orphan,
+ref-toc, budget-route, evals-missing, script-constants.
+
 Python 3 standard library only. Frontmatter is parsed by hand, so no PyYAML.
 Reference detection is heuristic: paths in backticks or markdown links whose first
 segment is a directory that exists in the skill. Prose mentions without either are
@@ -53,6 +59,8 @@ TICK_RE = re.compile(r"`([^`\s]+?\." + EXT + r")`")
 LINK_RE = re.compile(r"\[[^\]]*\]\(([^)\s]+?\." + EXT + r")\)")
 INTENT_RE = re.compile(r"\b(run|runs|running|execute|executes|invoke|invokes|python3?|bash|node|sh|see|read|reads|reading)\b", re.I)
 SCRIPT_EXT = (".py", ".sh", ".js", ".ts")
+# `NAME = 42` at column zero in a Python script: a configuration constant that needs a reason.
+CONSTANT_RE = re.compile(r"^[A-Z][A-Z0-9_]*\s*=\s*-?\d+(\.\d+)?\s*$")
 SKIP_ORPHAN = {"README.md", "LICENSE", ".DS_Store", "evals.md",  # human-facing or noise, never routed
                "package.json", "package-lock.json", "requirements.txt", "pyproject.toml"}  # manifests scripts need
 SKIP_DIRS = {"evals", ".git", "node_modules", "__pycache__"}  # evals are unlinked by convention
@@ -259,6 +267,14 @@ def lint_skill(skill_dir):
         if not mentioned:
             add("ref-orphan", "FAIL", f"{f} is referenced by nothing",
                 "add it to the Files table with a 'read it when' condition, or delete it")
+    for f in files:
+        if f.startswith("scripts/") and f.endswith(".py"):
+            script_lines = read(os.path.join(skill_dir, f)).split("\n")
+            for i, line in enumerate(script_lines):
+                prev = script_lines[i - 1] if i else ""
+                if CONSTANT_RE.match(line) and "#" not in line and not prev.lstrip().startswith("#"):
+                    add("script-constants", "WARN", f"{f}:{i + 1} sets {line.split('=')[0].strip()} with no stated reason",
+                        "add a one-line comment above it saying why it has this value")
     for f in md_files:
         if f == "SKILL.md":
             continue
@@ -274,10 +290,10 @@ def lint_skill(skill_dir):
     workflows = [f for f in direct if f.startswith("workflows/") and f.endswith(".md")]
     if workflows:
         for wf in sorted(workflows):
-            loaded = {"SKILL.md", wf} | {h for _, h, _ in refs.get(wf, []) if h and not h.endswith(SCRIPT_EXT)}
+            loaded = {"SKILL.md", wf} | {h for _, h, _ in refs.get(wf, []) if h in files and not h.endswith(SCRIPT_EXT)}
             routes[wf] = sum(size(f) for f in loaded)
     else:
-        loaded = {"SKILL.md"} | {h for h in direct if not h.endswith(SCRIPT_EXT)}
+        loaded = {"SKILL.md"} | {h for h in direct if h in files and not h.endswith(SCRIPT_EXT)}
         routes["(single route)"] = sum(size(f) for f in loaded)
     summary["bundle_bytes"] = bundle
     summary["routes"] = {r: {"bytes": b, "tokens_est": b // BYTES_PER_TOKEN,

@@ -34,11 +34,15 @@
         "Runs scripts/lint_skill.py on the target before editing anything.",
         "Reads references/review-rubric.md and records a verdict for every dimension.",
         "Reports forced tokens before and after, using the linter's numbers.",
-        "Every instruction cut is one the model would follow unprompted."
+        "Every instruction cut is one the model would follow unprompted.",
+        "After the static pass, captures a fresh-session run of the target or states that observation was skipped and why.",
+        "Reads references/tuning-diagnostics.md when mapping an observation to an edit.",
+        "The report has one row per observed symptom with the edit applied."
       ],
       "forbiddenBehavior": [
         "Removes an instruction that is an opinion of the skill's author.",
-        "Edits the target before running the linter on it."
+        "Edits the target before running the linter on it.",
+        "Claims an observed run without a transcript or trace output."
       ]
     },
     {
@@ -55,6 +59,23 @@
       "forbiddenBehavior": [
         "Runs scripts/lint_skill.py separately for each skill.",
         "Grades CLEAN skills against the rubric or implies they passed it."
+      ]
+    },
+    {
+      "id": "authoring-skills-tune-trigger",
+      "summary": "Fixes a skill that never fires and proves the fix with an observed run.",
+      "setup": "Use a disposable skills root containing authoring-skills plus a fixture skill named smoke-tests whose description is written in first person and names no trigger phrase. Expose the root to automatic discovery; do not force-load either skill.",
+      "prompt": "my smoke-tests skill never fires when I ask it to run the smoke tests",
+      "expectedBehavior": [
+        "Runs scripts/lint_skill.py on the smoke-tests skill before editing it.",
+        "Grades rubric dimension 1 as failing before making the change.",
+        "Rewrites the description in third person and includes the user's own phrase \"run the smoke tests\".",
+        "Verifies with a fresh session that the rewritten skill fires on that phrase, or states why a fresh session could not be run."
+      ],
+      "forbiddenBehavior": [
+        "Edits the description before running the linter.",
+        "Leaves the description in first person.",
+        "Declares the fix proven without a fresh-session run or a stated skip."
       ]
     }
   ],

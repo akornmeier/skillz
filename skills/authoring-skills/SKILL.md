@@ -1,6 +1,6 @@
 ---
 name: authoring-skills
-description: Creates new Agent Skills and improves existing ones for reliable triggering, better outcomes, and lower token cost, with a linter that measures the tokens a skill forces on every trigger. Use when the user wants to author, package, review, shrink, or debug a skill, or health-check a skills directory, or says "create a skill", "make a skill for", "turn this into a skill", "improve this skill", "make this skill token efficient", "review my skill", "this skill never triggers", "why isn't my skill firing", "audit my skills", "skills health check", "which skills need work".
+description: Creates new Agent Skills and improves existing ones for reliable triggering, better outcomes, and lower token cost, with a linter that measures the tokens a skill forces on every trigger. Use when the user wants to author, package, review, shrink, or debug a skill, or health-check a skills directory, or says "create a skill", "make a skill for", "turn this into a skill", "improve this skill", "make this skill token efficient", "review my skill", "this skill never triggers", "why isn't my skill firing", "audit my skills", "skills health check", "which skills need work", "tune this skill", "Claude ignores the rule in my skill", "my skill reads the wrong files", "the skill works on the big model but not the small one".
 ---
 
 # authoring-skills
@@ -18,6 +18,7 @@ The rules that cannot be derived from the files themselves. Everything else is j
 - Every skill ships `evals/evals.json`, written before its body: three cases, each with a prompt and observable expected and forbidden behaviours.
 - A skill is not done until a run of `scripts/lint_skill.py` exits 0 and every dimension of `references/review-rubric.md` passes.
 - Skills stay cross-agent: no Claude Code-only syntax in any `SKILL.md`.
+- An Improve run ends with an observed fresh-session run, or an explicit note that observation was skipped and why.
 
 ## Workflow
 
@@ -26,7 +27,7 @@ Select the single best-matching workflow and read its file before acting.
 | Workflow | When to call it | File to read |
 | --- | --- | --- |
 | Create | The prompt asks for a new skill, or to package a workflow, procedure, or expertise into one | `workflows/create-skill.md` |
-| Improve | The prompt asks to fix, shrink, review, make token efficient, or debug the triggering of a skill that already exists | `workflows/improve-skill.md` |
+| Improve | The prompt asks to fix, shrink, review, make token efficient, or debug the triggering of a skill that already exists, or to tune it against observed runs | `workflows/improve-skill.md` |
 | Audit | The prompt asks about a skills directory as a whole: a health check, which skills need work, what is broken | `workflows/audit-skills.md` |
 
 ## Files
@@ -36,7 +37,9 @@ Paths are relative to this skill's own directory (announced as the base director
 | Path | What it is | Read it when |
 | --- | --- | --- |
 | `references/authoring-guidelines.md` | The official authoring rules, condensed; its Contents list names ten sections | Deciding a name, description, structure, script, or cut. Read the section for the decision at hand, not the file |
-| `references/review-rubric.md` | Thirteen pass/fail dimensions, each with who proves it and the edit that fixes a failure | Grading a skill: last step of Create, first step of Improve, per flagged skill in Audit |
+| `references/review-rubric.md` | Fourteen pass/fail dimensions, each with who proves it and the edit that fixes a failure | Grading a skill: last step of Create, first step of Improve, per flagged skill in Audit |
+| `references/tuning-diagnostics.md` | The observe, diagnose, refine, retest loop; the navigation signals a trace exposes; a symptom-to-edit table | Diagnosing an observed run, or deciding what edit a symptom implies |
 | `templates/SKILL.md` | Frontmatter and section skeleton for a new skill | Authoring a `SKILL.md` from scratch |
 | `templates/evals.json` | Eval suite skeleton with three case stubs | Writing a new skill's evals |
 | `scripts/lint_skill.py` | Reports every mechanically provable defect with its fix, and the tokens each route forces | Never. Run it: `python3 <base>/scripts/lint_skill.py <skill-dir>`; no argument scans every installed skill |
+| `scripts/trace_skill_use.py` | Turns a saved fresh-session transcript into a navigation report: fired, files read in order, partial reads, files never opened | Never. Run it: `python3 <base>/scripts/trace_skill_use.py <skill-dir> <transcript>` after a fresh-session run |
