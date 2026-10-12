@@ -64,7 +64,7 @@
     {
       "id": "authoring-skills-tune-trigger",
       "summary": "Fixes a skill that never fires and proves the fix with an observed run.",
-      "setup": "Use a disposable skills root containing authoring-skills plus a fixture skill named smoke-tests whose description is written in first person and names no trigger phrase. Expose the root to automatic discovery; do not force-load either skill.",
+      "setup": "Use a disposable skills root containing authoring-skills plus a fixture skill named smoke-tests whose description is exactly \"I can help you with release chores.\": first person, and naming neither smoke tests nor a trigger phrase. Expose the root to automatic discovery; do not force-load either skill.",
       "prompt": "my smoke-tests skill never fires when I ask it to run the smoke tests",
       "expectedBehavior": [
         "Runs scripts/lint_skill.py on the smoke-tests skill before editing it.",
@@ -166,5 +166,45 @@
       "./.claude/skills symlink root no longer reported as a skill",
       "scripts count as referrers for the orphan check"
     ]
+  },
+  "results_matrix": {
+    "date": "2026-10-08",
+    "skillRevision": "086782a",
+    "method": "claude -p per case and profile in disposable git workspaces (bypass permissions), graded from transcripts by fresh grader agents; records in evals/runs/authoring-skills-*/",
+    "models": "fast: claude-haiku-5-5; balanced: claude-fable-5-1 (create, improve) and claude-opus-5-5 (audit, tune-trigger) after the default model changed mid-matrix; highest: claude-fable-5-1 --effort max",
+    "expected_passed": {
+      "create": {
+        "fast": "5/6",
+        "balanced": "6/6",
+        "highest": "6/6"
+      },
+      "improve": {
+        "fast": "0/7 (did not fire)",
+        "balanced": "5/7",
+        "highest": "6/7"
+      },
+      "audit": {
+        "fast": "3/4",
+        "balanced": "4/4",
+        "highest": "not run: cut off twice by the account usage limit, then stopped"
+      },
+      "tune-trigger": {
+        "fast": "2/4",
+        "balanced": "3/4",
+        "highest": "3/4"
+      }
+    },
+    "forbidden_passed": "all cells 100% except improve/fast 1/3",
+    "symptoms_and_edits": [
+      "improve/fast never fired: the prompt names a skill without the word 'skill' -> description phrase added",
+      "rubric verdicts never written per dimension at any profile -> Grade steps and the rubric Output demand all fourteen lines",
+      "report table never produced (balanced, highest) -> table inlined in the Improve Report step",
+      "nested sessions improvised with cd/env prefixes and shell functions; skips without a reason -> scripts/run_fresh_session.py; skip only on its exit 2",
+      "an installed same-named skill shadowed the copy under test, voiding retests -> capture script and trace warn",
+      "whole-disk searches for the target -> Locate names the three roots in order",
+      "audit 'worst first' undefined, BROKEN listed last -> order is BROKEN then the linter's summary order",
+      "tune-trigger fixture fired on its original description at every profile -> fixture description changed"
+    ],
+    "retest": "not run; the edits above are unproven until the failing cells are rerun"
   }
 }

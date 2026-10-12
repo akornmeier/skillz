@@ -29,6 +29,16 @@ import sys
 
 # Shell commands that show part of a file; a path after one of these is a partial read.
 PARTIAL_SHELL_RE = re.compile(r"\b(head|tail|sed\s+-n|awk\s+'NR)\b")
+# Shell searches print matching lines only, never the whole file.
+SEARCH_SHELL_RE = re.compile(r"\b(grep|egrep|rg|ag)\b")
+# Shell commands that report on a file without putting its content in context.
+STAT_SHELL_RE = re.compile(r"^\s*(wc|ls|stat|test|du|file|echo|printf|\[)\b")
+# A pipe into one of these after the path also cuts the read short.
+PIPE_PARTIAL_RE = re.compile(r"\|\s*(head|tail|grep|rg|sed\s+-n)\b")
+# Splits a shell line into the simple commands it chains.
+SEGMENT_SPLIT_RE = re.compile(r"&&|\|\||;|\|")
+# NAME=value or export NAME=value; the value is substituted for $NAME and ${NAME}.
+ASSIGN_RE = re.compile(r"(?:^|[\s;&(])(?:export\s+)?([A-Za-z_]\w*)=(\"[^\"]*\"|'[^']*'|[^\s;&|]+)")
 # Read-tool inputs that window the file; either one makes the read partial.
 PARTIAL_READ_KEYS = ("offset", "limit")
 # A path-like token: at least one slash, no spaces or quotes; ~ and . allowed so
@@ -109,6 +119,8 @@ class Trace:
         self.reads = []
         self.runs = []           # bundled scripts executed; an execution is not a read
         self.skipped = 0
+        self.available = None    # whether the session listed the skill at start (stream-json init only)
+        self.other_copy = None   # a same-named skill dir that loaded instead of this one
 
     def fire(self, reason, step=None):
         if self.fired is None:
@@ -119,23 +131,40 @@ class Trace:
         if rel == "SKILL.md":
             self.fire(f"{tool} SKILL.md")
 
+    def skill_load(self, path):
+        if self.r.is_skill_dir(path):
+            self.fire("skill loaded", step=self.step + 1)
+        elif os.path.basename(path.rstrip("/")) == self.r.name and self.other_copy is None:
+            self.other_copy = path
+
     def scan_text(self, text, tool="text", approximate=False):
         """Paths under the skill dir in free text or a shell command, in order."""
         for m in SKILL_LOAD_RE.finditer(text):
-            if self.r.is_skill_dir(m.group(1)):
-                self.fire("skill loaded", step=self.step + 1)
+            self.skill_load(m.group(1))
+        if tool != "text":
+            text = expand_vars(text)
         for line in text.split("\n"):
             for m in PATH_TOKEN_RE.finditer(line):
                 rel = self.r.rel(m.group(0))
                 if rel is None:
                     continue
                 before = line[:m.start()]
-                if RUN_RE.search(before):
+                # Split on the masked line so a ; or | inside quotes (sed -n '1,9p;20,30p') does not cut the command.
+                masked = mask_quotes(line)
+                cuts = [x.end() for x in SEGMENT_SPLIT_RE.finditer(masked[:m.start()])]
+                segment = before[cuts[-1]:] if cuts else before  # the simple command this path belongs to
+                if RUN_RE.search(segment):
                     self.runs.append({"path": rel, "tool": tool, "step": self.step})
                     continue
-                partial = bool(PARTIAL_SHELL_RE.search(before)) or (approximate and bool(re.search(r"offset|limit", before)))
-                detail = (PARTIAL_SHELL_RE.search(before) or [""])[0] if partial else ""
-                self.add_read(rel, tool, partial, detail)
+                if STAT_SHELL_RE.search(segment):
+                    continue  # sizes and listings put no file content in context
+                ends = [x.start() for x in re.finditer(r"&&|\|\||;", masked[m.end():])]
+                rest = line[m.end():m.end() + ends[0]] if ends else line[m.end():]
+                hit = (PARTIAL_SHELL_RE.search(segment) or SEARCH_SHELL_RE.search(segment)
+                       or PIPE_PARTIAL_RE.search(rest)
+                       or (approximate and re.search(r"offset|limit", segment)))
+                detail = ("search" if SEARCH_SHELL_RE.search(segment) else hit.group(0).lstrip("| ")) if hit else ""
+                self.add_read(rel, tool, bool(hit), detail)
 
     def tool_use(self, name, inp):
         self.step += 1
@@ -161,6 +190,19 @@ class Trace:
             cmd = inp.get("command", inp.get("cmd", ""))
             if isinstance(cmd, str):
                 self.scan_text(cmd, tool=name)
+
+
+def mask_quotes(text):
+    """Same length as text, with every quoted span replaced by underscores."""
+    return re.sub(r"'[^']*'|\"[^\"]*\"", lambda q: "_" * len(q.group(0)), text)
+
+
+def expand_vars(cmd):
+    """Substitute shell variables assigned in the same command, so `B=<skill>; cat $B/x.md` resolves."""
+    for name, value in ASSIGN_RE.findall(cmd):
+        value = value.strip("\"'")
+        cmd = re.sub(r"\$\{" + name + r"\}|\$" + name + r"\b", lambda _m: value, cmd)
+    return cmd
 
 
 def iter_blocks(event):
@@ -196,6 +238,8 @@ def parse_stream_json(lines, trace):
         if not isinstance(event, dict):
             trace.skipped += 1
             continue
+        if event.get("type") == "system" and event.get("subtype") == "init" and isinstance(event.get("skills"), list):
+            trace.available = trace.r.name in event["skills"]
         for block in iter_blocks(event):
             kind = block.get("type")
             if kind == "tool_use":
@@ -204,8 +248,7 @@ def parse_stream_json(lines, trace):
                 text = block.get("text")
                 if isinstance(text, str):
                     for m in SKILL_LOAD_RE.finditer(text):
-                        if trace.r.is_skill_dir(m.group(1)):
-                            trace.fire("skill loaded", step=trace.step + 1)
+                        trace.skill_load(m.group(1))
 
 
 def parse_pi_json(lines, trace):
@@ -288,17 +331,26 @@ def main(argv):
                "fired_step": trace.fired[0] if trace.fired else None,
                "fired_by": trace.fired[1] if trace.fired else None,
                "reads": [{k: r[k] for k in ("path", "tool", "partial", "step")} for r in trace.reads],
-               "runs": trace.runs, "unread": unread, "format": fmt, "skipped_lines": trace.skipped, "note": note}
+               "runs": trace.runs, "unread": unread, "format": fmt, "available": trace.available,
+               "other_copy_loaded": trace.other_copy, "skipped_lines": trace.skipped, "note": note}
         print(json.dumps(out, indent=2))
         return 0
     print(f"format: {fmt}" + (f" ({trace.skipped} unparseable line(s) skipped)" if trace.skipped else "")
           + (" · approximate" if fmt == "text" else ""))
     if note:
         print(f"note: {note}")
+    if trace.available is not None:
+        print("available: " + ("yes (listed in the session's skills at start)" if trace.available
+                               else "no (not in the session's skills at start; it could not fire)"))
     if trace.fired:
         print(f"fired: yes (step {trace.fired[0]}, {trace.fired[1]})")
     else:
-        print("fired: no (no Skill call, SKILL.md read, or skill-load line named this skill)")
+        print("fired: no (no Skill call, SKILL.md read, or skill-load line named this skill"
+              + ("; a slash-command or --skill load leaves no event in stream-json, so an explicitly invoked run reads as not fired)"
+                 if fmt == "stream-json" else ")"))
+    if trace.other_copy:
+        print(f"warning: a different copy of '{trace.r.name}' loaded: {trace.other_copy}; "
+              "the copy under test was shadowed, so this run says nothing about it")
     partial_n = sum(1 for r in trace.reads if r["partial"])
     print(f"reads: {len(trace.reads)} ({partial_n} partial)")
     for i, r in enumerate(trace.reads, 1):

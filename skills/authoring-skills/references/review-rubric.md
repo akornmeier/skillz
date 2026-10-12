@@ -23,7 +23,7 @@ The **Proved by** column says who does the work. *Linter* dimensions are settled
 
 ## Output
 
-One line per dimension, in order. A pass needs no justification beyond the verdict. A fail names the edit:
+Exactly one line per dimension, all fourteen, in order. "All dimensions pass" is a claim, not a grade. A pass needs no justification beyond the verdict. A fail names the edit:
 
 ```
 2 · forced context — FAIL: SKILL.md is 437 lines and its Prerequisites section

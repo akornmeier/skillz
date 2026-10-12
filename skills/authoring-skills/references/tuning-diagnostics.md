@@ -1,6 +1,6 @@
 # Tuning diagnostics
 
-How to improve a skill from watching a fresh instance use it, rather than from reading it. Every symptom maps to one edit; a symptom with no row below is reported, not fixed.
+How to improve a skill from watching a fresh instance use it, rather than from reading it. Every symptom maps to one edit; a symptom with no row below is reported, not fixed. The report table belongs to the Improve workflow's Report step.
 
 ## Contents
 
@@ -8,7 +8,6 @@ How to improve a skill from watching a fresh instance use it, rather than from r
 - Capturing a run
 - Navigation signals
 - Symptom to edit
-- Report shape
 
 ## The loop
 
@@ -25,20 +24,21 @@ This works because B shows what the text actually causes, not what the author me
 
 ## Capturing a run
 
-One fresh session per profile in the skill's `requiredProfiles`, under the run contract in `<repo>/evals/README.md`: the skill is discoverable and not force-loaded, the workspace is disposable, side effects are blocked. Save the transcript, then run the trace script against the skill directory:
+One fresh session per profile in the skill's `requiredProfiles`, under the run contract in `<repo>/evals/README.md`: the skill is discoverable and not force-loaded, the workspace is disposable, side effects are blocked. The capture script does the mechanics:
 
 ```bash
-claude -p "<prompt>" --output-format stream-json --verbose > run.jsonl
-python3 <base>/scripts/trace_skill_use.py <skill-dir> run.jsonl
+python3 <base>/scripts/run_fresh_session.py <workdir> "<prompt>" --out <run.jsonl> --model <model> --trace <skill-dir>
 ```
 
-Run that as one plain command: a `cd` or an environment-variable prefix in front of it makes the non-interactive permission check refuse the whole line, so set the working directory in the step before and pass fixture paths in the prompt.
+It copies `<workdir>` to a disposable directory and sets the working directory itself, so it is one plain command: no `cd`, no environment prefix, no shell function around it. Harness flags go after a bare `--`, for example `-- --permission-mode acceptEdits` when the observed task edits files. `--harness pi` runs Pi instead of Claude Code.
 
-Under Pi, `pi --no-session --mode json -p "<prompt>" > run.jsonl` gives the equivalent event stream and the trace script detects it. A plain `pi -p` transcript also works, through the text fallback, where read order and partiality are approximate.
+The trace prints whether the skill was available and fired and at which step, every bundled file read in order with partial reads marked, the scripts run, and the bundled files never opened. Judgment supplies the rest: whether the files read were the right ones for the task.
 
-The trace prints four facts: whether the skill fired and at which step, every bundled file read in order with partial reads marked, the bundled files never opened, and the format it parsed. Judgment supplies the fifth: whether the files read were the right ones for the task.
+Two traps the script reports rather than hides:
+- A slash-command load leaves no event in the stream transcript, so a slash-only target reads as not fired there. The script also copies the session's own log to `<run.jsonl>.session.jsonl` and traces it; that log records the load.
+- An installed skill with the same name as the copy under test can load instead of it. The script warns before the run and the trace warns after it; rename the copy under test, directory and `name` field both, and run again. A retest on a shadowed copy proves nothing about the edit.
 
-When no fresh session can be run (no CLI, no budget, no model for the profile), write `observation skipped: <reason>` in the report and grade rubric dimension 14 as failing with that reason. Never infer navigation from reading the skill yourself.
+When the script exits 2, its message is the reason: write `observation skipped: <message>` in the report and grade rubric dimension 14 as failing with it. Never infer navigation from reading the skill yourself.
 
 ## Navigation signals
 
@@ -72,13 +72,6 @@ Dim. is the rubric dimension that fails; the doc pattern behind each edit is nam
 | "tool not found" on an MCP tool | Bare tool name with several servers present | Fully qualify as `Server:tool` (qualified MCP names) | 11 |
 | Output shape varies between runs | No template, or a flexible one where strict was needed | Ship the shape as a template marked "ALWAYS use this exact structure" (strict template) | 9 |
 | Output style is off | Style only visible by example | Add input/output pairs showing the style (input/output pairs) | 9 |
-
-## Report shape
-
-One row per observed symptom, placed before the before/after numbers the Improve route already reports:
-
-| Symptom | Evidence | Edit applied | Retest |
-| --- | --- | --- | --- |
-| Reference never followed: rubric not opened | trace step 7: reads `workflows/improve-skill.md`, never `references/review-rubric.md` | Grade step now says "read `references/review-rubric.md`" before "record a verdict" | Second run opens the rubric at step 4 |
-
-Evidence is a trace line or a transcript excerpt, never a paraphrase. A row whose Retest column is empty means the edit is unproven, and the report says so.
+| A step is skipped on the fast profile while stronger ones do it | The step names an action but no artefact, so nothing shows it is missing | Name the artefact the step must leave: the verdict lines, the table, the file (strict template) | 3 |
+| Searches the whole disk for a file the workflow could have named | The step says what to find but not where to look | List the places to look, in order, and forbid the wide search (more guidance for the fast profile) | 3 |
+| A retest shows no change after an edit | A same-named installed skill loaded instead of the edited copy | Rename the copy under test and rerun; check the trace's "different copy" warning | 14 |
