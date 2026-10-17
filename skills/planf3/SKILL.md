@@ -37,7 +37,7 @@ Resolve every relative skill path against the directory containing this `SKILL.m
   python3 <skill-directory>/scripts/validate_plan.py <plan.html>
   ```
 
-  For updates, preserve a temporary pre-edit copy and add `--previous <copy>` to check append-only metadata.
+  For updates, preserve a temporary pre-edit copy and add `--previous <copy>` to check append-only metadata. Structural success checks format and references, not semantic correctness or whether tests ran.
 
 ## Route to one workflow
 
@@ -54,7 +54,8 @@ Read only the matching workflow before acting:
 
 ## Resources
 
-- `templates/plan.html` — read when creating a plan; update workflows edit the existing artifact instead.
+- `templates/plan.html` — read when creating a plan or explicitly upgrading an older plan's format; ordinary updates edit the existing artifact instead.
+- `references/engineering-review.md` — read when creating or updating plan content, or when a build deviation changes tasks, interfaces, or verification.
 - `scripts/validate_plan.py` — execute after every plan mutation and before build execution; do not read it for instructions.
 - `scripts/generate_gpt_image.py` and `scripts/edit_gpt_image.py` — execute only through the image subworkflow after its approval gate.
 - `workflows/*.md` — read only the routed workflow and any subworkflow it explicitly calls.

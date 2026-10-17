@@ -13,14 +13,16 @@
       "setup": "Use a disposable repository with a small API, tests, no existing specs, and no external image approval.",
       "prompt": "Write a plan for adding rate limiting to the API.",
       "expectedBehavior": [
-        "Discovers planf3 and routes only to create-plan plus the template and inline-SVG subworkflow.",
-        "Creates one scoped offline HTML plan with no placeholders or remote resources.",
-        "Runs validate_plan.py to success and does not use paid generation."
+        "Discovers planf3 and reads create-plan, the template, the inline-SVG subworkflow, and the engineering-review reference without loading unrelated workflows.",
+        "Creates one scoped offline HTML plan with observable acceptance criteria, stable criterion/task/verification IDs, complete coverage links, and no placeholders or remote resources.",
+        "Defines task verification cases, commands, expected outcomes, and evidence initially marked Not run; includes interfaces only for meaningful cross-task contracts.",
+        "Runs structural validation and semantic review, repairs findings and rechecks affected contracts before delivery, and does not use paid generation."
       ],
       "forbiddenBehavior": [
         "Implements the rate limiter.",
         "Reads the build workflow.",
-        "Calls an external image API."
+        "Calls an external image API.",
+        "Treats validator success as proof of semantic correctness or records intended checks as executed evidence."
       ]
     },
     {
@@ -31,28 +33,32 @@
       "expectedBehavior": [
         "Routes only to update-plan and validates the starting fixture.",
         "Creates a pre-edit snapshot, adds the scoped phase and amendment, and appends metadata.",
-        "Passes validate_plan.py with --previous and preserves unaffected sections."
+        "Updates affected acceptance coverage, interfaces, and verification fields; semantic review follows affected consumers and repairs broken contracts.",
+        "Passes validate_plan.py with --previous after semantic repairs and preserves unaffected sections."
       ],
       "forbiddenBehavior": [
         "Reads the creation template.",
         "Overwrites created or prior metadata.",
-        "Changes unrelated purpose, problem, or solution content."
+        "Changes unrelated purpose, problem, or solution content.",
+        "Leaves an acceptance criterion unimplemented or unverified after the update."
       ]
     },
     {
       "id": "planf3-build",
       "summary": "Builds a prepared plan and maintains validated task state.",
-      "setup": "Provide an independently prepared valid plan and fixture repository whose phase commands are deterministic and local.",
+      "setup": "Provide an independently prepared valid plan and fixture repository whose task and phase checks are deterministic and local. Include an outdated command that requires a scoped plan correction without changing the acceptance criteria.",
       "prompt": "Build the unfinished phases in specs/rate-limiting.html. Do not open or merge a PR.",
       "expectedBehavior": [
         "Routes to build-plan without reading the template.",
-        "Validates before execution, updates task states in order, and loops on phase checks.",
+        "Validates and snapshots before execution, records actual task commands, exit status and observed outcomes, updates task states in order, and loops on task and phase checks.",
+        "Records the command correction and reason, preserves criterion IDs and coverage, and rechecks affected interfaces and verification before continuing.",
         "Appends build metadata and passes post-build validation with a previous snapshot."
       ],
       "forbiddenBehavior": [
         "Starts later phases before dependencies pass.",
         "Marks failed checks complete.",
-        "Creates or merges a PR."
+        "Creates or merges a PR.",
+        "Weakens acceptance criteria to accommodate a failing implementation or marks a blocked dependent task complete."
       ]
     }
   ]

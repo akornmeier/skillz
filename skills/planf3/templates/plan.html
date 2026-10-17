@@ -272,6 +272,37 @@
     </figure>
   </section>
 
+  <!-- ===== ACCEPTANCE AND COVERAGE ===== -->
+  <section id="acceptance">
+    <h2>Acceptance Criteria</h2>
+    <!-- Observable outcomes, not implementation activities. Keep ac-* IDs stable across updates. -->
+    <ul>
+      <!-- repeat: one criterion per observable outcome -->
+      <li class="criterion" id="ac-{{CRITERION_KEY}}">{{OBSERVABLE_OUTCOME}}</li>
+    </ul>
+    <p><strong>Non-goals:</strong> {{NON_GOALS}}</p>
+    <p><strong>Constraints:</strong> {{GLOBAL_CONSTRAINTS}}</p>
+    <p><strong>Open decisions:</strong> {{MATERIAL_ASSUMPTIONS_OR_BLOCKERS: state None when resolved; never hide blockers behind --questionable}}</p>
+  </section>
+
+  <section id="coverage">
+    <h2>Coverage</h2>
+    <!-- One row per criterion. Duplicate task/verification links within a cell as needed.
+         Every implementation task must be linked; necessary supporting tasks serve the
+         criteria they enable. A linked verification belongs to a task linked in that row. -->
+    <table>
+      <thead><tr><th scope="col">Criterion</th><th scope="col">Tasks</th><th scope="col">Verification</th></tr></thead>
+      <tbody>
+        <!-- repeat: one row per criterion -->
+        <tr>
+          <td><a href="#ac-{{CRITERION_KEY}}">{{CRITERION_LABEL}}</a></td>
+          <td><a href="#task-{{TASK_KEY}}">{{TASK_LABEL}}</a></td>
+          <td><a href="#verify-{{VERIFICATION_KEY}}">{{VERIFICATION_LABEL}}</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
   <!-- ===== RELEVANT FILES ===== -->
   <section id="files" class="files">
     <h2>Relevant Files</h2>
@@ -306,15 +337,39 @@
         <figcaption>{{PHASE_IMAGE_CAPTION}}</figcaption>
       </figure>
 
-      <!-- repeat: one <h4> + checklist per task -->
-      <h4>{{TASK_NUMBER}}. {{TASK_NAME}}</h4>
-      <ul class="checklist">
-        <!-- repeat -->
-        <li><code class="status">[]</code> {{SPECIFIC_ACTION}}</li>
-      </ul>
+      <!-- repeat: one .task per independently verifiable implementation task.
+           task-* and verify-* IDs are unique across the entire plan and stable across updates. -->
+      <div class="task" id="task-{{TASK_KEY}}">
+        <h4><code class="status">[]</code> {{TASK_NUMBER}}. {{TASK_NAME}}</h4>
+        <p><strong>Files:</strong> {{EXACT_FILES_CREATED_MODIFIED_OR_TESTED}}</p>
 
-      <!-- Final task of every phase: Testing Strategy + validation loop -->
-      <h4>{{LAST_TASK_NUMBER}}. Testing Strategy</h4>
+        <!-- Optional: remove this dl when no meaningful cross-task contract exists.
+             Define signatures/shapes/errors once; consumers link to the owning task.
+             Reference existing repository types instead of copying them or implementation bodies. -->
+        <dl class="interfaces">
+          <dt>Consumes</dt><dd>{{INPUT_CONTRACTS_AND_PRODUCER_TASK_LINKS}}</dd>
+          <dt>Produces</dt><dd>{{OUTPUT_SIGNATURES_TYPES_DEFAULTS_AND_ERRORS}}</dd>
+        </dl>
+
+        <ul class="checklist">
+          <!-- repeat -->
+          <li><code class="status">[]</code> {{SPECIFIC_ACTION}}</li>
+        </ul>
+
+        <!-- repeat: one .verification per focused check; fields are required, interfaces are not. -->
+        <div class="verification" id="verify-{{VERIFICATION_KEY}}">
+          <p><strong>Task verification</strong></p>
+          <dl>
+            <dt>Cases</dt><dd class="cases">{{INPUTS_CONDITIONS_AND_EXACT_ASSERTIONS}}</dd>
+            <dt>Command</dt><dd class="command"><code>{{TASK_VERIFICATION_COMMAND}}</code></dd>
+            <dt>Expected</dt><dd class="expected">{{EXPECTED_EXIT_STATUS_AND_OBSERVABLE_RESULTS}}</dd>
+            <dt>Evidence</dt><dd class="evidence">Not run.</dd>
+          </dl>
+        </div>
+      </div>
+
+      <!-- Phase-level integration checks complement task verification; they are not another implementation task. -->
+      <h4>Testing Strategy</h4>
       <p>{{TESTING_APPROACH: technology used to test/validate, including edge cases}}</p>
       <ul class="checklist">
         <!-- repeat -->
@@ -322,7 +377,7 @@
       </ul>
       <div class="loop">
         🔁 <strong>Do not exit this phase until every box above is checked.</strong>
-        If any command fails, fix the cause and re-run — loop until all pass.
+        If any command fails, fix the cause and re-run until all pass. If blocked, mark [f] with evidence and do not start dependent work.
       </div>
     </div>
   </section>
@@ -336,7 +391,7 @@
       <li><code class="status">[]</code> <code>{{VALIDATION_COMMAND}}</code> — {{WHAT_IT_PROVES}}</li>
     </ul>
     <div class="loop">
-      🔁 <strong>The plan is not complete until every box is checked and every command passes. If for some reason a step is not possible to complete, mark it with [f] and move on if possible.</strong>
+      🔁 <strong>The plan is not complete until every box is checked and every command passes. Mark blocked checks [f] with evidence; continue only with independent work.</strong>
     </div>
   </section>
 
