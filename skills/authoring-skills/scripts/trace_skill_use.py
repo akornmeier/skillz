@@ -1,367 +1,351 @@
 #!/usr/bin/env python3
-"""Turn a saved fresh-session transcript into a skill navigation report.
+"""Report skill delivery from Claude stream/session JSON, Pi JSON, or uncertain text.
 
 usage: trace_skill_use.py <skill-dir> <transcript> [--format stream-json|pi-json|text] [--json]
 
-Prints the four facts the tuning loop watches: whether the skill fired and at which
-tool step, every bundled file read in order with partial reads marked, the bundled
-files never opened, and the format that was parsed. Scripts that were executed are
-listed apart from reads, since running a script is not reading it. Judgment supplies
-the fifth fact, whether the files read were the right ones.
-
-stream-json is Claude Code's `--output-format stream-json --verbose` output, one JSON
-event per line; tool_use blocks are classified by tool and input. pi-json is Pi's
-`--mode json -p` output, one event per line; each tool_execution_start event is one
-call. text is any printed transcript (`pi -p` without --mode json, or a pasted
-session): every path under the skill dir is taken in order of appearance, and order
-and partiality are approximate. With no --format the script picks pi-json when the
-first event is Pi's session header, stream-json for any other JSON, and text, with a
-printed note, when the first non-empty line is not JSON. The skill dir is resolved to its real path, so the
-~/.claude/skills symlink and ~/.agents/skills match, and a copy of the skill elsewhere
-(a disposable eval root) matches when its directory name contains the skill name.
-
-Exit 0 on a report, 2 on an input the script cannot read. Python 3 standard library only.
+Correlate requests with results. Writes, edits, failed reads, and script execution
+are not loading. Missing results and opaque codemode calls remain unknown. A
+successful read proves delivery, not automatic discovery or task success. Read
+windows record navigation, not whether the needed information was sufficient.
+Copies match only when their complete file manifests match the explicit target.
+Digests describe files at analysis time, not historical transcript-time bytes.
+Exit 0 for a report, 2 for unreadable inputs. Python standard library only.
 """
+import argparse
+import hashlib
 import json
 import os
 import re
+import shlex
 import sys
+from pathlib import Path
 
-# Shell commands that show part of a file; a path after one of these is a partial read.
-PARTIAL_SHELL_RE = re.compile(r"\b(head|tail|sed\s+-n|awk\s+'NR)\b")
-# Shell searches print matching lines only, never the whole file.
-SEARCH_SHELL_RE = re.compile(r"\b(grep|egrep|rg|ag)\b")
-# Shell commands that report on a file without putting its content in context.
-STAT_SHELL_RE = re.compile(r"^\s*(wc|ls|stat|test|du|file|echo|printf|\[)\b")
-# A pipe into one of these after the path also cuts the read short.
-PIPE_PARTIAL_RE = re.compile(r"\|\s*(head|tail|grep|rg|sed\s+-n)\b")
-# Splits a shell line into the simple commands it chains.
-SEGMENT_SPLIT_RE = re.compile(r"&&|\|\||;|\|")
-# NAME=value or export NAME=value; the value is substituted for $NAME and ${NAME}.
-ASSIGN_RE = re.compile(r"(?:^|[\s;&(])(?:export\s+)?([A-Za-z_]\w*)=(\"[^\"]*\"|'[^']*'|[^\s;&|]+)")
-# Read-tool inputs that window the file; either one makes the read partial.
-PARTIAL_READ_KEYS = ("offset", "limit")
-# A path-like token: at least one slash, no spaces or quotes; ~ and . allowed so
-# ~/.claude/skills/... and ./references/x.md both match.
-PATH_TOKEN_RE = re.compile(r"[~./\w-]*/[~./\w-]+")
-# An interpreter right before a path means the script was executed, not read.
-RUN_RE = re.compile(r"(?:^|[;&|(\s])(?:python3?|node|bash|sh|zsh|deno|bun)\s+(?:-\S+\s+)*$")
-# The line Claude Code prints when a skill loads; the path after it is the skill dir.
+SKIP_DIRS = {".git", "node_modules", "__pycache__"}
 SKILL_LOAD_RE = re.compile(r"Base directory for this skill:\s*(\S+)")
-# Directories under a skill that are never loaded at run time, matching the linter.
-SKIP_DIRS = {"evals", ".git", "node_modules", "__pycache__"}
-# Tools whose input names one file; the key holding the path.
-FILE_TOOLS = {"Read": "file_path", "Edit": "file_path", "Write": "file_path",
-              "Grep": "path", "Glob": "path", "read": "path", "edit": "path", "write": "path"}
-# Tools whose input is a shell command to scan for paths.
+FILE_TOOLS = {"Read": "read", "read": "read", "Write": "write", "write": "write",
+              "Edit": "edit", "edit": "edit", "Grep": "search", "Glob": "search"}
 SHELL_TOOLS = {"Bash", "bash", "shell"}
 
 
-def die(msg):
-    print(f"trace_skill_use: {msg}", file=sys.stderr)
-    sys.exit(2)
+def manifest_digest(root):
+    """Hash relative names and bytes, including eval definitions; reject unsafe links."""
+    root = Path(root).resolve(strict=True)
+    entries = []
+    for base, dirs, files in os.walk(root):
+        dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
+        for name in dirs + sorted(files):
+            path = Path(base) / name
+            if path.is_symlink():
+                raise ValueError(f"skill manifest contains a symlink: {path}")
+        for name in sorted(files):
+            path = Path(base) / name
+            entries.append((path.relative_to(root).as_posix(), hashlib.sha256(path.read_bytes()).hexdigest()))
+    return hashlib.sha256(json.dumps(sorted(entries), ensure_ascii=False).encode()).hexdigest()
 
 
 def bundled_files(skill_dir):
-    out = []
-    for root, dirs, files in os.walk(skill_dir):
-        dirs[:] = [d for d in dirs if d not in SKIP_DIRS and not d.startswith(".")]
-        for f in files:
-            if f.startswith("."):
-                continue
-            out.append(os.path.relpath(os.path.join(root, f), skill_dir))
-    return sorted(out)
+    return sorted(str(p.relative_to(skill_dir)) for p in Path(skill_dir).rglob("*")
+                  if p.is_file() and not any(x in SKIP_DIRS | {"evals"} or x.startswith(".")
+                                             for x in p.relative_to(skill_dir).parts))
 
 
 class Resolver:
-    """Maps a path token to a bundled file's relative path, or None."""
-
     def __init__(self, skill_dir, files):
-        self.real = os.path.realpath(skill_dir)
-        self.name = os.path.basename(self.real)
+        self.root = Path(skill_dir).resolve(strict=True)
+        self.name = self.root.name
         self.files = set(files)
+        self.digest = manifest_digest(self.root)
+        self.cwd = None
 
-    def rel(self, tok):
-        tok = tok.strip("\"'`()[]{}<>,;:")
-        if not tok or "/" not in tok:
-            return None
-        expanded = os.path.expanduser(tok)
-        if os.path.isabs(expanded):
-            real = os.path.realpath(expanded)
-            if real == self.real:
-                return None  # the directory itself is not a file read
-            if real.startswith(self.real + os.sep):
-                r = os.path.relpath(real, self.real)
-                return r if r in self.files else None
-            clean = real  # elsewhere on disk: match a copy of the skill by its <name>/<rel> suffix below
-        else:
-            clean = tok[2:] if tok.startswith("./") else tok
-        if clean in self.files:
-            return clean
-        # <dir>/<rel> where <dir> names the skill (a copy such as authoring-skills-copy or _authoring-skills-ref).
-        for f in self.files:
-            if clean == f or clean.endswith("/" + f):
-                holder = os.path.basename(clean[: -len(f) - 1]) if clean != f else self.name
-                if self.name in holder:
-                    return f
-        return None
+    def match(self, token):
+        """Return (relative path, identity match); None means unrelated/unresolved."""
+        if not isinstance(token, str):
+            return None, None
+        path = Path(token).expanduser()
+        if not path.is_absolute():
+            if self.cwd is None:
+                return None, None
+            path = self.cwd / path
+        path = path.resolve()
+        try:
+            rel = path.relative_to(self.root).as_posix()
+            return (rel, True) if rel in self.files else (None, None)
+        except ValueError:
+            pass
+        for parent in path.parents:
+            rel = path.relative_to(parent).as_posix()
+            if rel in self.files and (parent / "SKILL.md").is_file():
+                try:
+                    return rel, manifest_digest(parent) == self.digest
+                except (OSError, ValueError):
+                    return rel, False
+        return None, None
 
-    def is_skill_dir(self, tok):
-        expanded = os.path.expanduser(tok.strip("\"'`()[]{}<>,;:"))
-        return os.path.isabs(expanded) and os.path.realpath(expanded) == self.real
+    def directory(self, token):
+        return self.match(str(Path(token) / "SKILL.md"))
+
+
+def result_text(result):
+    if isinstance(result, str):
+        return result
+    if isinstance(result, dict):
+        return result_text(result.get("content", []))
+    if isinstance(result, list):
+        return "\n".join(b.get("text", "") for b in result
+                         if isinstance(b, dict) and b.get("type") == "text" and isinstance(b.get("text"), str))
+    return ""
 
 
 class Trace:
     def __init__(self, resolver):
         self.r = resolver
-        self.step = 0            # count of tool_use blocks seen; the "when" of every fact
-        self.fired = None        # (step, reason) once the skill is known to have loaded
-        self.reads = []
-        self.runs = []           # bundled scripts executed; an execution is not a read
+        self.step = 0
+        self.pending = {}
+        self.results = {}
+        self.reads, self.runs, self.events = [], [], []
+        self.fired = None
+        self.mechanism = "none"
+        self.target_match = None
         self.skipped = 0
-        self.available = None    # whether the session listed the skill at start (stream-json init only)
-        self.other_copy = None   # a same-named skill dir that loaded instead of this one
+        self.available = None
+        self.other_copy = None
+        self.complete = False
+        self.recognized = False
+        self.uncertain = False
+        self.limitations = ["Delivery evidence is not proof of automatic discovery or task success.",
+                            "Manifest identity describes files at analysis time; preserve revision snapshots."]
 
-    def fire(self, reason, step=None):
+    def unknown(self, why):
+        self.uncertain = True
+        if why not in self.limitations:
+            self.limitations.append(why)
+
+    def fire(self, step, mechanism, reason):
         if self.fired is None:
-            self.fired = (self.step if step is None else step, reason)
+            self.fired = (step, reason)
+            self.mechanism = mechanism
+        self.target_match = True
 
-    def add_read(self, rel, tool, partial, detail=""):
-        self.reads.append({"path": rel, "tool": tool, "partial": bool(partial), "step": self.step, "detail": detail})
-        if rel == "SKILL.md":
-            self.fire(f"{tool} SKILL.md")
-
-    def skill_load(self, path):
-        if self.r.is_skill_dir(path):
-            self.fire("skill loaded", step=self.step + 1)
-        elif os.path.basename(path.rstrip("/")) == self.r.name and self.other_copy is None:
-            self.other_copy = path
-
-    def scan_text(self, text, tool="text", approximate=False):
-        """Paths under the skill dir in free text or a shell command, in order."""
-        for m in SKILL_LOAD_RE.finditer(text):
-            self.skill_load(m.group(1))
-        if tool != "text":
-            text = expand_vars(text)
-        for line in text.split("\n"):
-            for m in PATH_TOKEN_RE.finditer(line):
-                rel = self.r.rel(m.group(0))
-                if rel is None:
-                    continue
-                before = line[:m.start()]
-                # Split on the masked line so a ; or | inside quotes (sed -n '1,9p;20,30p') does not cut the command.
-                masked = mask_quotes(line)
-                cuts = [x.end() for x in SEGMENT_SPLIT_RE.finditer(masked[:m.start()])]
-                segment = before[cuts[-1]:] if cuts else before  # the simple command this path belongs to
-                if RUN_RE.search(segment):
-                    self.runs.append({"path": rel, "tool": tool, "step": self.step})
-                    continue
-                if STAT_SHELL_RE.search(segment):
-                    continue  # sizes and listings put no file content in context
-                ends = [x.start() for x in re.finditer(r"&&|\|\||;", masked[m.end():])]
-                rest = line[m.end():m.end() + ends[0]] if ends else line[m.end():]
-                hit = (PARTIAL_SHELL_RE.search(segment) or SEARCH_SHELL_RE.search(segment)
-                       or PIPE_PARTIAL_RE.search(rest)
-                       or (approximate and re.search(r"offset|limit", segment)))
-                detail = ("search" if SEARCH_SHELL_RE.search(segment) else hit.group(0).lstrip("| ")) if hit else ""
-                self.add_read(rel, tool, bool(hit), detail)
-
-    def tool_use(self, name, inp):
+    def start(self, call_id, name, inp):
+        if isinstance(call_id, str) and call_id in self.pending:
+            if self.pending[call_id][1:] != (name, inp):
+                self.pending[call_id] = (self.pending[call_id][0], "conflicting", {})
+                self.unknown("Conflicting requests reuse a tool ID.")
+            return
         self.step += 1
-        inp = inp if isinstance(inp, dict) else {}
-        if name == "Skill" or name == "skill":
-            skill = str(inp.get("skill", inp.get("name", "")))
-            if skill.split(":")[-1] == self.r.name:
-                self.fire("Skill tool")
-                self.add_read("SKILL.md", name, False)  # the Skill tool loads the whole body into context
+        if not isinstance(inp, dict):
+            self.unknown("Tool request arguments are malformed.")
+            inp = {}
+        if not isinstance(call_id, str) or not call_id:
+            call_id = f"missing-id-{self.step}"
+            self.unknown("Tool requests without valid IDs cannot be correlated.")
+        self.pending[call_id] = (self.step, name, inp)
+        if name.split(".")[-1] == "codemode":
+            self.unknown("Opaque codemode source is not execution evidence; only visible nested events count.")
+
+    def end(self, call_id, result, error):
+        result = result_text(result)
+        if not isinstance(call_id, str) or not call_id:
+            self.unknown("Tool results without valid IDs cannot be correlated.")
+        elif call_id not in self.results:
+            self.results[call_id] = (result, error)
+        elif self.results[call_id] != (result, error):
+            self.results[call_id] = (None, None)
+            self.unknown("Conflicting results reuse a tool ID.")
+
+    def delivery(self, path, step, tool, outcome, requested=None, partial=False, mechanism="read"):
+        rel, match = self.r.match(path)
+        if rel is None:
+            # Relative reads without a known cwd may have addressed the target.
+            if not Path(path).is_absolute() and self.r.cwd is None:
+                self.unknown("Relative tool paths lack a recorded working directory.")
             return
-        if name in FILE_TOOLS:
-            path = inp.get(FILE_TOOLS[name])
-            if isinstance(path, str):
-                rel = self.r.rel(path)
-                if rel:
-                    partial = any(k in inp and inp[k] not in (None, "", 0) for k in PARTIAL_READ_KEYS)
-                    detail = ",".join(f"{k}={inp[k]}" for k in PARTIAL_READ_KEYS if k in inp and inp[k] not in (None, "", 0))
-                    if name in ("Grep", "Glob") and not partial:
-                        partial, detail = True, "search"  # a search returns matching lines, never the file
-                    self.add_read(rel, name, partial, detail)
+        item = {"path": rel, "tool": tool, "partial": partial, "step": step,
+                "outcome": outcome, "requestedRange": requested or {}, "targetMatch": match}
+        self.reads.append(item)
+        if match is False:
+            self.other_copy = str(Path(path).parent) if rel == "SKILL.md" else str(path)
+            if self.target_match is not True:
+                self.target_match = False
             return
-        if name in SHELL_TOOLS:
-            cmd = inp.get("command", inp.get("cmd", ""))
-            if isinstance(cmd, str):
-                self.scan_text(cmd, tool=name)
+        if outcome == "unknown":
+            self.unknown("A relevant read has no confirmed successful content result.")
+        if rel == "SKILL.md" and match and outcome == "success":
+            self.fire(step, mechanism, f"{tool} SKILL.md")
+
+    def shell(self, command, step, tool, outcome):
+        """Conservative classification, not shell interpretation or per-file proof."""
+        if not isinstance(command, str):
+            self.unknown("Shell command is not a string.")
+            return
+        try:
+            parts = shlex.split(command)
+        except ValueError:
+            self.unknown("Unparseable shell command.")
+            return
+        if not parts:
+            return
+        cmd = Path(parts[0]).name
+        # Compound commands cannot attribute overall exit/output to any one file.
+        compound = any(c in command for c in (";", "|", "&&", "$", ">", "<", "`", "\n"))
+        if compound:
+            self.unknown("Compound/expanded shell commands cannot prove absence of skill delivery.")
+        for token in parts[1:]:
+            rel, match = self.r.match(token)
+            if rel is None:
+                continue
+            if cmd in {"python", "python3", "node", "bash", "sh", "zsh", "deno", "bun"}:
+                self.runs.append({"path": rel, "tool": tool, "step": step, "outcome": outcome,
+                                  "targetMatch": match})
+            elif cmd in {"cat", "head", "tail", "sed", "grep", "rg", "awk"}:
+                # A shell result alone does not prove which file's bytes were returned.
+                read_outcome = "failed" if outcome == "failed" else "unknown"
+                self.delivery(token, step, tool, read_outcome, partial=cmd != "cat")
+                self.unknown("Shell file reads lack per-file content attribution" + (" (compound command)." if compound else "."))
+
+    def finish(self):
+        for call_id, (step, name, inp) in self.pending.items():
+            result, error = self.results.get(call_id, (None, None))
+            content = result_text(result)
+            outcome = "failed" if error is True else "success" if error is False and content else "unknown"
+            short = name.split(".")[-1]
+            kind = FILE_TOOLS.get(short)
+            if kind:
+                path = inp.get("path", inp.get("file_path"))
+                if not isinstance(path, str):
+                    self.unknown("File tool request has no usable path.")
+                    continue
+                if kind == "read":
+                    window = {k: inp[k] for k in ("offset", "limit") if inp.get(k) is not None}
+                    self.delivery(path, step, name, outcome, window, bool(window))
+                else:
+                    rel, match = self.r.match(path)
+                    self.events.append({"kind": kind, "path": rel, "step": step, "targetMatch": match,
+                                        "outcome": outcome})
+            elif short in SHELL_TOOLS:
+                self.shell(inp.get("command", inp.get("cmd", "")), step, name, outcome)
+            elif short.lower() == "skill":
+                skill = inp.get("skill", inp.get("name", ""))
+                if not isinstance(skill, str) or skill.split(":")[-1] != self.r.name:
+                    continue
+                roots = SKILL_LOAD_RE.findall(content)
+                if outcome == "success" and roots:
+                    for root in roots:
+                        self.delivery(str(Path(root) / "SKILL.md"), step, name, outcome, mechanism="skill-tool")
+                elif outcome != "failed":
+                    self.unknown("Skill tool result does not confirm the loaded target path.")
+        self.reads.sort(key=lambda r: r["step"])
+
+    def report(self, fmt, files):
+        self.finish()
+        if not self.complete:
+            self.unknown("Transcript lacks a terminal session event.")
+        fired = True if self.fired else None if self.uncertain or self.skipped or not self.recognized else False
+        touched = {r["path"] for r in self.reads + self.runs if r["outcome"] == "success" and r["targetMatch"]}
+        return {"fired": fired, "fired_step": self.fired[0] if self.fired else None,
+                "fired_by": self.fired[1] if self.fired else None, "reads": self.reads, "runs": self.runs,
+                "events": self.events, "unread": [f for f in files if f not in touched], "format": fmt,
+                "available": self.available, "other_copy_loaded": self.other_copy, "skipped_lines": self.skipped,
+                "note": "text evidence is approximate" if fmt == "text" else None,
+                "loadMechanism": self.mechanism if fired is not None else "unknown",
+                "targetMatch": self.target_match, "targetDigest": self.r.digest, "limitations": self.limitations}
 
 
-def mask_quotes(text):
-    """Same length as text, with every quoted span replaced by underscores."""
-    return re.sub(r"'[^']*'|\"[^\"]*\"", lambda q: "_" * len(q.group(0)), text)
-
-
-def expand_vars(cmd):
-    """Substitute shell variables assigned in the same command, so `B=<skill>; cat $B/x.md` resolves."""
-    for name, value in ASSIGN_RE.findall(cmd):
-        value = value.strip("\"'")
-        cmd = re.sub(r"\$\{" + name + r"\}|\$" + name + r"\b", lambda _m: value, cmd)
-    return cmd
-
-
-def iter_blocks(event):
-    """Yield content blocks from one stream-json event, whatever wraps them."""
-    msg = event.get("message") if isinstance(event.get("message"), dict) else event
-    content = msg.get("content")
-    if isinstance(content, str):
-        yield {"type": "text", "text": content}
-    elif isinstance(content, list):
+def parse_json(lines, trace, fmt):
+    for raw in lines:
+        if not raw.strip():
+            continue
+        try:
+            e = json.loads(raw)
+        except ValueError:
+            trace.skipped += 1
+            continue
+        if not isinstance(e, dict):
+            trace.skipped += 1
+            continue
+        kind = e.get("type")
+        if kind in {"session", "system", "tool_execution_start", "tool_execution_end", "assistant", "user", "message"}:
+            trace.recognized = True
+        if kind in {"session", "system"} and isinstance(e.get("cwd"), str):
+            trace.r.cwd = Path(e["cwd"])
+        if kind == "system" and e.get("subtype") == "init" and isinstance(e.get("skills"), list):
+            trace.available = trace.r.name in e["skills"]
+        if kind in {"agent_settled", "result"}:
+            trace.complete = True
+        if kind == "tool_execution_start":
+            trace.start(e.get("toolCallId"), str(e.get("toolName", "")), e.get("args"))
+        elif kind == "tool_execution_end":
+            trace.end(e.get("toolCallId"), e.get("result"), e.get("isError"))
+        if kind not in {"assistant", "user", "message", "message_end", "turn_end"}:
+            continue
+        msg = e.get("message", e)
+        if not isinstance(msg, dict):
+            continue
+        if msg.get("role") == "toolResult":
+            trace.end(msg.get("toolCallId"), msg.get("content"), msg.get("isError", False))
+        content = msg.get("content", [])
+        if isinstance(content, str):
+            content = [{"type": "text", "text": content}]
+        if not isinstance(content, list):
+            continue
         for b in content:
-            if isinstance(b, dict):
-                yield b
-                if b.get("type") == "tool_result":
-                    inner = b.get("content")
-                    if isinstance(inner, str):
-                        yield {"type": "text", "text": inner}
-                    elif isinstance(inner, list):
-                        for ib in inner:
-                            if isinstance(ib, dict):
-                                yield ib
-
-
-def parse_stream_json(lines, trace):
-    for raw in lines:
-        raw = raw.strip()
-        if not raw:
-            continue
-        try:
-            event = json.loads(raw)
-        except ValueError:
-            trace.skipped += 1
-            continue
-        if not isinstance(event, dict):
-            trace.skipped += 1
-            continue
-        if event.get("type") == "system" and event.get("subtype") == "init" and isinstance(event.get("skills"), list):
-            trace.available = trace.r.name in event["skills"]
-        for block in iter_blocks(event):
-            kind = block.get("type")
-            if kind == "tool_use":
-                trace.tool_use(str(block.get("name", "")), block.get("input"))
-            elif kind == "text":
-                text = block.get("text")
-                if isinstance(text, str):
-                    for m in SKILL_LOAD_RE.finditer(text):
-                        trace.skill_load(m.group(1))
-
-
-def parse_pi_json(lines, trace):
-    """Pi emits one tool_execution_start per call; message_end and turn_end repeat the
-    same toolCall, so only the start event is counted."""
-    for raw in lines:
-        raw = raw.strip()
-        if not raw:
-            continue
-        try:
-            event = json.loads(raw)
-        except ValueError:
-            trace.skipped += 1
-            continue
-        if not isinstance(event, dict):
-            trace.skipped += 1
-            continue
-        if event.get("type") == "tool_execution_start":
-            trace.tool_use(str(event.get("toolName", "")), event.get("args"))
-
-
-def parse_text(lines, trace):
-    for line in lines:
-        trace.step += 1  # each line is one step; order is approximate in this mode
-        trace.scan_text(line, approximate=True)
+            if not isinstance(b, dict):
+                continue
+            if b.get("type") in {"tool_use", "toolCall"}:
+                trace.start(b.get("id"), str(b.get("name", "")), b.get("input", b.get("arguments")))
+            elif b.get("type") == "tool_result":
+                trace.end(b.get("tool_use_id"), b.get("content"), bool(b.get("is_error", False)))
+            elif b.get("type") == "text" and msg.get("role") == "user":
+                text = b.get("text", "")
+                if not isinstance(text, str):
+                    trace.unknown("User text block is malformed.")
+                    continue
+                # Pi explicit invocation expands a skill into a user content block.
+                for path, body in re.findall(r'<skill\b[^>]*\blocation="([^"]+)"[^>]*>(.*?)</skill>', text, re.S):
+                    if body.strip():
+                        trace.delivery(path, 0, "injected", "success", mechanism="injected")
 
 
 def main(argv):
-    as_json = "--json" in argv
-    fmt = None
-    args = []
-    it = iter(a for a in argv if a != "--json")
-    for a in it:
-        if a == "--format":
-            fmt = next(it, None)
-        elif a.startswith("--format="):
-            fmt = a.split("=", 1)[1]
-        elif a in ("-h", "--help"):
-            print(__doc__.strip())
-            return 0
-        else:
-            args.append(a)
-    if len(args) != 2:
-        die(f"expected <skill-dir> <transcript>, got {len(args)} argument(s). " + __doc__.strip().split("\n")[2])
-    skill_dir, transcript = args
-    if fmt not in (None, "stream-json", "pi-json", "text"):
-        die(f"unknown --format '{fmt}'; valid: stream-json, pi-json, text")
-    if not os.path.isfile(os.path.join(skill_dir, "SKILL.md")):
-        die(f"no SKILL.md in {skill_dir}; pass the skill directory, the one holding SKILL.md")
-    if not os.path.exists(transcript):
-        die(f"transcript not found: {transcript}. Expected a file saved from "
-            "`claude -p \"<prompt>\" --output-format stream-json --verbose > run.jsonl`, "
-            "`pi --no-session --mode json -p \"<prompt>\" > run.jsonl`, or a printed text transcript")
-    with open(transcript, encoding="utf-8", errors="replace") as fh:
-        lines = fh.read().split("\n")
-    if not any(l.strip() for l in lines):
-        die(f"transcript is empty: {transcript}. Expected one JSON event per line (stream-json) or a printed text transcript")
-    note = None
-    if fmt is None:
-        first = next(l for l in lines if l.strip()).lstrip()
-        if first.startswith("{"):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("skill_dir")
+    parser.add_argument("transcript")
+    parser.add_argument("--format", choices=("stream-json", "pi-json", "text"))
+    parser.add_argument("--json", action="store_true")
+    args = parser.parse_args(argv)
+    try:
+        if not (Path(args.skill_dir) / "SKILL.md").is_file():
+            raise ValueError(f"no SKILL.md in {args.skill_dir}")
+        lines = Path(args.transcript).read_text(encoding="utf-8").split("\n")
+        first = next((line for line in lines if line.strip()), None)
+        if first is None:
+            raise ValueError("transcript is empty")
+        fmt = args.format
+        if fmt is None:
             try:
                 head = json.loads(first)
+                fmt = "pi-json" if isinstance(head, dict) and head.get("type") == "session" else "stream-json"
             except ValueError:
-                head = {}
-            # Pi's first event is {"type": "session", "version": N, ...}; Claude Code's is never "session".
-            fmt = "pi-json" if isinstance(head, dict) and head.get("type") == "session" else "stream-json"
+                fmt = "text"
+        files = bundled_files(args.skill_dir)
+        trace = Trace(Resolver(args.skill_dir, files))
+        if fmt == "text":
+            trace.unknown("Text mentions do not prove successful reads, loads, identity, or absence of loading.")
         else:
-            fmt = "text"
-            note = "first non-empty line is not JSON; reading as text, so read order and partiality are approximate"
-
-    files = bundled_files(skill_dir)
-    trace = Trace(Resolver(skill_dir, files))
-    {"stream-json": parse_stream_json, "pi-json": parse_pi_json, "text": parse_text}[fmt](lines, trace)
-
-    touched = {r["path"] for r in trace.reads} | {r["path"] for r in trace.runs}
-    unread = [f for f in files if f not in touched]
-    if as_json:
-        out = {"fired": trace.fired is not None,
-               "fired_step": trace.fired[0] if trace.fired else None,
-               "fired_by": trace.fired[1] if trace.fired else None,
-               "reads": [{k: r[k] for k in ("path", "tool", "partial", "step")} for r in trace.reads],
-               "runs": trace.runs, "unread": unread, "format": fmt, "available": trace.available,
-               "other_copy_loaded": trace.other_copy, "skipped_lines": trace.skipped, "note": note}
-        print(json.dumps(out, indent=2))
-        return 0
-    print(f"format: {fmt}" + (f" ({trace.skipped} unparseable line(s) skipped)" if trace.skipped else "")
-          + (" · approximate" if fmt == "text" else ""))
-    if note:
-        print(f"note: {note}")
-    if trace.available is not None:
-        print("available: " + ("yes (listed in the session's skills at start)" if trace.available
-                               else "no (not in the session's skills at start; it could not fire)"))
-    if trace.fired:
-        print(f"fired: yes (step {trace.fired[0]}, {trace.fired[1]})")
+            parse_json(lines, trace, fmt)
+        report = trace.report(fmt, files)
+    except (OSError, ValueError) as exc:
+        print(f"trace_skill_use: {exc}", file=sys.stderr)
+        return 2
+    if args.json:
+        print(json.dumps(report, indent=2))
     else:
-        print("fired: no (no Skill call, SKILL.md read, or skill-load line named this skill"
-              + ("; a slash-command or --skill load leaves no event in stream-json, so an explicitly invoked run reads as not fired)"
-                 if fmt == "stream-json" else ")"))
-    if trace.other_copy:
-        print(f"warning: a different copy of '{trace.r.name}' loaded: {trace.other_copy}; "
-              "the copy under test was shadowed, so this run says nothing about it")
-    partial_n = sum(1 for r in trace.reads if r["partial"])
-    print(f"reads: {len(trace.reads)} ({partial_n} partial)")
-    for i, r in enumerate(trace.reads, 1):
-        flag = f"  partial ({r['detail']})" if r["partial"] else ""
-        print(f"  {i}. step {r['step']}  {r['path']}  {r['tool']}{flag}")
-    print(f"runs: {len(trace.runs)}")
-    for i, r in enumerate(trace.runs, 1):
-        print(f"  {i}. step {r['step']}  {r['path']}  {r['tool']}")
-    print(f"unread: {len(unread)} of {len(files)} bundled files (read or run counts as opened)")
-    for f in unread:
-        print(f"  {f}")
+        print(f"format: {fmt}\nfired: {report['fired']} · mechanism: {report['loadMechanism']} · target match: {report['targetMatch']}")
+        for r in report["reads"]:
+            print(f"  step {r['step']}: {r['path']} · {r['outcome']} · range {r['requestedRange']}")
+        print(f"runs: {len(report['runs'])} · unread/unconfirmed: {len(report['unread'])}")
+        for limitation in report["limitations"]:
+            print(f"limitation: {limitation}")
     return 0
 
 

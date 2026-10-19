@@ -1,34 +1,30 @@
 # Skill review rubric
 
-Grade a skill against every dimension. Each is pass/fail against a stated condition, not a score. A failure is reported only with the edit that fixes it.
+Assess only the dimensions relevant to a narrow request; comprehensive creation/improvement and release review cover all fourteen stable IDs. Do not manufacture fourteen verdict lines for a wording fix or read-only question.
 
-The **Proved by** column says who does the work. *Linter* dimensions are settled by running `scripts/lint_skill.py`: copy its verdict, do not re-check by hand. *Judgment* dimensions need a reader.
+Use **pass**, **fail**, **not assessed**, or **not applicable**, with scope and evidence. Pass needs evidence; fail names the defect and a concrete repair hypothesis. Not assessed includes blocked/unrun checks and their reason; not applicable needs a reason. Unknown is not pass. Static linter output proves only its named format/local checks and estimates; heuristics require judgment. Run `uv run --offline --script <base>/scripts/lint_skill.py <skill-dir>` after approved setup, not as a substitute for evaluation.
 
-| # | Dimension | Passes when | Proved by |
+| # | Dimension | Assessment condition | Evidence |
 | --- | --- | --- | --- |
-| 1 | Description triggers | Third person; states what the skill does and when to fire; names the phrases a user actually types. A stranger reading only the frontmatter can answer "should this fire?" for a given prompt. | Linter (person, trigger clause, length) + judgment (specific enough to win against overlapping skills) |
-| 2 | Forced context | `SKILL.md` is under 500 lines and no instruction in it requires reading another file unconditionally. | Linter (line count, unprompted phrases) + judgment (unconditional reads) |
-| 3 | Progressive disclosure | Every bundled path has a stated condition for opening it, and depth lives behind that condition rather than in the router. Workflows are numbered steps, and quality-critical steps sit inside a validator loop that proceeds only on pass. | Judgment |
-| 4 | Judgment over rules | No instruction survives that the model would follow unprompted (the subtraction test in `references/authoring-guidelines.md`). Commands inside a validator loop are exempt. | Judgment |
-| 5 | Single source of truth | No idea is stated in two files. Where two would overlap, one owns it and the other links. | Judgment |
-| 6 | Reachability | Every referenced path exists, is one level from `SKILL.md`, and is reached by at least one route. Reference files over 100 lines have a Contents list. Files no route reads are deleted or deliberately unlinked (evals). | Linter |
-| 7 | Scope | One skill, one capability. Two unrelated jobs fail; so does a skill that only routes to another skill. | Judgment |
-| 8 | Consistent terminology | One term per concept throughout the skill and its bundled files. | Judgment |
-| 9 | Concrete over abstract | Output shapes ship as templates; style-dependent outputs ship as input/output pairs; one default with an escape hatch, never a menu of equivalent options; no "make sure it is good" where a gradeable condition could stand. | Judgment |
-| 10 | No time-bound content | No rule that becomes wrong on a date. Old methods sit under an "Old patterns" block. | Linter (router and workflows) + judgment (references) |
-| 11 | Scripts solve, don't defer | Scripts handle their own error cases, every constant carries a reason, validators report the specific problem and the valid alternatives, execute-versus-read intent is stated at each reference, required packages are listed, MCP tools are named `Server:tool`. | Linter (intent, script-constants) + judgment (the rest) |
-| 12 | Evals exist | `evals/evals.json` holds at least three cases, each with a prompt and at least two observable expected and two forbidden behaviours, written before the body was extended. | Linter (presence) + judgment (observable, written first) |
-| 13 | Token budget | `SKILL.md` is under 150 lines and, in a skill with more than one route, every route loads less than half of the bundled bytes, as the linter reports. | Linter |
-| 14 | Observed behaviour | A fresh session per required profile has used the skill on a real prompt since its last edit, and the trace shows `SKILL.md` read first, every reference the task needed opened in full, no bundled file read on every run, and no bundled file unread across all runs without a stated reason. | Trace script (fired, reads, order, partial reads, unread) + judgment (whether the files read were the right ones) |
+| 1 | Description triggers | Capability, intent, and boundaries guide the right tasks without near-miss false positives. Third-person phrasing is a preference, not a discovery proof or format law. | Portable/client field validation; controlled automatic-discovery positives and negatives for behavioral claims. |
+| 2 | Forced context | Advertised metadata, instructions, and routinely needed resources carry useful information at appropriate cost. Shared references and complete reads of needed sections are valid. The 500-line/about 5,000-token recommendation is not format validity. | Linter's separate static metadata/body estimates plus task evidence and runtime cost where measured. |
+| 3 | Progressive disclosure | Clear routing delivers essential information before the relevant decision. Put gotchas where needed; use numbered workflows and validator loops for fragile operations. Shared prerequisites can be intentional. | Navigation and output evidence; judgment about information requirements, not offset/limit alone. |
+| 4 | Judgment over rules | Retain contracts, examples, rationale, and helpers that improve intended outcomes. Remove unsupported ceremony only when evidence/coverage supports the cut. Strong modals fit costly mistakes, not every instruction. | Before/after task quality and failure analysis across intended profiles; static review alone is a hypothesis. |
+| 5 | Single source of truth | Detailed contracts have one owner; links and brief repeated safety reminders stay synchronized. Necessary short repetition is not automatically a defect. | Cross-file contract review and affected consumers. |
+| 6 | Reachability | Required resources exist and navigation makes needed sections reachable. Direct references and Contents are defaults; necessary depth is explicitly routed. Unread resources need scenario coverage analysis before deletion. | Linter's link checks/advice plus actual information delivery; no whole-file-read mandate. |
+| 7 | Scope | One coherent capability, with task-proportional review/repair modes, clear neighboring-skill boundaries, and approval before scope expansion. | Request-to-route walkthrough; mutation/model-call evidence for behavior. |
+| 8 | Consistent terminology | Use consistent terms for the same contract while preserving meaningful client differences. | Judgment and coupled-artifact sweep. |
+| 9 | Concrete over abstract | Verifiable interfaces/templates and useful examples clarify outputs. Give defaults where alternatives create costly ambiguity, with legitimate escape conditions. Do not delete an effective example merely to shorten text. | Artifact checks and human quality review, optionally blind baseline comparison. |
+| 10 | No time-bound content | Mutable claims have named sources, versions/review dates, or a runtime check. Historical context is labeled; a date alone is not a defect. | Linter date hints plus provenance review. |
+| 11 | Scripts solve, don't defer | Noninteractive scripts have documented inputs/outputs, versioned dependencies, actionable safe failures, honest exits, bounded output/retries, and dry-run/idempotency when relevant. Separate data stdout from stderr. Never work around denied permissions. Inspect source for debugging/security review; name tools as actually exposed by the client. | Focused deterministic tests, interface/security judgment; linter intent/constant hints are advice only. |
+| 12 | Evals exist | Repository release policy: schema-1 definitions, at least three execution cases, three required profiles, and observable expected/forbidden behaviors. Separate discovery corpus from execution. Static presence does not prove authorship order or execution. | Local definition validation; history if temporal claims matter; run records for behavior. |
+| 13 | Token budget | Report static metadata/body/referenced-material estimates separately from measured runtime tokens/time and task quality. The 150-line router is a house heuristic; bundle-share percentages are not quality gates. Adding unrelated assets cannot improve a verdict. | Static estimates and controlled runtime tradeoffs if available; missing metrics stay unavailable, not zero. |
+| 14 | Observed behaviour | Primary evidence matches exact revision and loaded target, invocation mode, prompt/fixture, model/thinking, tools, permissions, and containment. Task assertions pass with sufficient information delivery. Automatic discovery is separate from explicit invocation; controlled baselines support improvement claims. | Correlated trace plus artifacts/assertion grading. Comprehensive release requires every case/profile; focused iteration proves only sampled scope. Blocked/unrun cells remain not assessed and release-unqualified. |
 
-## Output
+## Reporting and release gates
 
-Exactly one line per dimension, all fourteen, in order. "All dimensions pass" is a claim, not a grade. A pass needs no justification beyond the verdict. A fail names the edit:
+For review-only, report findings and remaining coverage without edits or model calls. For targeted repair, report affected dimensions and checks, not an invented complete grade. A compact finding can be `6 · reachability: fail; missing schema section; add a direct section link; evidence: transcript step 8`.
 
-```
-2 · forced context — FAIL: SKILL.md is 437 lines and its Prerequisites section
-    requires three docs (43 KB) before step 1.
-    Fix: replace Prerequisites with a Files table whose last column is "read it when".
-```
+For comprehensive assessment, list all fourteen statuses with evidence and coverage. No full-pass summary unless every applicable dimension is actually supported. Release retains all three repository profiles and every required execution assertion; unrun/blocked cells prevent qualification. A completed runner capture is not a behavioral pass.
 
-A fail without a specific edit is not a finding, it is a complaint.
+When an observation prompted an edit, link symptom, primary evidence, edit, and retest outcome. Use a table only when useful; an unrun retest stays visibly unproven. Do not convert mechanical CLEAN, a single observed sample, or explicit invocation into universal behavior or automatic-trigger reliability.

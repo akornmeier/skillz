@@ -1,77 +1,103 @@
 # Tuning diagnostics
 
-How to improve a skill from watching a fresh instance use it, rather than from reading it. Every symptom maps to one edit; a symptom with no row below is reported, not fixed. The report table belongs to the Improve workflow's Report step.
+Use observed evidence to test an edit hypothesis. Static review can propose a repair; it cannot invent an observation or prove that a new description reliably triggers.
 
 ## Contents
 
 - The loop
+- Discovery and controlled comparisons
+- Trigger tuning
 - Capturing a run
+- Evidence and records
 - Navigation signals
 - Symptom to edit
 
 ## The loop
 
-Two instances. Claude A edits the skill with the human. Claude B is a fresh session that uses it on real work and never sees the editing conversation.
+1. Select review-only, targeted, or comprehensive scope. Preserve the original revision/manifest outside active discovery trees before editing; review-only makes no snapshots or writes.
+2. Define representative prompts, fixture requirements, and observable outputs/side effects. New skills need no-skill baselines; improvements need old/new baselines. Include subjective quality criteria for human review.
+3. With separate approval and safe preflight, observe a fresh executor that does not see the editing conversation. Do not give it failure diagnoses or hidden grading answers. Missing approval/controls means no launch and unqualified behavior.
+4. Map primary evidence to a hypothesis: missing information, misleading routing, tool/config failure, bad output interface, or genuine description overlap. If evidence suggests no justified edit, report it rather than inventing one.
+5. Repair the relevant cause, rerun static/focused tests, freeze the candidate revision, and retest approved prompts under identical controls. Stronger modals are appropriate for costly omissions, not a universal fix.
+6. Compare task quality and available runtime costs, not navigation aesthetics alone. Keep remaining failures and blocked cells visible; add useful new scenarios without contaminating held-out data or silently increasing budget.
 
-1. Use the skill through B in a real workflow, not a test scenario: a prompt a user would type, in a workspace shaped like theirs.
-2. Observe where B struggles, succeeds, or chooses unexpectedly: a rule it ignores, a file it opens at the wrong moment, a tool it cannot find, an output in the wrong shape.
-3. Bring the specific observation back to A together with the current `SKILL.md`: "B forgot to filter test accounts on the regional report; the rule is there but not prominent."
-4. Apply the edit: reorganise so the rule sits where it applies, strengthen the modal (must, never, only), or restructure the workflow so the step cannot be skipped.
-5. Test again on the same prompt in a new fresh session and compare the two traces.
-6. Repeat as new scenarios appear; each one becomes an eval case.
+## Discovery and controlled comparisons
 
-This works because B shows what the text actually causes, not what the author meant it to cause, and A sees both at once.
+**Discovery** evaluates normal metadata-based selection. **Execution** evaluates instructions after confirmed delivery; `/skill:name`, a Skill-tool load, or injected content may bypass discovery. A successful read alone also does not establish invocation intent. Inspect actual client semantics: Pi's `--skill` registers a resource and does not by itself prove forced body injection. Do not include explicit-invocation runs in automatic-trigger rates.
+
+Freeze the baseline and candidate with full manifests, not just matching names or SKILL.md bytes. Record exact editing and loaded roots. A same-name different manifest invalidates target evidence; a full matching copy may qualify identity but still needs recorded controls and historical snapshots.
+
+Pair runs with identical prompt, fixture, model/provider/thinking, competing metadata, tools, permissions, containment, sampling controls where supported, timeout, and nested-run allowance. Change only skill presence (new skill) or revision (improvement). Missing/mismatched controls invalidate comparative claims. Do not rename copies to resolve collisions: that changes the experiment. Isolate discovery or mark blocked.
+
+## Trigger tuning
+
+Use realistic positives and negative near-misses, paraphrases, and adjacent skills. Start meaningful tuning with roughly twenty mixed queries and three repetitions, not as a tax on every repair. For this skill, keep a separate frozen discovery corpus with 12 training (6/6), 8 validation (4/4), and 6 fresh (3/3) positive/negative queries. The corpus is not schema-1 execution cases; the router identifies its file for the evaluator, not for exposing held-out details to the optimizer.
+
+Only training failures inform edits. Generalize intent rather than paste exact failed phrases into descriptions. Validation selects among frozen versions; keep its raw prompts/results out of the editing context. Fresh queries confirm the selected version once, untouched; exposure requires new fresh prompts for another confirmation. The evaluator may hold the corpus, while the optimizer receives training details only.
+
+Report true-positive selections over positive attempts and false-positive selections over negative attempts separately, by exact configuration and repetition count. Blocked/unknown samples stay out of pass numerators and visible in coverage denominators. Single samples are coverage evidence; small samples do not justify confidence/reliability claims. Obtain a new approved budget before repetitions or additional candidates.
 
 ## Capturing a run
 
-One fresh session per profile in the skill's `requiredProfiles`, under the run contract in `<repo>/evals/README.md`: the skill is discoverable and not force-loaded, the workspace is disposable, side effects are blocked. The capture script does the mechanics:
+Preflight **before any model call**:
+
+- Record exact provider/model/thinking per selected profile, installed harness version, skill/fixture revisions and digests, prompt/corpus version, competing skill set, and intended automatic/explicit invocation.
+- Approve aggregate spend/time, timeout per child, maximum top-level launches, and maximum nested launches. Default nested budget is zero. Approved meta-evals may reach depth two, never unbounded recursion; count inner calls in the aggregate budget and use identical allowances in paired runs.
+- Demonstrate fresh context, disposable files, isolated skill discovery, and external containment separately. Restrict unapproved filesystem, shell, network, MCP, publishing, production, and installation effects outside the prompt. No bypass-permissions recommendation; flags or a copied workspace are not a universal security sandbox.
+- Keep fixtures/snapshots outside active recursive skill roots, with no writable links to global installs. The runner rejects all fixture symlinks, including contained ones; unsafe output locations receive no writes, including error sidecars.
+
+Example restricted preflight, **only after approval**, with `<base>` resolved from this skill's absolute directory:
 
 ```bash
-python3 <base>/scripts/run_fresh_session.py <workdir> "<prompt>" --out <run.jsonl> --model <model> --trace <skill-dir>
+python3 <base>/scripts/run_fresh_session.py <workdir> "<prompt>" --out <run.jsonl> \
+  --harness pi --model <provider/model> --effort <thinking> --trace <skill-dir> \
+  --invocation-mode automatic --allow-live --qualification --timeout <seconds> \
+  --max-depth 1 --run-budget 1
 ```
 
-It copies `<workdir>` to a disposable directory and sets the working directory itself, so it is one plain command: no `cd`, no environment prefix, no shell function around it. Harness flags go after a bare `--`, for example `-- --permission-mode acceptEdits` when the observed task edits files. `--harness pi` runs Pi instead of Claude Code.
+The current runner has **no verified discovery/containment adapter** and blocks `--qualification` and either required guarantee. Do not remove restriction flags to manufacture a qualification pass. Its ordinary approved capture mode is explicitly unisolated, not a release workaround. `--in-place` is mutating and invalid for qualification. Installing an adapter or changing containment needs separate scope/approval.
 
-The trace prints whether the skill was available and fired and at which step, every bundled file read in order with partial reads marked, the scripts run, and the bundled files never opened. Judgment supplies the rest: whether the files read were the right ones for the task.
+Runner depth/count sentinels coordinate cooperating processes, not hostile children or arbitrary external model APIs. Approved depth two uses a shared launch ledger; a child cannot raise the inherited cap. Verify external containment too. Python/POSIX process controls are prerequisites, not cross-platform sandbox promises.
 
-Two traps the script reports rather than hides:
-- A slash-command load leaves no event in the stream transcript, so a slash-only target reads as not fired there. The script also copies the session's own log to `<run.jsonl>.session.jsonl` and traces it; that log records the load.
-- An installed skill with the same name as the copy under test can load instead of it. The script warns before the run and the trace warns after it; rename the copy under test, directory and `name` field both, and run again. A retest on a shadowed copy proves nothing about the edit.
+Exit 0 means **completed capture**, not assertions passed; 1 means harness/capture/trace failure; 2 means blocked preflight/startup; 3 means timed out. Preserve partial evidence. A missing model, denied read, timeout, unavailable metric, or blocked preflight cannot become an observed pass.
 
-When the script exits 2, its message is the reason: write `observation skipped: <message>` in the report and grade rubric dimension 14 as failing with it. Never infer navigation from reading the skill yourself.
+## Evidence and records
+
+Capture primary transcript, stderr, output artifacts/diff, and available session log. Runner writes `<run.jsonl>.summary.json` (schema 1 capture metadata), `.trace.json` when tracing succeeds, optional `.session.jsonl` for Claude, and a shared launch-budget sidecar. The summary records outcome/childExit/reason, requested and available observed model configuration, invocation intent, exact target manifest, workspace/depth/budget, and limitations. Never persist credential/config values merely to reproduce a run.
+
+Run `python3 <base>/scripts/trace_skill_use.py <skill-dir> <transcript> --json` on saved evidence. Trace correlates tool IDs/results, distinguishes reads/writes/edits/executes/loads, and records requested ranges and outcomes. `fired=true` proves observed delivery of matching target content or a confirmed load, not automatic discovery or task quality. `false` requires sufficient supported evidence; malformed/incomplete/opaque evidence can be `null`. Mechanisms include read, skill-tool, injected, none, unknown. Text mentions and codemode source are not execution proof; consume actual nested events only when visible.
+
+A partial read is not automatically insufficient. Successful delivery does not by itself prove the needed section was read or understood; assess outputs and information requirements. A matching manifest reflects files at analysis time, so preserve revision snapshots before allowing edits. Supplemental session evidence may reveal loads absent from streams; absent explicit-load evidence is unknown, not a negative discovery result.
+
+The capture summary is **not** a behavioral run record. Follow `<repo>/evals/README.md`; save one schema-conforming execution record per case/profile at `<repo>/evals/runs/<case-id>/<profile>.json`. Use existing `evidence`, assertion evidence, `notes`, and `toolConfiguration` to link unique baseline/candidate artifacts, invocation mode, harness version, controls, approvals, and budgets. Preserve historical evidence rather than relabeling it for a new revision. Do not add fields to the shared schema.
+
+Grade every expected/forbidden behavior from primary evidence. Use `pass`, `fail`, or `blocked` for run-record assertions; missing evidence is blocked. A negative discovery non-trigger is separate from with-skill execution outcomes. Omit unavailable numeric metrics and state `unavailable` in notes, never zero. Human-review subjective outputs; optional blind paired comparison must itself be approved if it uses models. Keep discovery positive/negative counts separate from execution passes.
 
 ## Navigation signals
 
-| Signal | Means | Edit |
+| Signal | Investigate | Possible response |
 | --- | --- | --- |
-| Files read in an unexpected order | The structure is not intuitive; the router does not say what comes first | Name each file at the step that needs it, in the order the steps run |
-| A reference never followed although its condition held | The link or its read-it-when condition is not prominent | Move the condition into the step that depends on it; name the section, not just the file |
-| The same file read on every run | Its content belongs in `SKILL.md` | Inline the part every route needs; leave the rest behind its condition |
-| A file never read across all runs | It is unnecessary, or its condition never matches a real prompt | Delete it, or rewrite its condition in the words of the prompts that should open it |
-| A partial read (`head`, `tail`, `sed -n`, `offset`, `limit`) | The file is long or reached through another file, so the instance rationed its read | Add a `## Contents` list, link it directly from `SKILL.md`, or split it by domain |
+| Unexpected read order | Was required information missing before its decision? | Improve routing/order only if the task evidence shows a problem. |
+| Condition held but needed reference not delivered | Was the reference essential and clearly signaled? | Put its section link at the dependent step. |
+| Shared reference read on every route | Is it useful shared context, or just a small common fragment? | Keep shared ownership when justified; inline only the routinely needed fragment if that helps. |
+| Resource never read | Did the sample exercise its condition? | Expand coverage or improve routing; do not delete dormant conditional resources by default. |
+| offset/limit, head, sed, or selective sections | Did the delivered ranges cover essential information? | Accept sufficient section reads; add Contents/direct routing when essential content was missed. |
 
 ## Symptom to edit
 
-Dim. is the rubric dimension that fails; the doc pattern behind each edit is named so the fix can be checked against it.
+These are hypotheses, not a mandatory one-symptom/one-edit lookup. Validate the cause first. Dim. refers to stable rubric IDs.
 
-| Symptom | Likely cause | Edit | Dim. |
+| Symptom | Check before editing | Repair hypothesis | Dim. |
 | --- | --- | --- | --- |
-| Never fires on prompts that should trigger it | Description lacks the phrases users type, or is not third person | Add the user's exact phrases to the "Use when" clause, third person throughout (description phrases) | 1 |
-| Fires on prompts it should not | Description overlaps a neighbouring skill or names only a vague capability | Add a boundary clause ("Not for …") and sharpen the what-half (boundary clause) | 1 |
-| Rule present but ignored | Buried below the step it governs, or phrased as a suggestion | Move it into the step; strengthen the modal to must, never, or only (prominence or stronger modal) | 14 |
-| Files read in unexpected order | Router names files but not when | Name each file at its step, in step order (progressive disclosure) | 3 |
-| Reference never followed | Read condition not prominent, or stated far from the step | Put the condition inside the step and name the section (prominence) | 3 |
-| Same reference read every run | Content every route needs sits behind a condition | Inline that part into `SKILL.md`; keep depth behind the condition (inline) | 2 |
-| Bundled file never read | Unnecessary, or its condition never matches a real prompt | Delete it, or re-signal with the prompts' own words (delete or re-signal) | 6 |
-| Partial reads | Long or nested file | Add `## Contents`, flatten to one level from `SKILL.md`, or split by domain (flatten or add Contents) | 6 |
-| Works on the strongest profile, fails on the fast one | Too little guidance; the strong model infers a step the fast one skips | Write the inferred step out; lower the degree of freedom at that step (more guidance for the fast profile) | 14 |
-| Picks inconsistently among listed options | A menu of equivalent choices | One default plus the condition for the alternative (default plus escape hatch) | 9 |
-| Skips a validation step | The step is advisory and nothing loops on it | Run validator, fix, rerun, "only proceed when it passes" (validator loop) | 3 |
-| Errors in a batch or destructive step | No plan checked before anything is touched | Plan as a structured file, validate it with a script, then execute and verify (plan-validate-execute) | 3 |
-| A script fails and the instance improvises | The script defers its error cases to the model | Handle the case in the script; errors name the specific problem and the valid alternatives (solve, don't defer) | 11 |
-| "tool not found" on an MCP tool | Bare tool name with several servers present | Fully qualify as `Server:tool` (qualified MCP names) | 11 |
-| Output shape varies between runs | No template, or a flexible one where strict was needed | Ship the shape as a template marked "ALWAYS use this exact structure" (strict template) | 9 |
-| Output style is off | Style only visible by example | Add input/output pairs showing the style (input/output pairs) | 9 |
-| A step is skipped on the fast profile while stronger ones do it | The step names an action but no artefact, so nothing shows it is missing | Name the artefact the step must leave: the verdict lines, the table, the file (strict template) | 3 |
-| Searches the whole disk for a file the workflow could have named | The step says what to find but not where to look | List the places to look, in order, and forbid the wide search (more guidance for the fast profile) | 3 |
-| A retest shows no change after an edit | A same-named installed skill loaded instead of the edited copy | Rename the copy under test and rerun; check the trace's "different copy" warning | 14 |
+| Never fires | Metadata availability, client settings, collisions, invocation mode, realistic positives | Clarify capability/intent boundaries using training evidence, not exact-phrase insertion. | 1 |
+| Fires on near-misses | Competing skills and false-positive counts | Narrow scope/boundaries without sacrificing true positives. | 1, 7 |
+| Rule present but ignored | Was the relevant information delivered before the decision? | Move the gotcha or clarify the step; strengthen modal only for costly mistakes. | 3, 14 |
+| Partial/unexpected reads | Essential information and task success, not read-window shape | Improve navigation only when missing information affected behavior. | 2, 6 |
+| Shared or unread file | Shared value and conditional coverage | Keep, split, or re-signal based on evidence; no automatic inline/delete rule. | 2, 5, 6 |
+| Strong model succeeds, fast model fails | Missing interface/step vs model/tool limitation | Add useful guidance and retest relevant profiles under equal controls. | 9, 14 |
+| Options cause inconsistent output | Legitimate variability vs ambiguity | Prefer one default with documented escape conditions where useful. | 9 |
+| Validation skipped | Was it required, executable, and within scope? | Make a fragile operation's validation/repair loop explicit. | 3 |
+| Batch/destructive errors | Approval, plan, dry-run, external containment | Validate a structured plan before mutation; never bypass a denied operation. | 3, 11 |
+| Script/tool failure | Interface, versioned dependencies, actual tool names, exits | Improve safe errors/helper tests; inspect source when debugging/security-reviewing. | 11 |
+| Output quality varies | Objective assertions and human comparison | Add a verifiable template or useful input/output example. | 9 |
+| Retest unchanged | Exact loaded path/manifest, baseline controls | Resolve discovery collisions/isolation; do not rename or claim the wrong copy passed. | 14 |

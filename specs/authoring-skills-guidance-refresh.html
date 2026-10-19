@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Plan: Authoring-skills guidance refresh</title><style>
+  /* ===== VISUAL IDENTITY =====
+     Source of truth for this page AND every image embedded in it. Inline SVG
+     resolves var() against this page, so diagrams reference these roles
+     (never hardcoded hex) and the identity stays synced.
+
+     The structure is fixed : --bg, --paper-2, --ink, --muted, --soft, --rule,
+     --accent and --accent-tint must all exist, because an undeclared custom
+     property renders as no fill and fails silently. The values are a starting
+     point: re-tune the hues per plan to suit its subject. */
+  :root {
+    --bg:            #000000;
+    --paper-2:       #000000;
+    --ink:           #ffffff;
+    --muted:         #c8c8c8;
+    --soft:          #ababab;
+    --rule:          #303030;
+    --rule-solid:    #424242;
+    --accent:        #82d4b4;
+    --accent-tint:   #071a13;
+
+    --sans:  'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --mono:  'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --serif: ui-serif, 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 4rem 1.5rem 6rem;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  main { max-width: 60rem; margin: 0 auto; }
+
+  h1 {
+    font-family: var(--serif);
+    font-size: 2.5rem;
+    font-weight: 400;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    margin: 0 0 1rem;
+  }
+  h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    margin: 3.5rem 0 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  h3 { font-size: 1.0625rem; font-weight: 600; margin: 2rem 0 0.5rem; }
+  h4 {
+    font-family: var(--mono);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 1.5rem 0 0.5rem;
+  }
+  p  { margin: 0 0 1rem; max-width: 46rem; }
+  a  { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.85em;
+    background: rgba(27, 26, 24, 0.05);
+    border-radius: 4px;
+    padding: 0.1em 0.35em;
+  }
+  pre {
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 1rem 1.25rem;
+    overflow-x: auto;
+    font-size: 0.8125rem;
+    line-height: 1.6;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+
+  /* --- header + metadata --- */
+  header { margin-bottom: 2.5rem; }
+  details.meta {
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    background: var(--paper-2);
+    padding: 0.625rem 1rem;
+    font-size: 0.8125rem;
+  }
+  details.meta summary {
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  details.meta dl {
+    display: grid;
+    grid-template-columns: 8rem 1fr;
+    gap: 0.25rem 1rem;
+    margin: 0.875rem 0 0.25rem;
+  }
+  details.meta dt {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--soft);
+    padding-top: 0.15rem;
+  }
+  details.meta dd { margin: 0; color: var(--muted); font-family: var(--mono); font-size: 0.75rem; word-break: break-word; }
+
+  /* --- figures --- */
+  figure {
+    margin: 2rem auto;
+    padding: 0;
+    text-align: center;
+  }
+  figure svg, figure img { display: block; width: 100%; max-width: 100%; height: auto; margin: 0 auto; }
+  figcaption {
+    margin-top: 0.875rem;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--soft);
+    max-width: 40rem;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* --- tables (the Notes canvas invites them) --- */
+  table { border-collapse: collapse; width: 100%; font-size: 0.875rem; margin: 0 0 1rem; }
+  th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th {
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--soft);
+    font-weight: 500;
+  }
+  td code { white-space: nowrap; }
+
+  /* --- relevant files --- */
+  .files ul { list-style: none; padding: 0; margin: 0 0 1rem; }
+  .files li { padding: 0.375rem 0; border-bottom: 1px solid var(--rule); font-size: 0.9375rem; }
+  .tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-radius: 2px;
+    padding: 0.1rem 0.35rem;
+    margin-right: 0.4rem;
+    border: 1px solid;
+  }
+  .tag.existing { color: var(--muted); border-color: var(--rule-solid); }
+  .tag.new      { color: var(--accent); border-color: var(--accent); background: var(--accent-tint); }
+
+  /* --- phases --- */
+  .phase {
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 1.25rem 1.5rem 1.5rem;
+    margin: 1.5rem 0;
+  }
+  .phase h3 { margin-top: 0.25rem; }
+  ul.checklist { list-style: none; padding: 0; margin: 0 0 1rem; }
+  ul.checklist li { padding: 0.25rem 0; font-size: 0.9375rem; line-height: 1.55; }
+  code.status {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--soft);
+    background: none;
+    padding: 0;
+    margin-right: 0.4rem;
+  }
+  .loop {
+    border-left: 2px solid var(--accent);
+    background: var(--accent-tint);
+    border-radius: 0 4px 4px 0;
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    color: var(--muted);
+  }
+  .loop strong { color: var(--ink); }
+
+  /* --- questionables / notes / amendments --- */
+  #questionables details, #notes details, #amendments details {
+    border-bottom: 1px solid var(--rule);
+    padding: 0.625rem 0;
+  }
+  #questionables summary, #notes summary, #amendments summary {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9375rem;
+  }
+  .qa-answer, #amendments details p { margin: 0.5rem 0 0; color: var(--muted); font-size: 0.9375rem; }
+
+  body { padding: 3rem 1.25rem 5rem; }
+  main { max-width: 70rem; }
+  h1 { font-family: var(--sans); font-size: clamp(2rem, 5vw, 3rem); font-weight: 650; }
+  h4 { text-transform: none; letter-spacing: 0; color: var(--ink); }
+  p { max-width: 62rem; }
+  code { background: #151515; border-radius: 0; overflow-wrap: anywhere; }
+  td code { white-space: normal; }
+  pre, details.meta { border-radius: 0; }
+  details.meta { border-width: 1px 0; padding-inline: 0; }
+  .phase { border: 0; border-top: 1px solid var(--rule); border-radius: 0; padding: 1.5rem 0; }
+  .task { margin: 2rem 0; }
+  .tag { border: 0; border-radius: 0; padding: 0; background: none !important; }
+  .loop { background: none; border-radius: 0; }
+  .verification { border-left: 1px solid var(--rule); padding-left: 1rem; margin-top: 1rem; }
+  .verification dl, .interfaces { display: grid; grid-template-columns: 6rem minmax(0, 1fr); gap: .4rem .8rem; font-size: .875rem; }
+  .verification dt, .interfaces dt { font-weight: 600; }
+  .verification dd, .interfaces dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+  .table-scroll, .diagram-scroll { overflow-x: auto; }
+  .diagram-scroll svg { min-width: 660px; }
+  .status { white-space: nowrap; }
+  nav { display: flex; flex-wrap: wrap; gap: .6rem 1.25rem; font-size: .875rem; margin-top: 1.25rem; }
+  li { margin-bottom: .35rem; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+  @media (max-width: 640px) {
+    body { padding: 1.5rem 1rem 3rem; }
+    h2 { margin-top: 2.5rem; }
+    details.meta dl { grid-template-columns: 5rem minmax(0, 1fr); }
+    .verification dl, .interfaces { grid-template-columns: 1fr; gap: .15rem; }
+    .verification dd, .interfaces dd { margin-bottom: .5rem; }
+    th, td { padding: .5rem .35rem; }
+    table { min-width: 560px; }
+  }
+</style></head><body><main>
+<header><h1>Plan: Authoring-skills guidance refresh</h1>
+<details class="meta"><summary>Metadata</summary><dl>
+<dt>created</dt><dd>2026-10-19T19:13:19Z</dd>
+<dt>modified</dt><dd>2026-10-19T19:13:19Z; 2026-10-19T19:19:30Z; 2026-10-19T19:46:35Z; 2026-10-19T20:14:49Z; 2026-10-19T20:18:44Z</dd>
+<dt>commits</dt><dd>66b43cb (repository baseline at planning); 66b43cb0f45aa16fc2a6ff85f9e5ff0842e13e5b (HEAD during Phase 1 build; no new commit); 66b43cb0f45aa16fc2a6ff85f9e5ff0842e13e5b (HEAD during approved dependency continuation; no new commit)</dd>
+<dt>agent name</dt><dd>gpt-6.1-sol via Pi; provider openai-codex; gpt-6.1-sol via Pi (Phase 1 build, high reasoning); gpt-6.1-sol via Pi (dependency-approved continuation, high reasoning)</dd>
+<dt>session id</dt><dd>01a15582-6850-76c0-a8fc-d174445acefa; 01a155a7-d59b-76c0-a8fc-d17649bd67c6; 01a155a7-d59b-76c0-a8fc-d17649bd67c6 (approved continuation)</dd>
+<dt>back refs</dt><dd>Current-session skills best-practices review, October 19, 2026; <a href="authoring-skills-tuning-loop.html">authoring-skills-tuning-loop.html</a>; <a href="../SKILL-AUTHORING-REVIEW.md">SKILL-AUTHORING-REVIEW.md</a></dd>
+<dt>forward refs</dt><dd>None. Added during build: <a href="../skills/authoring-skills/SKILL.md">updated skill</a>; <a href="../skills/authoring-skills/references/compatibility.md">compatibility contract</a>; <a href="../skills/authoring-skills/evals/trigger-queries.json">frozen discovery corpus</a>.</dd>
+</dl></details>
+<nav aria-label="Plan sections"><a href="#acceptance">Acceptance</a><a href="#coverage">Coverage</a><a href="#files">Files</a><a href="#phases">Tasks</a><a href="#validation">Validation</a><a href="#notes">Evidence and decisions</a></nav></header>
+<figure><div class="diagram-scroll"><svg viewBox="0 0 960 190" role="img" aria-labelledby="flow-title flow-desc" xmlns="http://www.w3.org/2000/svg">
+<title id="flow-title">Evidence before guidance before qualification</title><desc id="flow-desc">Three sequential phases: repair trace and capture tools; refresh validation and authoring guidance; qualify updated cases with offline checks and separately approved live runs. Failed prerequisites block dependent work.</desc>
+<path d="M285 88H345 M605 88H665" stroke="var(--accent)" stroke-width="2" fill="none"/><path d="m337 81 8 7-8 7m320-14 8 7-8 7" stroke="var(--accent)" stroke-width="2" fill="none"/>
+<g font-family="ui-sans-serif, system-ui" fill="var(--ink)"><text x="0" y="30" fill="var(--accent)" font-size="15">01 / P0</text><text x="0" y="79" font-size="25">Trust evidence</text><text x="0" y="112" fill="var(--muted)" font-size="17">Trace + runner</text>
+<text x="350" y="30" fill="var(--accent)" font-size="15">02 / P1 + P2</text><text x="350" y="79" font-size="25">Refresh guidance</text><text x="350" y="112" fill="var(--muted)" font-size="17">YAML + scope + evaluation</text>
+<text x="675" y="30" fill="var(--accent)" font-size="15">03 / RELEASE GATE</text><text x="675" y="79" font-size="25">Qualify behavior</text><text x="675" y="112" fill="var(--muted)" font-size="17">Cases + approved runs</text>
+<text x="0" y="172" fill="var(--soft)" font-size="16">Offline implementation first. Missing approval or containment blocks live qualification.</text></g></svg></div><figcaption>Sequential ownership avoids competing edits to shared guidance. Diagram scrolls on narrow screens.</figcaption></figure>
+<section id="purpose"><h2>Purpose</h2><p>Keep authoring-skills small, portable, and evidence-driven while making its validation and observed-run claims trustworthy. Implement the October 19 review without replacing the skill or widening into unrelated packages.</p></section>
+<section id="problem"><h2>Problem</h2><p>Current tooling passes its own tests but can accept invalid YAML, count writes or failed reads as activation, and return success after a failed harness. Guidance also treats local preferences as universal rules, imposes full-review ceremony on narrow requests, and mistakes navigation heuristics for task quality.</p></section>
+<section id="solution"><h2>Solution</h2><p>Repair evidence capture first. Then distinguish portable constraints, client behavior, and local policy; introduce proportional Improve modes; align eval guidance and diagnostics. Finish with network-free regression checks and separately approved, controlled behavioral qualification.</p></section>
+<section id="acceptance"><h2>Acceptance Criteria</h2><ul>
+<li class="criterion" id="ac-trace"><strong>Trace.</strong> Trace evidence cannot confuse writes, failed reads, unknown results, or a different skill copy with successful activation. Explicit invocation is never reported as proof of automatic discovery.</li>
+<li class="criterion" id="ac-runner"><strong>Runner.</strong> Runner reports completed, failed, blocked, and timed-out captures truthfully; rejects escaping workspace links; records exact target identity and limitations. No workspace-copy claim implies an enforced security sandbox.</li>
+<li class="criterion" id="ac-validation"><strong>Validation.</strong> Valid portable YAML and supported optional fields validate; malformed YAML, invalid types, and malformed local eval definitions fail with actionable diagnostics. Advisory wording and size preferences do not masquerade as format errors.</li>
+<li class="criterion" id="ac-authority"><strong>Authority.</strong> Every constraint is attributable to portable format, named client behavior, or repository policy. Discovery locations and collision behavior are client-specific; local symlink setup is not universalized.</li>
+<li class="criterion" id="ac-scope"><strong>Scope.</strong> Review-only work makes no edits or model calls by default. Targeted fixes use relevant checks; comprehensive qualification retains repository release gates. Audit delegation is optional and bounded.</li>
+<li class="criterion" id="ac-evaluation"><strong>Evaluation.</strong> Guidance separates discovery from execution, uses controlled no-skill or previous-version baselines, tests negative near-misses, protects held-out prompts, and distinguishes iteration coverage from three-profile qualification.</li>
+<li class="criterion" id="ac-context"><strong>Context.</strong> Navigation checks accept sufficient section reads and legitimate shared references. Cost output separates metadata, instructions, and static scenario estimates; unrelated bundle growth cannot improve a quality verdict.</li>
+<li class="criterion" id="ac-alignment"><strong>Alignment.</strong> Router, workflows, rubric, templates, compatibility guidance, and current eval assertions agree. Existing case IDs and historical evidence remain intact; six behavioral cases and a labeled trigger dataset cover changed behavior.</li>
+<li class="criterion" id="ac-qualification"><strong>Qualification.</strong> Offline checks pass; approved behavioral runs identify exact revision, provider/model/thinking, fixtures, permissions, invocation mode, and primary evidence. Every missing or blocked check remains visibly unqualified, never a claimed pass.</li>
+</ul><p><strong>Non-goals:</strong> Replacing authoring-skills with upstream skill-creator; changing other skills; migrating repository eval schemas; building a universal sandbox, eval orchestration platform, or HTML review UI; rewriting historical plans/results; commits, PRs, publishing, or installation changes.</p>
+<p><strong>Constraints:</strong> Work is scoped to listed files. Preserve unrelated <code>skills/.trash/</code>. Keep existing case IDs, local schema 1, minimum three execution cases, and three release profiles. All implementation status markers start idle. No model calls, dependency downloads, or installed-copy mutation are authorized by this planning request.</p>
+<p><strong>Open decisions:</strong> No unresolved implementation design blocker. Selected parser: PyYAML 6.0.3 via uv/PEP 723. Live qualification remains approval-gated: exact models, spending/time limits, nested-run count, and demonstrated containment must be supplied before those runs. Missing prerequisites block qualification, not permission to improvise.</p></section>
+<section id="coverage"><h2>Coverage</h2><div class="table-scroll"><table><thead><tr><th scope="col">Criterion</th><th scope="col">Tasks</th><th scope="col">Verification</th></tr></thead><tbody>
+<tr><td><a href="#ac-trace">Trace</a></td><td><a href="#task-trace">Repair trace evidence classification</a></td><td><a href="#verify-trace">trace checks</a></td></tr>
+<tr><td><a href="#ac-runner">Runner</a></td><td><a href="#task-runner">Make capture outcomes and boundaries explicit</a></td><td><a href="#verify-runner">runner checks</a></td></tr>
+<tr><td><a href="#ac-validation">Validation</a></td><td><a href="#task-lint">Validate YAML and separate errors from advice</a></td><td><a href="#verify-lint">lint checks</a></td></tr>
+<tr><td><a href="#ac-authority">Authority</a></td><td><a href="#task-authority">Document portable and client-specific contracts</a><br><a href="#task-lint">Validate YAML and separate errors from advice</a></td><td><a href="#verify-authority">authority checks</a><br><a href="#verify-lint">lint checks</a></td></tr>
+<tr><td><a href="#ac-scope">Scope</a></td><td><a href="#task-workflows">Make review scope proportional to request</a><br><a href="#task-evals">Align behavioral cases and freeze trigger queries</a><br><a href="#task-qualification">Qualify evidence and hand off without overstating coverage</a></td><td><a href="#verify-workflows">workflows checks</a><br><a href="#verify-evals">evals checks</a><br><a href="#verify-qualification">qualification checks</a></td></tr>
+<tr><td><a href="#ac-evaluation">Evaluation</a></td><td><a href="#task-evaluation">Define controlled evaluation and trigger tuning</a><br><a href="#task-evals">Align behavioral cases and freeze trigger queries</a><br><a href="#task-qualification">Qualify evidence and hand off without overstating coverage</a></td><td><a href="#verify-evaluation">evaluation checks</a><br><a href="#verify-evals">evals checks</a><br><a href="#verify-qualification">qualification checks</a></td></tr>
+<tr><td><a href="#ac-context">Context</a></td><td><a href="#task-context">Replace structural absolutes with outcome checks</a><br><a href="#task-lint">Validate YAML and separate errors from advice</a></td><td><a href="#verify-context">context checks</a><br><a href="#verify-lint">lint checks</a></td></tr>
+<tr><td><a href="#ac-alignment">Alignment</a></td><td><a href="#task-authority">Document portable and client-specific contracts</a><br><a href="#task-workflows">Make review scope proportional to request</a><br><a href="#task-evaluation">Define controlled evaluation and trigger tuning</a><br><a href="#task-context">Replace structural absolutes with outcome checks</a><br><a href="#task-evals">Align behavioral cases and freeze trigger queries</a></td><td><a href="#verify-authority">authority checks</a><br><a href="#verify-workflows">workflows checks</a><br><a href="#verify-evaluation">evaluation checks</a><br><a href="#verify-context">context checks</a><br><a href="#verify-evals">evals checks</a></td></tr>
+<tr><td><a href="#ac-qualification">Qualification</a></td><td><a href="#task-trace">Repair trace evidence classification</a><br><a href="#task-runner">Make capture outcomes and boundaries explicit</a><br><a href="#task-evals">Align behavioral cases and freeze trigger queries</a><br><a href="#task-qualification">Qualify evidence and hand off without overstating coverage</a></td><td><a href="#verify-trace">trace checks</a><br><a href="#verify-runner">runner checks</a><br><a href="#verify-evals">evals checks</a><br><a href="#verify-qualification">qualification checks</a></td></tr>
+</tbody></table></div></section>
+<section id="files" class="files"><h2>Relevant Files</h2><p>Paths below are repository-relative. Generated run artifacts remain ignored. Proposed files are labeled new; existing shared schemas stay unchanged.</p><h3>Existing Files</h3><ul>
+<li><span class="tag existing">existing</span> <code>skills/authoring-skills/SKILL.md</code> : Router, contracts, command examples, and conditional resource index.</li>
+<li><span class="tag existing">existing</span> <code>skills/authoring-skills/references/authoring-guidelines.md</code> : Authoring principles, specification labels, evaluation and script guidance.</li>
+<li><span class="tag existing">existing</span> <code>skills/authoring-skills/references/review-rubric.md</code> : Fourteen stable dimensions and evidence/scope policy.</li>
+<li><span class="tag existing">existing</span> <code>skills/authoring-skills/references/tuning-diagnostics.md</code> : Observation, diagnostics, capture interpretation, and retest guidance.</li>
+<li><span class="tag existing">existing</span> <code>skills/authoring-skills/workflows/create-skill.md</code> : Creation, baseline, validation, and qualification sequence.</li>
+<li><span class="tag existing">existing</span> <code>skills/authoring-skills/workflows/improve-skill.md</code> : Review-only, targeted, and comprehensive modes.</li>
+<li><span class="tag existing">existing</span> <code>skills/authoring-skills/workflows/audit-skills.md</code> : Mechanical scan, triage, and bounded optional delegation.</li>
+<li><span class="tag existing">existing</span> <code>skills/authoring-skills/templates/SKILL.md</code> : Portable skeleton, contracts, and script defaults.</li>
+<li><span class="tag existing">existing</span> <code>skills/authoring-skills/templates/evals.json</code> : Existing local schema and observable behaviors.</li>
+<li><span class="tag existing">existing</span> <code>skills/authoring-skills/evals/evals.json</code> : Six future behavioral cases; preserve historical results.</li>
+<li><span class="tag existing">existing</span> <code>skills/authoring-skills/scripts/lint_skill.py</code> : YAML validation, authority-aware findings, and context estimates.</li>
+<li><span class="tag existing">existing</span> <code>skills/authoring-skills/scripts/run_fresh_session.py</code> : Capture outcomes, fixture boundaries, and run metadata.</li>
+<li><span class="tag existing">existing</span> <code>skills/authoring-skills/scripts/trace_skill_use.py</code> : Evidence classification and exact target matching.</li>
+<li><span class="tag existing">existing</span> <code>skills/authoring-skills/evals/fixtures/test_trace.py</code> : Existing parser/shell fixture checks to extend.</li>
+<li><span class="tag existing">existing</span> <code>skills/authoring-skills/evals/fixtures/trace-sample.jsonl</code> : Claude event fixture; update only with faithful event shapes.</li>
+<li><span class="tag existing">existing</span> <code>skills/authoring-skills/evals/fixtures/trace-sample-pi.jsonl</code> : Pi event fixture; update only with faithful event shapes.</li>
+<li><span class="tag existing">existing</span> <code>evals/README.md</code> : Shared release/run contract; only clarifications within scope.</li>
+<li><span class="tag existing">existing</span> <code>evals/scripts/validate-cases.mjs</code> : Run unchanged as repository-wide definition/link check.</li>
+<li><span class="tag existing">existing</span> <code>evals/run-record.schema.json</code> : Reference unchanged; no schema migration.</li>
+<li><span class="tag existing">existing</span> <code>evals/profiles.example.json</code> : Reference unchanged; exact mappings chosen only at live preflight.</li>
+<li><span class="tag existing">existing</span> <code>specs/authoring-skills-tuning-loop.html</code> : Historical predecessor; leave untouched.</li>
+<li><span class="tag existing">existing</span> <code>specs/authoring-skills-guidance-refresh.html</code> : This new plan; status/evidence updates only during approved build.</li>
+</ul><h3>New Files</h3><ul>
+<li><span class="tag new">new</span> <code>skills/authoring-skills/references/compatibility.md</code> : Single owner for portable/platform/local distinctions and runtime setup.</li>
+<li><span class="tag new">new</span> <code>skills/authoring-skills/evals/fixtures/test_runner.py</code> : Network-free process, summary, isolation-boundary, and recursion tests.</li>
+<li><span class="tag new">new</span> <code>skills/authoring-skills/evals/fixtures/test_lint.py</code> : YAML/optional-field, severity, eval-shape, and estimate tests.</li>
+<li><span class="tag new">new</span> <code>skills/authoring-skills/evals/fixtures/test_eval_contracts.py</code> : Discovery corpus and six-case local contract checks.</li>
+<li><span class="tag new">new</span> <code>skills/authoring-skills/evals/trigger-queries.json</code> : Frozen 20 tuning queries plus 6 fresh queries, separate from execution schema.</li>
+</ul></section>
+<section id="phases"><h2>Implementation Phases</h2><p>Execute sequentially, top to bottom. One builder owns all writable files; no parallel edits to shared documents. A failed prerequisite blocks its consumers.</p><p>Status: <code>[]</code> idle, <code>[wip]</code> in progress, <code>[x]</code> complete, <code>[f]</code> failed or blocked. Offline tasks 1–8 complete after approved dependency provisioning. Phase 3 corpus/definition alignment passed; task 9 and Phase 3 release qualification remain [f] blocked on separate live approvals and containment. Unchecked items remain unexecuted.</p>
+<div class="phase"><h3><code class="status">[x]</code> Phase 1: Evidence integrity</h3><p>P0. Make capture and trace results trustworthy before depending on them.</p>
+<div class="task" id="task-trace"><h4><code class="status">[x]</code> 1. Repair trace evidence classification</h4><p><strong>Files:</strong> <code>skills/authoring-skills/scripts/trace_skill_use.py</code>, <code>skills/authoring-skills/evals/fixtures/test_trace.py</code>, <code>skills/authoring-skills/evals/fixtures/trace-sample.jsonl</code>, <code>skills/authoring-skills/evals/fixtures/trace-sample-pi.jsonl</code></p><p><strong>Depends on:</strong> None. First implementation task; establish failing cases before changing parser.</p>
+<dl class="interfaces"><dt>Produces</dt><dd>Existing JSON output remains the base contract. Extend fired to true/false/null, reads with outcome and requested range, and add loadMechanism (read, skill-tool, injected, none, unknown), targetMatch (true/false/null), and limitations. fired=false requires enough valid evidence to rule out loading; malformed or incomplete evidence yields null. Invocation intent belongs to runner metadata, not parser inference.</dd><dt>Consumers</dt><dd>Consumed by <a href="#task-runner">runner capture</a> and <a href="#task-qualification">qualification</a>.</dd></dl>
+<ul class="checklist">
+<li><code class="status">[x]</code> Make test_trace.py safe for unittest discovery: no import-time assertions, prints, or sys.exit; retain direct script execution through a main guard or unittest.main. Extend fixture coverage for write-only and edit-only SKILL.md events, successful and denied reads, missing tool results, duplicate start/end events, and same-name copies at different paths. Positive read fixtures must contain matching successful results; legacy start-only events now test unknown rather than fictional success. Keep fixtures data-only; generate simulated skill packages in temporary directories outside skills/.</li>
+<li><code class="status">[x]</code> Correlate tool request IDs with results in Claude stream/session logs and Pi JSON. Count only successful content delivery or a confirmed skill-load event as loading. A request without a result remains unknown, not successful. Keep approximate text traces explicitly uncertain.</li>
+<li><code class="status">[x]</code> Separate read, write, edit, execute, and load events. Record requested read windows; do not equate offset/limit with missing relevant information. Preserve existing JSON keys where accurate; unknown activation may be null.</li>
+<li><code class="status">[x]</code> Match evaluated files against explicit permitted root and content digest, not a directory-name substring. Treat another copy as mismatched unless its full skill manifest matches. Inspect actual codemode event visibility: consume nested events only when present; otherwise report unsupported/unknown without parsing JavaScript as execution proof.</li>
+</ul><div class="verification" id="verify-trace"><p><strong>Task verification</strong></p><dl><dt>Cases</dt><dd class="cases">Write/edit-only events do not fire; denied read does not fire; unmatched start is unknown; confirmed successful read fires; explicit load is labeled by mechanism; duplicate tool events count once; same-name different bytes do not qualify; codemode-only evidence is unknown unless actual nested events prove delivery. Existing successful fixtures still parse.</dd><dt>Command</dt><dd class="command"><code>PYTHONDONTWRITEBYTECODE=1 python3 skills/authoring-skills/evals/fixtures/test_trace.py</code></dd><dt>Expected</dt><dd class="expected">Exit 0 after old and new parser checks pass. Before repair, new cases fail because of false activation, not missing test setup.</dd><dt>Evidence</dt><dd class="evidence">Executed PYTHONDONTWRITEBYTECODE=1 python3 skills/authoring-skills/evals/fixtures/test_trace.py: before repair exit 1 (9 failing assertions, 2 missing-contract errors across 12 tests), including write/edit, denied read, and wrong-copy false activation. After repair exit 0, 12 tests passed. Logs: /tmp/authoring-skills-trace-before.log and /tmp/authoring-skills-trace-after.log. Existing Claude and Pi positive fixtures retained matching successful results and passed; codemode source remained opaque. Final rerun after lifecycle/Unicode/malformed-event review: exit 0, 18 tests passed. Offline probe of this actual persisted Pi session with --format pi-json --json exited 0: fired=null, opaque codemode limitation, incomplete-session limitation; retained /tmp/authoring-skills-current-session-trace.json. No JavaScript source was treated as executed read evidence. Pi toolResult messages normalize against execution-end results; partial message_start snapshots do not create duplicate calls. Only agent_settled closes a Pi stream.</dd></dl></div></div>
+<div class="task" id="task-runner"><h4><code class="status">[x]</code> 2. Make capture outcomes and boundaries explicit</h4><p><strong>Files:</strong> <code>skills/authoring-skills/scripts/run_fresh_session.py</code>, <code>skills/authoring-skills/evals/fixtures/test_runner.py</code></p><p><strong>Depends on:</strong> Requires <a href="#task-trace">trace contract</a>. No real model or authenticated CLI invocation in unit tests.</p>
+<dl class="interfaces"><dt>Produces</dt><dd>New <out>.summary.json: schema=1; outcome=completed|failed|blocked|timed_out; childExit integer|null; reason; harness; model; invocationMode=automatic|explicit|unknown; targetPath; targetDigest; workspace; depth; limitations[]. New --invocation-mode records intended setup only; it is not activation proof. Summary is capture metadata, not a replacement for evals/run-record.schema.json.</dd><dt>Consumers</dt><dd>Uses <a href="#task-trace">trace result</a>; documented by <a href="#task-evaluation">evaluation guidance</a>.</dd></dl>
+<ul class="checklist">
+<li><code class="status">[x]</code> Add unittest coverage using fake executables or mocked subprocesses: child exit 7 with a nonempty transcript, startup/auth failure, timeout, signal, malformed/empty output, failed tracer, conflicting target identity, and a completed negative-trigger run.</li>
+<li><code class="status">[x]</code> Keep 0 for completed capture, 2 for preflight/startup blocked, and 3 for timeout; add 1 for harness/capture/trace failure. Child exit remains recorded separately. A completed capture does not mean task assertions passed. Preserve partial transcripts on failure.</li>
+<li><code class="status">[x]</code> Write a JSON sidecar beside --out with outcome, child exit, reason, harness/model configuration, target manifest digest, invocation mode, workspace path, and observed limitations. Never persist credential values. Require an exact target when --trace is requested; reject shadowed or mismatched copies instead of advising renaming as proof.</li>
+<li><code class="status">[x]</code> Reject symlinks escaping the fixture root, dangling links, symlinked roots, and outputs colliding with the source or copied workspace before launch. Rebase contained links into the copy or reject them clearly; do not leave absolute internal links pointing back to source. Validate positive timeouts and clean up failed scratch setup.</li>
+<li><code class="status">[x]</code> Add explicit opt-in --allow-live for real harness launches, with documented human approval prerequisite. Inspect requested restrictions before launch: fresh context, disposable files, skill-set isolation, and external containment are independent. Use harness-specific isolated configuration only where installed CLI supports it; if discovery isolation or required security containment cannot be demonstrated, exit blocked. No generic sandbox or claim that flags enforce human authorization.</li>
+<li><code class="status">[x]</code> Add a depth sentinel with default maximum one agent level. A separately approved meta-eval may allow a second level, never unbounded recursion. Record depth and approved run-count budget; timeout each child. --in-place remains opt-in and cannot be used for qualification runs. Unapproved shell/network/MCP effects must be denied by external containment, not merely a prompt.</li>
+</ul><div class="verification" id="verify-runner"><p><strong>Task verification</strong></p><dl><dt>Cases</dt><dd class="cases">Fake child exit 7 returns runner exit 1 and records childExit=7; timeout returns 3 with partial evidence; unavailable harness and failed preflight return 2; failed tracer cannot return 0; successful capture returns 0 without asserting task pass. Escaping links/output collisions never launch subprocess. Nested depth beyond cap blocks. Unknown tool/containment guarantees remain limitations or blocked requirements.</dd><dt>Command</dt><dd class="command"><code>PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s skills/authoring-skills/evals/fixtures -p test_runner.py</code></dd><dt>Expected</dt><dd class="expected">Exit 0, no real harness/model/network calls, no writes outside temporary test roots; complete sidecar for every safe attempted capture. Rejected output collisions write no artifact, including sidecars.</dd><dt>Evidence</dt><dd class="evidence">Executed PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s skills/authoring-skills/evals/fixtures -p test_runner.py: exit 0, 23 tests passed. Log: /tmp/authoring-skills-runner.log. Mocked harnesses cover exit 7, auth/startup failures, signals, invalid/empty/unsettled/aborted captures, tracer failure, negative-trigger completion, identity collisions, unsafe links/outputs, depth and shared budget, scratch cleanup, and retained Claude session evidence/metrics. A real Python-only fake executable verifies exit 7 and timeout with retained partial output. No authenticated CLI or model was launched.</dl></div></div>
+<h4>Testing Strategy</h4><p>Standard-library Python fixture tests, fake subprocesses, and temporary roots only. No authenticated harness is launched.</p><ul class="checklist">
+<li><code class="status">[x]</code> <code>PYTHONDONTWRITEBYTECODE=1 python3 skills/authoring-skills/evals/fixtures/test_trace.py</code> : Trace behavior and legacy fixture compatibility.</li>
+<li><code class="status">[x]</code> <code>PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s skills/authoring-skills/evals/fixtures -p test_runner.py</code> : Capture outcomes, boundary failures, depth limits, and no real model calls.</li>
+</ul><div class="loop"><strong>Gate:</strong> Repair failures and rerun affected checks. Mark a blocked prerequisite [f] with evidence; do not complete dependent tasks. Live approval is not implied by an offline pass.</div></div>
+<div class="phase"><h3><code class="status">[x]</code> Phase 2: Guidance and validation</h3><p>P1/P2. Fix YAML and policy semantics, then update every active consumer.</p>
+<div class="task" id="task-lint"><h4><code class="status">[x]</code> 3. Validate YAML and separate errors from advice</h4><p><strong>Files:</strong> <code>skills/authoring-skills/scripts/lint_skill.py</code>, <code>skills/authoring-skills/evals/fixtures/test_lint.py</code></p><p><strong>Depends on:</strong> Phase 1 complete. Approve and provision the pinned parser dependency before offline commands; no implicit installation during a check.</p>
+<dl class="interfaces"><dt>Produces</dt><dd>Linter keeps findings + summary JSON shape, adding authority=portable|platform|local|heuristic to findings and separate metadata/body estimates to summaries. New flags change validation target, not skill discovery permissions. No shared repository eval schema changes.</dd><dt>Consumers</dt><dd>Used by <a href="#task-authority">authority guidance</a>, <a href="#task-workflows">workflows</a>, and <a href="#task-context">cost reporting</a>.</dd></dl>
+<ul class="checklist">
+<li><code class="status">[x]</code> Replace handwritten YAML interpretation with PyYAML safe parsing. Declare PyYAML==6.0.3 in PEP 723 script metadata and make uv run --script the default linter command. Add dependency/setup requirements to compatibility guidance in the following task. uv is present locally; PyYAML version availability was checked against PyPI, not installed during planning.</li>
+<li><code class="status">[x]</code> Validate YAML mapping shape, duplicate keys, required string fields, name and description limits, compatibility length, metadata string map, and target-appropriate tool-list fields. Cover quoted strings, &gt; and | multiline descriptions, Unicode content, CRLF, unterminated strings, lists/maps where strings are required, and safe-loader rejection of custom tags.</li>
+<li><code class="status">[x]</code> Introduce --target portable|pi|claude-code (portable default). Apply only portable hard constraints by default; target-specific restrictions receive named provenance. Unsupported extension fields are compatibility findings, not silent enforcement claims. Wording, third-person preference, line targets, date/phrase heuristics, and router size are advice.</li>
+<li><code class="status">[x]</code> Keep existing --json and directory arguments. Exit 1 on format/selected-contract errors and 0 when only advisory findings remain. Validate local eval JSON shape when present against existing schema-1 expectations; absence remains an explicit local-policy finding. Do not claim evaluation execution or temporal authorship proof from static files.</li>
+<li><code class="status">[x]</code> Add separate metadata and body byte/token estimates. Rename route figures as static referenced-material estimates; explain conditional reads and script exclusions. Remove bundled-share percentage as a quality gate. Report static route data without implying files were actually loaded.</li>
+</ul><div class="verification" id="verify-lint"><p><strong>Task verification</strong></p><dl><dt>Cases</dt><dd class="cases">Valid multiline/quoted fields pass; unclosed quote, duplicate keys, nonmapping frontmatter, invalid types, over-limit fields, and malformed evals fail. Alternate intent wording and 151/501-line bodies receive advice rather than invented format errors. Reserved names are assessed by target. Adding an unrelated asset changes neither route estimate nor quality verdict.</dd><dt>Command</dt><dd class="command"><code>uv run --offline --with PyYAML==6.0.3 python3 -m unittest discover -s skills/authoring-skills/evals/fixtures -p test_lint.py</code></dd><dt>Expected</dt><dd class="expected">Exit 0. Fixtures assert finding authority, severity, exit behavior, and estimates. Missing dependency cache blocks setup clearly rather than silently using old parser.</dd><dt>Evidence</dt><dd class="evidence">Dependency provisioned with explicit operator approval: uv run --with PyYAML==6.0.3 python3 -c import-yaml, exit 0, version 6.0.3. Offline test_lint.py discovery exited 0: 15 tests cover safe/duplicate YAML, Unicode/CRLF/multiline fields, types and limits, advisory wording/size, client authority, local eval structure, JSON exits, and bundle-padding independence. Offline own-skill portable linter exited 0. Source frontmatter constraints verified against fetched agentskills.io specification and Claude Code skills docs. Earlier cache failure resolved; prior blocked evidence retained in build history. Final full suite includes 17 lint tests; added named-client boolean-alias and raw CRLF byte-accounting checks passed. Logs: /tmp/authoring-skills-lint-tests.log and /tmp/authoring-skills-lint.log.</dd></dl></div></div>
+<div class="task" id="task-authority"><h4><code class="status">[x]</code> 4. Document portable and client-specific contracts</h4><p><strong>Files:</strong> <code>skills/authoring-skills/SKILL.md</code>, <code>skills/authoring-skills/references/authoring-guidelines.md</code>, <code>skills/authoring-skills/references/compatibility.md</code>, <code>skills/authoring-skills/templates/SKILL.md</code></p><p><strong>Depends on:</strong> Requires <a href="#task-lint">linter target and dependency contracts</a>.</p>
+<ul class="checklist">
+<li><code class="status">[x]</code> Create one conditional compatibility reference owning portable frontmatter, optional fields, Pi and Claude Code discovery/collision behavior, invocation controls, script prerequisites, and unsupported guarantees. Include source URLs and review date. Add direct read-when row from SKILL.md.</li>
+<li><code class="status">[x]</code> Keep local ~/.agents/skills and ~/.claude/skills symlink convention, but identify it as this installation. Explain project .agents/skills support in Pi and documented Claude Code personal/project precedence. Locate intended editing target separately from loaded target; do not assume project wins.</li>
+<li><code class="status">[x]</code> Label 500 lines/about 5,000 instruction tokens as recommendations, 150 lines as house heuristic, and Anthropic reserved words/description preferences as platform guidance. Document license, compatibility, metadata, allowed-tools, and optional platform extensions without promising permission enforcement.</li>
+<li><code class="status">[x]</code> Replace absolutes about always-loaded context and scripts never read with accurate defaults and debug/security exceptions. Keep body instructions imperative and descriptions focused on capability, intent, and boundaries. Do not rewrite current description unless behavioral evidence requires it.</li>
+<li><code class="status">[x]</code> Update all active linter invocations within this skill to the uv command; keep runner/trace commands on Python standard library. Explain one approved dependency bootstrap and offline verification. Preserve old plan and historical eval results as historical, not current instruction sources.</li>
+</ul><div class="verification" id="verify-authority"><p><strong>Task verification</strong></p><dl><dt>Cases</dt><dd class="cases">Manual provenance review checks each frontmatter/discovery/permission statement against named source and selected client. Template accepts portable fields without requiring platform extensions. Active commands resolve from skill root, not current working directory; no old parser invocation remains in active instructions.</dd><dt>Command</dt><dd class="command"><code>Manual: inspect compatibility reference, router Files table, template, and active command references; then run uv run --offline --script skills/authoring-skills/scripts/lint_skill.py skills/authoring-skills --target portable</code></dd><dt>Expected</dt><dd class="expected">Manual authority checklist has no unattributed hard constraints; linter exits 0. Unsupported platform behavior is qualified rather than silently universalized.</dd><dt>Evidence</dt><dd class="evidence">Manual provenance review completed: portable required/optional fields match fetched Agent Skills specification; Anthropic preferences are labeled; Pi 1.3.0 locations/first-discovered collisions and registration vs injection checked against installed docs/source; Claude personal-over-project precedence and non-allowlist allowed-tools checked against fetched docs. Local symlink confirmed with ls -ld. Template requires no client extension. Active Markdown linter commands use uv and absolute skill-base placeholders. Offline portable own-skill lint exited 0 (2 advice items owned by later tasks); /tmp/authoring-skills-authority-lint.log. Repository definition validator exited 0: 22 skills/108 cases. No loaded-target or permission guarantee inferred from source location.</dd></dl></div></div>
+<div class="task" id="task-workflows"><h4><code class="status">[x]</code> 5. Make review scope proportional to request</h4><p><strong>Files:</strong> <code>skills/authoring-skills/SKILL.md</code>, <code>skills/authoring-skills/workflows/create-skill.md</code>, <code>skills/authoring-skills/workflows/improve-skill.md</code>, <code>skills/authoring-skills/workflows/audit-skills.md</code>, <code>skills/authoring-skills/references/review-rubric.md</code></p><p><strong>Depends on:</strong> Requires <a href="#task-authority">authority reference</a>. Keep three existing routes; add modes rather than another routing layer.</p>
+<ul class="checklist">
+<li><code class="status">[x]</code> Define Improve modes: review-only, targeted repair, comprehensive improvement. Review-only returns findings without edits or live runs. Targeted repair checks affected dimensions and focused cases. Comprehensive work invokes full rubric and approved qualification matrix.</li>
+<li><code class="status">[x]</code> Retain all fourteen rubric dimensions as stable identities, but make evidence status pass, fail, not assessed, or not applicable explicit. Remove mandatory fourteen-line response and identical report table from every narrow request. Static linter output proves only its specific checks.</li>
+<li><code class="status">[x]</code> Keep audit one-pass mechanical scan, broken-first triage, and honest graded-versus-scanned coverage. Parallel graders become optional for sufficiently broad work with explicit ownership/budget; no automatic one-agent-per-flagged-skill policy.</li>
+<li><code class="status">[x]</code> Preserve at least three cases and three requiredProfiles as repository release policy. Distinguish quick iteration checks from qualification. A blocked/skipped live run cannot turn a review or static edit into an observed pass. Update exit-code interpretation to the runner contract.</li>
+<li><code class="status">[x]</code> Keep concise evidence-led reports: scope, findings/edits, checks actually run, and remaining coverage. Explicitly require user approval before increasing scope, spending on model calls, or altering installed copies outside requested target.</li>
+</ul><div class="verification" id="verify-workflows"><p><strong>Task verification</strong></p><dl><dt>Cases</dt><dd class="cases">Walk through review-only, narrow wording fix, comprehensive improvement, and directory audit. Review-only creates no writes; narrow repair does not launch unrelated profiles; comprehensive work retains release gates; audit may stay single-agent and never claims ungraded skills passed.</dd><dt>Command</dt><dd class="command"><code>Manual: trace the four requests through router/workflows and rubric; node evals/scripts/validate-cases.mjs</code></dd><dt>Expected</dt><dd class="expected">No contradictory mandatory full-review step survives. Definition validator exits 0 after case alignment in task 8; before then list expected assertion drift, not a false pass.</dd><dt>Evidence</dt><dd class="evidence">Manual four-request walkthrough completed against router, workflows, and rubric: review-only stops after read-only assessment with no snapshot/report/model launch; narrow wording repair limits dimensions/cases and asks before expansion; comprehensive release assesses all fourteen and retains all profiles with blocked evidence unqualified; directory audit scans once, may remain single-agent, and separates scanned/graded/observed coverage. Mandatory narrow fourteen-line/table output and per-flag delegation removed. Runner exit interpretations checked against implementation. node evals/scripts/validate-cases.mjs exited 0 (22/108); this proves definitions/links only. Semantic assertion drift in the four existing cases is expected until task 8, not a behavioral pass. Offline own-skill lint exited 0; /tmp/authoring-skills-workflows-lint.log.</dd></dl></div></div>
+<div class="task" id="task-evaluation"><h4><code class="status">[x]</code> 6. Define controlled evaluation and trigger tuning</h4><p><strong>Files:</strong> <code>skills/authoring-skills/references/authoring-guidelines.md</code>, <code>skills/authoring-skills/references/tuning-diagnostics.md</code>, <code>skills/authoring-skills/workflows/create-skill.md</code>, <code>skills/authoring-skills/workflows/improve-skill.md</code>, <code>skills/authoring-skills/templates/evals.json</code>, <code>evals/README.md</code></p><p><strong>Depends on:</strong> Requires <a href="#task-runner">capture contract</a> and <a href="#task-workflows">review modes</a>. Shared eval README changes are limited clarification; schema/profile policy stays unchanged.</p>
+<ul class="checklist">
+<li><code class="status">[x]</code> Separate discovery evaluation from execution evaluation. Metadata-based selection, explicit invocation, and isolated execution have different evidence. Do not claim a generic --skill flag proves or disproves automatic discovery without checking installed client semantics.</li>
+<li><code class="status">[x]</code> For new skills compare with no-skill baseline; for improvements snapshot original revision before edits and compare old/new on identical prompt, fixture, model/thinking, tools, permissions, and containment. Preserve source snapshot before evaluating changes.</li>
+<li><code class="status">[x]</code> Teach realistic positive and negative near-misses, paraphrases, competing skills, fixed stratified training/validation split, repeated runs for rate claims, and untouched fresh confirmation prompts. About twenty queries and three repeats are scalable defaults for meaningful description tuning, not every repair.</li>
+<li><code class="status">[x]</code> Optimize on training failures only. Generalize intent instead of appending exact failed phrases. Report positive and false-positive counts separately. Validation informs version selection, never edit prompts. Keep raw counts and denominators; no statistical confidence claims from tiny samples.</li>
+<li><code class="status">[x]</code> Explain human review for subjective quality; optional blind comparison; task-success/time/token tradeoffs; and when examples or reusable helpers add value. Add explicit noninteractive script interfaces, safe failure, helpful errors, stdout/stderr separation, bounded output, dry-run/idempotency, and versioned dependencies.</li>
+<li><code class="status">[x]</code> Document runner summary versus behavioral record. Continue saving schema-conforming records at evals/runs/&lt;case-id&gt;/&lt;profile&gt;.json; reference sidecars/baseline artifacts through existing evidence/notes fields. Use exact model identities, not capability labels alone. Record unavailable metrics as unavailable, not zero.</li>
+<li><code class="status">[x]</code> Define bounded meta-evaluation: approve model calls and aggregate/nested budgets before launch, maximum depth two only for approved nested scenarios, fixed timeout, and external containment for side-effectful tests. If safe discovery or containment is absent, mark blocked. No bypass-permissions recommendation.</li>
+</ul><div class="verification" id="verify-evaluation"><p><strong>Task verification</strong></p><dl><dt>Cases</dt><dd class="cases">Manual comparison verifies baseline isolation and all controlled variables. An explicit-invocation run never contributes to automatic-trigger rate; a one-shot query yields a sample, not reliability proof; changed validation prompt cannot be reused as held-out; missing containment or approval blocks live launch.</dd><dt>Command</dt><dd class="command"><code>Manual: review discovery/execution examples and record mapping against evals/README.md and evals/run-record.schema.json; node evals/scripts/validate-cases.mjs</code></dd><dt>Expected</dt><dd class="expected">Local schema and three-profile contract unchanged; no generic sandbox promises or unconditional paid matrix. Shared validator exits 0 after task 8 aligns definitions.</dd><dt>Evidence</dt><dd class="evidence">Manual controlled-comparison review completed: no-skill baseline for creation; pre-edit old/new snapshots for improvements; equal prompts, fixtures, model/provider/thinking, tools, competing metadata, permissions, containment, and nested allowance. Explicit invocation excluded from automatic rates; single samples labeled coverage only; training-only edits and untouched held-out/fresh confirmation specified. Summary-to-record mapping checked against unchanged run-record schema: sidecars/baselines use evidence/notes/toolConfiguration; absent numeric metrics omitted with unavailable notes. Approval/depth/count/timeout and fail-closed containment checked against runner. node definition validator exited 0 (22/108); schemas/profile mappings unchanged. Offline linter exited 0; /tmp/authoring-skills-evaluation-lint.log. Existing case assertion drift remains pending task 8; no live behavior claim.</dd></dl></div></div>
+<div class="task" id="task-context"><h4><code class="status">[x]</code> 7. Replace structural absolutes with outcome checks</h4><p><strong>Files:</strong> <code>skills/authoring-skills/references/authoring-guidelines.md</code>, <code>skills/authoring-skills/references/review-rubric.md</code>, <code>skills/authoring-skills/references/tuning-diagnostics.md</code>, <code>skills/authoring-skills/templates/SKILL.md</code>, <code>skills/authoring-skills/scripts/lint_skill.py</code></p><p><strong>Depends on:</strong> Requires <a href="#task-lint">cost/finding semantics</a> and <a href="#task-evaluation">evaluation principles</a>.</p>
+<ul class="checklist">
+<li><code class="status">[x]</code> Accept complete reading of needed sections and legitimate shared references. Diagnose unmet information requirements, not mere offset/limit usage or common reads. Unread resources need coverage analysis before deletion.</li>
+<li><code class="status">[x]</code> Keep direct references and a contents list as navigation defaults. Allow necessary depth with explicit routing. Put non-obvious gotchas where agent sees them before making mistaken assumptions; no rule says every extra file must be conditional in all circumstances.</li>
+<li><code class="status">[x]</code> Make subtraction evidence-driven across intended profiles. Remove or source unsupported Claude-generation claim; preserve compact examples and rationale. Escalate modal strength only for expensive errors, not as universal diagnosis.</li>
+<li><code class="status">[x]</code> Permit intentional short repetition at safety boundaries and inspection of script source during debugging/security review. Retain one source of truth for detailed contracts without banning all repetition.</li>
+<li><code class="status">[x]</code> Update rubric dimensions 2, 4, 5, 6, 9, 11, 13, and 14 to judge useful information, verifiable interfaces, safe scripts, and evidence. Keep stable numbering. Replace route-share gate with metadata/body/scenario estimates plus measured runtime tradeoffs when available.</li>
+</ul><div class="verification" id="verify-context"><p><strong>Task verification</strong></p><dl><dt>Cases</dt><dd class="cases">Selective section read satisfies requirement; missing essential section fails; shared reference on all routes is permitted with reason; dormant conditional reference is not deleted by default; bundled script may be inspected; padding bundle leaves verdict unchanged; example survives when removal lowers observed output quality.</dd><dt>Command</dt><dd class="command"><code>Manual: apply revised rubric to these seven cases; uv run --offline --script skills/authoring-skills/scripts/lint_skill.py skills/authoring-skills</code></dd><dt>Expected</dt><dd class="expected">Manual outcomes match cases; linter exits 0 with static estimates clearly labeled, no route-share quality finding, no unsupported model-generation rationale.</dd><dt>Evidence</dt><dd class="evidence">Manual seven-case rubric application completed: sufficient section reads accepted; missing essential information fails; justified shared reference permitted; dormant conditional resource retained pending coverage; script-source inspection permitted for debugging/security; padding unrelated assets does not improve verdict; an example whose removal lowers observed quality is retained. These are guidance-condition checks, not model observations. Unit fixture independently verifies padding leaves route estimates and failure verdict unchanged. Offline own-skill lint exited 0, 0 advice; /tmp/authoring-skills-phase2-lint.log. Unsupported Claude-generation rationale and blanket full-read/inline/delete rules removed. Phase 2 integration: all 56 Python tests passed offline with pinned PyYAML; /tmp/authoring-skills-phase2-tests.log. Definition validator exited 0: 22 skills/108 cases. No live qualification claimed.</dd></dl></div></div>
+<h4>Testing Strategy</h4><p>Use the pinned safe parser in an approved pre-provisioned environment. Tests distinguish format defects from advice; manual checks examine meaning and source authority.</p><ul class="checklist">
+<li><code class="status">[x]</code> <code>uv run --offline --with PyYAML==6.0.3 python3 -m unittest discover -s skills/authoring-skills/evals/fixtures -p &#x27;test_*.py&#x27;</code> : All focused Python fixtures, including YAML and capture contracts.</li>
+<li><code class="status">[x]</code> <code>uv run --offline --script skills/authoring-skills/scripts/lint_skill.py skills/authoring-skills</code> : Updated skill validates with portable hard constraints; advice is labeled.</li>
+<li><code class="status">[x]</code> <code>node evals/scripts/validate-cases.mjs</code> : Existing repository schemas and links remain valid; semantic assertion updates follow in phase 3.</li>
+</ul><div class="loop"><strong>Gate:</strong> Repair failures and rerun affected checks. Mark a blocked prerequisite [f] with evidence; do not complete dependent tasks. Live approval is not implied by an offline pass.</div></div>
+<div class="phase"><h3><code class="status">[f]</code> Phase 3: Behavioral qualification</h3><p>Align six execution cases and discovery corpus, then qualify only within approved boundaries.</p>
+<div class="task" id="task-evals"><h4><code class="status">[x]</code> 8. Align behavioral cases and freeze trigger queries</h4><p><strong>Files:</strong> <code>skills/authoring-skills/evals/evals.json</code>, <code>skills/authoring-skills/templates/evals.json</code>, <code>skills/authoring-skills/evals/trigger-queries.json</code>, <code>skills/authoring-skills/evals/fixtures/test_eval_contracts.py</code>, <code>skills/authoring-skills/SKILL.md</code> (corpus index), <code>skills/authoring-skills/references/tuning-diagnostics.md</code> (corpus consumer)</p><p><strong>Depends on:</strong> Phase 2 complete. Deterministic fixtures cover tool failures; do not duplicate every unit case as an expensive model eval.</p>
+<dl class="interfaces"><dt>Produces</dt><dd>Existing evals/evals.json schema=1 remains authoritative for execution. New trigger-queries.json is a separate discovery corpus validated by test_eval_contracts.py. No fields are added to repository run-record schema. Baseline/trigger run metadata is linked through existing evidence and notes.</dd><dt>Consumers</dt><dd>Consumed by <a href="#task-qualification">qualification</a>.</dd></dl>
+<ul class="checklist">
+<li><code class="status">[x]</code> Keep four current case IDs (create, improve, audit, tune-trigger), updating assertions that mandate entire rubric output, exact user-phrase insertion, or grading only flagged skills without scope context. Preserve historical baseline/results/results_matrix data with their original dates and revision; never relabel as fresh success.</li>
+<li><code class="status">[x]</code> Add exactly two execution cases: authoring-skills-review-only and authoring-skills-targeted-repair. Cover no-edit/no-model-call review, focused repair, selective reads, and no unrelated profile expansion. Existing comprehensive cases retain release-policy expectations. Continue requiredProfiles and at least two expected/two forbidden behaviors per case.</li>
+<li><code class="status">[x]</code> Create a companion trigger dataset, not a replacement eval schema: schema=1, skill=authoring-skills, queries containing stable id, prompt, shouldTrigger boolean, and split=train|validation|fresh. Freeze 12 train (6 positive/6 negative), 8 validation (4/4), and 6 fresh (3/3). Include near-misses around learning a human skill, invoking rather than authoring a skill, and requests better owned by planning/product skills.</li>
+<li><code class="status">[x]</code> Add deterministic dataset checks for counts, unique IDs/prompts, boolean labels, balanced splits, and untouched six-case execution contract. Keep validation/fresh result details out of edit prompts. Define expected trigger destination rather than keyword presence.</li>
+<li><code class="status">[x]</code> Ensure fixture setup materializes simulated skills outside recursively discovered skill tree. Snapshot/digest old and candidate skill trees for later pairing; avoid writable links to active global install. Keep current own description unless training evidence justifies change.</li>
+</ul><div class="verification" id="verify-evals"><p><strong>Task verification</strong></p><dl><dt>Cases</dt><dd class="cases">Six execution cases validate in all required profiles; historical records unchanged; 26 unique trigger prompts split 12/8/6 with exact positive/negative balance; no negative query enters with-skill execution pass counts; no fixture SKILL.md lives under skills/.</dd><dt>Command</dt><dd class="command"><code>uv run --offline --with PyYAML==6.0.3 python3 -m unittest discover -s skills/authoring-skills/evals/fixtures -p &#x27;test_*.py&#x27;; node evals/scripts/validate-cases.mjs</code></dd><dt>Expected</dt><dd class="expected">Both commands exit 0. Validator discovers 110 total repository cases if inventory is unchanged from planning baseline (108 plus two); do not hardcode this count in production code.</dd><dt>Evidence</dt><dd class="evidence">Offline discovery of all test_*.py exited 0: 63 tests (18 trace, 23 runner, 17 lint, 5 eval contract); /tmp/authoring-skills-phase3-tests.log. Six execution cases preserve all four original IDs and add exactly review-only/targeted-repair. Historical baseline/results/results_matrix hash equals original 66b43cb evidence. Companion corpus has 26 unique IDs/prompts and balanced 12/8/6 train/validation/fresh splits with boolean labels. Temporary fixture test proves SKILL.md packages stay outside active skills tree. Node validator exited 0: 22 skills/110 cases/330 defined minimum profile runs, not executed. Old and candidate source snapshots matched recorded full manifests; /tmp/authoring-skills-guidance-identities.json. Own description unchanged. No live samples, corpus optimization, or behavioral pass records created.</dd></dl></div></div>
+<div class="task" id="task-qualification"><h4><code class="status">[f]</code> 9. Qualify evidence and hand off without overstating coverage</h4><p><strong>Files:</strong> <code>skills/authoring-skills/evals/evals.json</code>, <code>evals/runs/ (generated, ignored)</code>, <code>specs/authoring-skills-guidance-refresh.html</code></p><p><strong>Depends on:</strong> Requires all previous tasks. Offline acceptance can complete independently; live qualification requires operator approval, exact profile mappings, and demonstrated containment. No implementation begins during plan creation.</p>
+<ul class="checklist">
+<li><code class="status">[x]</code> Run all offline commands and sweep active coupled artifacts for old parser commands, strict whole-file rules, route-share gates, and misleading runner-success wording. Review changed-file diff for unrelated mutations. Do not rewrite historical plans or old results to satisfy grep.</li>
+<li><code class="status">[f]</code> Before any model call, record exact provider/model/thinking mappings for three profiles, harness version, target and fixture digests, external containment, automatic versus explicit setup, cost/time ceiling, and maximum top-level/nested calls. Primary live target is Pi; Claude Code support remains fixture/mock-tested unless separately approved for live qualification. Do not claim cross-agent live coverage from one harness. If any required prerequisite is missing, retain blocked qualification with reason.</li>
+<li><code class="status">[f]</code> Initial proposed ceiling: 36 top-level paired execution sessions (6 cases x 3 profiles x old/new), plus 26 candidate trigger samples (12 training, 8 validation, 6 fresh), total 62. Default nested budget is zero; separately approve any inner target runs required by comprehensive scenarios, with fixed cap and depth &lt;=2. A baseline/candidate comparison contaminated by differing nested permissions is invalid. Run-count ceiling is approval input, not implied authorization.</li>
+<li><code class="status">[]</code> Use training failures alone to guide any description edit. One sample per trigger query is coverage evidence only. If description tuning or trigger-rate claim is needed, obtain separate budget for repetitions (three per query as starting point) and paired old/new trigger measurement. Freeze new revisions between batches; never silently expand budget or recycle exposed fresh queries.</li>
+<li><code class="status">[f]</code> Grade every expected and forbidden behavior from primary evidence and output artifacts. Store local schema-compliant execution records; compare paired outcomes and available token/time data. Human-review qualitative outputs. Unknown/blocked records stay out of pass numerators and remain in coverage denominators.</li>
+<li><code class="status">[x]</code> Complete implementation handoff with actual changed files, offline results, exact executed matrix cells, remaining blocks, approved tradeoffs, and static-versus-observed cost. Update this plan status/evidence only for checks actually run; use --previous metadata validation on plan updates. Do not commit, push, publish, or alter old plan without request.</li>
+</ul><div class="verification" id="verify-qualification"><p><strong>Task verification</strong></p><dl><dt>Cases</dt><dd class="cases">Review-only case has no mutations; narrow repair stays scoped; all six cases have profile records or explicit blocked cells; mismatched/failed evidence never passes; positive and negative trigger outcomes separate; single samples never become reliability claims; no unauthorized side effects; run-count/approval limits respected.</dd><dt>Command</dt><dd class="command"><code>Manual approved qualification: follow frozen six-case setups under each mapped profile with old/new snapshots using repaired runner; grade against evals/run-record.schema.json; separately run frozen trigger corpus in split order. Before launch run uv run --offline --with PyYAML==6.0.3 python3 -m unittest discover -s skills/authoring-skills/evals/fixtures -p &#x27;test_*.py&#x27; and node evals/scripts/validate-cases.mjs.</code></dd><dt>Expected</dt><dd class="expected">Offline commands exit 0. Every live execution cell has pass/fail/blocked evidence and controlled baseline; release qualification remains incomplete if any required cell is blocked or failed. No live launch without explicit approval.</dd><dt>Evidence</dt><dd class="evidence">Offline implementation verified: pinned unittest discovery exited 0 with 63 tests; own-skill portable linter exited 0 with 0 errors/advice; node definitions/links exited 0 with 22 skills/110 cases; tracked/new-file whitespace checks clean. Active coupled command/rule sweep found no legacy parser, full-read/share gate, or misleading capture-success instructions; historical results/JSONL fixtures remain unchanged. Read-only preflight without --allow-live returned 2, outcome=blocked, childExit=null, workspace=null; summary path retained in /tmp/authoring-skills-preflight-summary-path.txt. No live harness launched. Live matrix NOT RUN: approval covers PyYAML only; exact profile/model/thinking mappings, spending/time and nested limits, and demonstrated containment/isolation are absent. Runner has no verified qualification adapter. All 18 case/profile cells (36 proposed old/new sessions) and 26 trigger samples explicitly blocked in final coverage table. No rate/quality/cost or live review-only/scope assertion passed; no fabricated profile records. Primary offline logs and frozen manifests are listed in final build evidence.</dd></dl></div></div>
+<h4>Testing Strategy</h4><p>Deterministic contract checks run first. Human-approved model runs compare frozen baseline/candidate with identical controls; blocked cells are never silently skipped.</p><ul class="checklist">
+<li><code class="status">[x]</code> <code>uv run --offline --with PyYAML==6.0.3 python3 -m unittest discover -s skills/authoring-skills/evals/fixtures -p &#x27;test_*.py&#x27;</code> : Exit 0, 63 tests; fixtures and corpus contracts only.</li>
+<li><code class="status">[x]</code> <code>node evals/scripts/validate-cases.mjs</code> : Exit 0, 22 skills/110 cases/330 defined profile runs; no execution.</li>
+<li><code class="status">[f]</code> <code>Manual approved matrix and evidence review</code> : Not run: no live approval/mappings/budgets or verified containment adapter. All cells blocked below.</li>
+</ul><div class="loop"><strong>Gate:</strong> Repair failures and rerun affected checks. Mark a blocked prerequisite [f] with evidence; do not complete dependent tasks. Live approval is not implied by an offline pass.</div></div>
+</section>
+<section id="validation"><h2>Validation Commands</h2><p>Final offline results follow. Approved PyYAML provisioning resolved the earlier cache blocker; prior failed attempts remain historical evidence below. Live qualification remains blocked.</p><ul class="checklist">
+<li><code class="status">[x]</code> <code>uv run --offline --with PyYAML==6.0.3 python3 -m unittest discover -s skills/authoring-skills/evals/fixtures -p &#x27;test_*.py&#x27;</code> : Exit 0, 63 tests after approved provisioning. Earlier offline cache failure resolved; no model calls.</li>
+<li><code class="status">[x]</code> <code>uv run --offline --script skills/authoring-skills/scripts/lint_skill.py skills/authoring-skills</code> : Exit 0, 0 errors and 0 advice/compatibility findings. Static format/estimates only, not behavioral qualification.</li>
+<li><code class="status">[x]</code> <code>node evals/scripts/validate-cases.mjs</code> : Exit 0: 22 skills, 110 cases, 330 minimum profile runs defined, not executed.</li>
+<li><code class="status">[x]</code> <code>git diff --check</code> : Exit 0, no whitespace errors in tracked changes; new test and plan contents separately reviewed.</li>
+<li><code class="status">[x]</code> <code>git status --short</code> : Exit 0: 15 modified tracked files and five new source/resource files plus this pre-existing untracked plan. All scoped; pre-existing skills/.trash/ preserved.</li>
+<li><code class="status">[x]</code> <code>python3 skills/planf3/scripts/validate_plan.py specs/authoring-skills-guidance-refresh.html</code> : Exit 0, STRUCTURALLY VALID, including --previous /tmp/authoring-skills-guidance-refresh.phase2-before.html for approved continuation. Earlier Phase 1 comparison also passed. Temporary comparison snapshots removed only after their final validation.</li>
+<li><code class="status">[f]</code> <code>Manual approved behavioral matrix review</code> : Not run; all live cells explicitly blocked, no approved model mappings/budget or verified containment adapter.</li>
+</ul><div class="loop"><strong>Completion:</strong> Implementation is not behavior-qualified until required live checks pass. Offline completion and blocked qualification must be reported separately.</div></section>
+<section id="notes"><h2>Notes</h2>
+<h3>Planning evidence</h3><p>Repository baseline <code>66b43cb</code>. On October 19, current linter passed with 0 failures/warnings, repository definition validator passed 22 skills / 108 cases / 324 minimum profile runs, and existing trace fixture checks all passed. These checks were executed before plan creation; they do not verify proposed repairs.</p>
+<div class="table-scroll"><table><thead><tr><th scope="col">Confirmed review finding</th><th scope="col">Observed result</th><th scope="col">Owner</th></tr></thead><tbody>
+<tr><td>Malformed YAML and eval contents</td><td>Unclosed quoted description yielded no findings; empty eval object accepted.</td><td><a href="#task-lint">YAML validation</a></td></tr>
+<tr><td>Write or denied read classified as activation</td><td>Both temporary probes reported fired=true.</td><td><a href="#task-trace">Trace</a></td></tr>
+<tr><td>Child process failure masked</td><td>Mock child exit 7; runner returned 0.</td><td><a href="#task-runner">Runner</a></td></tr>
+<tr><td>Copy mistaken for containment</td><td>Preserved link resolved outside disposable copy.</td><td><a href="#task-runner">Runner</a></td></tr>
+</tbody></table></div>
+<p>Probe findings come from the preceding review in this session, using temporary files and mocked processes. Phase 1/2 converts them to reproducible repository tests. No live model eval, browser inspection, dependency installation, or paid service was used for planning. Existing October 8 eval matrix explicitly says subsequent edits were not retested; it remains historical evidence.</p>
+<h3>Decisions and tradeoffs</h3><ul>
+<li>Use safe YAML library rather than expand handwritten parser. PyYAML 6.0.3 exists on PyPI and supports Python 3.8+; uv is installed. Dependency acquisition remains separately approved. Existing runner/trace stay standard-library only. Use <code>uv run --script</code> for linter; offline checks never download dependencies.</li>
+<li>Keep three routes and fourteen stable rubric dimension IDs. Modes change scope and evidence expectations, not collection-wide release policy.</li>
+<li>Do not add a general eval runner, universal sandbox, or shared schema migration. Runner sidecar captures process facts; existing behavioral records capture assertions.</li>
+<li>Fresh workspace, isolated skill discovery, and security containment are separate. Pi shell/file tools and Claude permissions are not automatically complete sandbox guarantees. Untrusted or side-effectful fixtures require demonstrated external containment or remain blocked.</li>
+<li>Use exact file-manifest identity instead of renaming target copies. A renamed description can change selection behavior and is not transparent proof of original skill.</li>
+<li>Six execution cases preserve breadth without converting every unit defect into an expensive model scenario. Trigger dataset is separate; one-shot samples are not reliable activation-rate estimates. Extra tuning iterations need a new approved budget.</li>
+<li>Do not auto-run new meta-skill cases during their creation. Nested evaluation has explicit depth and count limits; global credentials/configuration are never copied merely to make a test pass.</li>
+</ul>
+<h3>Source authority</h3><p>Official pages were retrieved successfully during the preceding review. Review date: October 19, 2026. Guides disagree on description phrasing, eval timing, and reference thresholds; portable format and named client behavior take precedence over universalized style claims.</p>
+<ul>
+<li><a href="https://agentskills.io/specification">Agent Skills specification</a>: portable fields and format; distinguish recommendations from validity.</li>
+<li><a href="https://agentskills.io/skill-creation/best-practices">Skill creation best practices</a>: real expertise, moderate detail, gotchas, calibrated control.</li>
+<li><a href="https://agentskills.io/skill-creation/optimizing-descriptions">Optimizing descriptions</a>: mixed near-misses, repetitions, fixed splits, fresh confirmation.</li>
+<li><a href="https://agentskills.io/skill-creation/evaluating-skills">Evaluating output quality</a>: controlled baselines, grading, human feedback, token/time tradeoffs.</li>
+<li><a href="https://agentskills.io/skill-creation/using-scripts">Using scripts</a>: noninteractive interfaces, safe failures, bounded output, dependencies.</li>
+<li><a href="https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices">Anthropic authoring guidance</a>: platform-specific descriptions, reserved words, and examples.</li>
+<li><a href="https://code.claude.com/docs/en/skills">Claude Code skills</a>: current precedence, invocation, frontmatter extensions, and permission behavior.</li>
+<li><a href="https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md">Anthropic skill-creator</a> and <a href="https://github.com/openai/skills/blob/main/skills/.system/skill-creator/SKILL.md">OpenAI skill-creator</a>: comparison inputs, not replacement schema/workflow.</li>
+<li>Installed Pi 1.3.0 <code>docs/skills.md</code>, <code>docs/cli.md</code>, <code>docs/settings.md</code>, and <code>docs/packages.md</code>: local harness behavior. Recheck installed version at execution.</li>
+</ul>
+<h3>Relationship to earlier work</h3><p><a href="authoring-skills-tuning-loop.html">Authoring-skills tuning loop</a> records earlier implementation. This plan adds evidence integrity and corrects overbroad rules; it does not modify predecessor metadata or retroactively invalidate its recorded checks. Historical review document is background, not a fresh specification.</p>
+<h3>Engineering self-review</h3><p>All six gates checked: acceptance/coverage, shared interfaces, verification, dependency ordering, executability, and failure/scope boundaries. Repairs made during authoring: separated capture completion from task pass; made YAML dependency explicit; distinguished automatic from explicit loading; bounded nested evaluation; separated live approval from offline checks; kept baseline and candidate permissions equal; preserved historical artifacts. Second pass found existing test_trace.py exits during import, which would break planned unittest discovery; task 1 now owns converting it to import-safe tests and adding complete positive-result events. Qualification now names Pi as primary live target and avoids implied Claude live coverage.</p><p>No unresolved design blocker. Live qualification waits for operator-approved mappings/budget/containment. This was planning self-review, not independent review. Task evidence was Not run at planning; executed build evidence is recorded separately below. Browser preflight failed because playwright-cli is unavailable; visual checks were not run and no dependency was installed.</p>
+<h3>Bounded build evidence: Phase 1</h3><p>Task 1: 18 trace tests passed. Task 2: 23 runner tests passed. Phase 1 integration: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s skills/authoring-skills/evals/fixtures -p test_*.py exited 0, all 41 tests passed; retained /tmp/authoring-skills-phase1.log. Target tests also saved /tmp/authoring-skills-trace-after.log and /tmp/authoring-skills-runner.log. No live harness or model calls occurred. Process tests launched only controlled Python fixture code. Existing Claude and Pi JSONL fixtures already had matching successful tool results, so fixture data needed no edits.</p><p>Dependency gate: pinned uv command failed offline before test execution; /tmp/authoring-skills-dependency-block.log. Phase 2 implementation and own-skill new-parser lint were not run. Old parser was not substituted as evidence. Phase 3 is unstarted: 0/36 proposed paired execution sessions and 0/26 trigger samples executed. No new behavioral pass records exist; historical results untouched. Live qualification also lacks operator-approved exact profile mappings, spending/time and nested-run budgets, and demonstrated containment.</p><p>Baseline source snapshot: /tmp/authoring-skills-guidance-baseline/authoring-skills. Manifest identities saved to /tmp/authoring-skills-guidance-identities.json; these identify source bytes, not observed performance. Resume requires approving PyYAML 6.0.3 provisioning, then task 3 before dependent work. Active workflows/router/template still contain old conventions scheduled for Phase 2. They must not be treated as refreshed guidance yet; runner examples without --allow-live now block safely.</p><p>Build self-review checked acceptance coverage, producer/consumer boundaries, executable verification, ordering, prerequisites, and failure/scope rules. Repairs during review: only agent_settled closes a Pi stream; JSONL splits on LF, not Unicode separators; Pi execution/result message duplicates normalize; malformed/conflicting tool events stay unknown; output collisions cannot write error sidecars. Existing Claude session-log capture and available metrics retained. No criterion weakened. Isolation/containment requests fail closed rather than claiming a sandbox. Supported local process controls are POSIX only. Review is self-review, not independent review. Remaining consumer updates and semantic/YAML validation are blocked, not passed.</p><h3>Approved continuation: offline implementation complete, live qualification blocked</h3>
+<p>Operator approved pinned PyYAML provisioning, not live model calls. Bootstrap executed with uv and printed version 6.0.3. Subsequent tests and linter ran offline. Tasks 1–8 complete; task 9 and Phase 3 release qualification remain [f] blocked, not a code-test failure. No commits, PRs, publishing, installation-link changes, historical-result edits, or .trash mutations.</p>
+<p>Changed source: all three scripts; router; four references including new compatibility guidance; three workflows; two templates; six-case execution suite; new discovery corpus; four fixture test modules. Shared eval README received contract clarifications only. Shared validator, profile definitions, and run-record schema unchanged. Own name/description unchanged; no training-driven description edit or trigger-rate claim attempted.</p>
+<ul>
+<li>Pinned offline unittest discovery: exit 0, 63 tests (18 trace, 23 runner, 17 lint, 5 eval contracts). Logs: /tmp/authoring-skills-phase3-tests.log and final rerun /tmp/authoring-skills-final-tests.log. Added final checks cover Claude boolean aliases and exact raw CRLF byte accounting; final 63-test rerun also passed.</li>
+<li>Own-skill offline portable linter: exit 0, 0 errors/advice. Logs: /tmp/authoring-skills-phase3-lint.log, /tmp/authoring-skills-final-lint.log, and /tmp/authoring-skills-static-candidate.json. Final rerun unchanged: 0 errors/advice. Static checks only.</li>
+<li>Repository definition/link validator: exit 0, 22 skills / 110 cases / 330 minimum profile runs defined, not executed. Historical evidence hash c89d04b590c99b8fc51fcc4c9cb7f4ec1514ea04862730ad39ad9d78f3a24e8b remains unchanged.</li>
+<li>Tracked diff and six new/untracked file whitespace checks clean. Caller sweep found script consumers only within this skill; active Markdown has no old parser invocation, mandatory full-read/share gate, copy-renaming advice, or misleading runner-pass rule. Old data-only traces/results retained as historical evidence.</li>
+<li>Read-only runner preflight without --allow-live exited 2 as expected: blocked, childExit=null, workspace=null. No harness process launched. Summary pointer: /tmp/authoring-skills-preflight-summary-path.txt. Mock tests separately verify missing isolation/containment adapters block.</li>
+</ul>
+<p>Frozen baseline: /tmp/authoring-skills-guidance-baseline/authoring-skills, digest <code>dca908b9835969f0788c8531a9eb7cbf1fd7d43aaa2292db590f36f9f54d2d51</code>. Candidate snapshot: /tmp/authoring-skills-guidance-candidate.OsXOdD/authoring-skills, digest <code>960dc67e3083ae1012da59d162026273770bd1161b5e29b484183d19242a4620</code>. Both manifests verified; identities retained in /tmp/authoring-skills-guidance-identities.json. Source identity does not establish observed performance.</p>
+<h4>Static cost comparison, not measured loading</h4>
+<div class="table-scroll"><table><thead><tr><th scope="col">Raw static estimate</th><th scope="col">Original</th><th scope="col">Candidate</th></tr></thead><tbody>
+<tr><td>Metadata bytes / approximate tokens</td><td>877 / 219</td><td>877 / 219</td></tr>
+<tr><td>Instruction body bytes / approximate tokens</td><td>4,121 / 1,030</td><td>4,815 / 1,203</td></tr>
+<tr><td>Audit referenced-material scenario bytes</td><td>11,010</td><td>22,722</td></tr>
+<tr><td>Create referenced-material scenario bytes</td><td>27,309</td><td>55,755</td></tr>
+<tr><td>Improve referenced-material scenario bytes</td><td>32,639</td><td>51,515</td></tr>
+</tbody></table></div>
+<p>Same current analyzer used for both revisions; /tmp/authoring-skills-static-baseline.json and /tmp/authoring-skills-static-candidate.json. Added authority, safety, and evaluation detail increases static material. Scenarios include conditional references, not mandatory full reads; scripts/evals excluded. No runtime token/time/cost or quality improvement has been measured. No padding/share ratio can improve a quality verdict.</p>
+<h4>Explicit live coverage</h4>
+<p>Every cell below is blocked because exact provider/model/thinking mappings, aggregate spend/time and top-level/nested budgets, and demonstrated containment/discovery isolation are not approved/provided. Current runner has no verified qualification adapter. Primary target would be Pi; Claude live coverage is not implied by mocks. Do not strip restriction flags or substitute this coding model for an approved profile.</p>
+<div class="table-scroll"><table><thead><tr><th scope="col">Execution case</th><th scope="col">fast/economical</th><th scope="col">balanced/default</th><th scope="col">highest-reasoning</th></tr></thead><tbody>
+<tr><th scope="row"><code>authoring-skills-create</code></th><td>Blocked (old/new)</td><td>Blocked (old/new)</td><td>Blocked (old/new)</td></tr>
+<tr><th scope="row"><code>authoring-skills-improve</code></th><td>Blocked (old/new)</td><td>Blocked (old/new)</td><td>Blocked (old/new)</td></tr>
+<tr><th scope="row"><code>authoring-skills-audit</code></th><td>Blocked (old/new)</td><td>Blocked (old/new)</td><td>Blocked (old/new)</td></tr>
+<tr><th scope="row"><code>authoring-skills-tune-trigger</code></th><td>Blocked (old/new)</td><td>Blocked (old/new)</td><td>Blocked (old/new)</td></tr>
+<tr><th scope="row"><code>authoring-skills-review-only</code></th><td>Blocked (old/new)</td><td>Blocked (old/new)</td><td>Blocked (old/new)</td></tr>
+<tr><th scope="row"><code>authoring-skills-targeted-repair</code></th><td>Blocked (old/new)</td><td>Blocked (old/new)</td><td>Blocked (old/new)</td></tr>
+</tbody></table></div>
+<p>0/18 case/profile cells qualified; 0/36 proposed paired execution sessions run. Discovery: 0/12 training, 0/8 validation, 0/6 fresh samples run. Positive/false-positive rates and runtime metrics unavailable, not zero. Proposed 62 top-level sessions and any repeats/nested calls remain approval inputs, not authorization. No fabricated schema records were written with invented model mappings. Task-9 tuning/description-edit step not run because no approved trigger campaign or description edit occurred.</p>
+<p>Final self-review checked all six engineering gates, producer/consumer contracts, source authority, scoped modes, complete offline verification, history preservation, and honest blocked coverage. No acceptance criterion weakened. Task 8 additionally updated router/tuning corpus consumers within already listed scope, avoiding a dangling pre-creation reference. Portable Unicode naming, client-specific boolean/tool-list forms, and safe YAML merges follow verified source contracts. Collision-sidecar safety exception and POSIX-only process controls remain explicit. This is self-review, not independent or behavioral review. Remaining work: separately approve models/budgets, establish verified containment/isolation, then execute controlled baseline/candidate matrix and held-out discovery checks.</p>
+<p id="plan-validation-result">Plan structural validation executed successfully with <code>python3 skills/planf3/scripts/validate_plan.py specs/authoring-skills-guidance-refresh.html</code>: STRUCTURALLY VALID. Phase 1 artifact validated with --previous /tmp/authoring-skills-guidance-refresh.before.html; approved continuation validated with --previous /tmp/authoring-skills-guidance-refresh.phase2-before.html, both exit 0. Temporary comparison copies removed only after each final check; baseline and candidate skill snapshots retained. This proves structure and append-only metadata/references only, not behavioral qualification.</p>
+</section>
+<section id="amendments"><h2>Amendments</h2><details open><summary>2026-10-19T19:46:35Z: Phase 1 complete; dependency gate stops Phase 2</summary><p>Tasks 1–2 and Phase 1 integration passed. Task 3/Phase 2 marked [f] for missing pre-provisioned PyYAML 6.0.3; tasks 4–9 remain idle, not skipped or complete. No acceptance criterion changed. Shell results lack per-file attribution, so shell reads stay unknown rather than becoming fictional delivery. Opaque text/codemode evidence cannot prove activation. All symlinks, including contained links, are deliberately rejected, as allowed by task 2. Collision safety takes priority over error-sidecar creation: rejected output paths receive no writes; all other attempted captures receive summaries. Qualification and requested isolation/containment fail closed because no verified adapter exists; ordinary approved captures retain explicit limitations. Retained Claude supplemental logs and available metrics. Tests use POSIX process groups and standard-library fcntl locks; no universal sandbox is claimed. Active guidance consumers remain unchanged until Phase 2, so old runner examples omit newly required --allow-live and now block safely. Source snapshot retained for future controlled pairing; no live runs, installs, commits, publishing, historical edits, or .trash mutations.</p></details><details open><summary>2026-10-19T20:14:49Z: approved dependency continuation and offline completion</summary><p>Approved PyYAML 6.0.3 provisioning resolved Phase 2 blocker. Tasks 3–8 implemented and verified offline. Current status: tasks 1–8 [x], task 9/Phase 3 [f] blocked for live qualification only. Exactly two execution cases added; four original IDs and historical result objects preserved; 26 labeled discovery queries frozen. Corpus index/consumer additions were necessary coupled updates within listed files. Final lint tests cover client boolean aliases and raw CRLF costs. Full suite 63 tests passes; no semantic coverage criterion weakened or live result fabricated. The prior Phase 1 stop remains historical, not current dependency state.</p></details></section>
+</main></body></html>

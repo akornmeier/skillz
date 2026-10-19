@@ -3,7 +3,10 @@
      skill has no use for; an empty heading is worse than a missing one. -->
 ---
 name: skill-name
-description: What it does, in third person, one clause. Use when <situation>, or when the user says "<phrase a user actually types>", "<another phrase>".
+description: Describes the capability, intended situations, and relevant boundaries in plain language.
+# Optional portable fields: license (string), compatibility (1–500 characters),
+# metadata (string map), allowed-tools (experimental space-separated string).
+# Declare actual environment requirements; never invent a license or permission guarantee.
 ---
 
 # Skill Name
@@ -12,7 +15,7 @@ One paragraph: what this skill is for and what it produces. Not why it exists, n
 
 ## Contracts
 
-The rules that cannot be derived from the files themselves. Everything else is judgment.
+State exact contracts and costly safety boundaries. Label portable requirements, named client behavior, and project policy separately.
 
 - <an exact path, filename, or output format>
 - <an opinion that is the author's, not the model's default>
@@ -38,10 +41,10 @@ Select the single best-matching workflow and read its file before acting.
 
 ## Files
 
-Paths are relative to this skill's own directory, not the working directory.
+Resolve paths from this skill's own directory, not the working directory. Read the sections needed for the task; shared references are valid when justified. Keep one owner for detailed contracts, with short safety reminders where mistakes would be costly.
 
 | Path | What it is | Read it when |
 | --- | --- | --- |
 | `templates/<file>` | <what it is> | <the condition that makes it worth opening> |
 | `references/<file>.md` | <what it is> | <the condition> |
-| `scripts/<file>` | <what it does> | Never — <the step that runs it> |
+| `scripts/<file>` | <interface, dependencies, exits, safe failure> | Run at <step>; inspect for debugging/security review |

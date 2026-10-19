@@ -1,6 +1,6 @@
 # Skill authoring guidelines
 
-Condensed from Anthropic's skill authoring best practices. Every rule below is a constraint, a number, a pattern, or a stated opinion. Read only the section the decision at hand needs.
+Authoring recommendations, not universal format laws. Portable fields, named client contracts, sources, and local release policy belong to `references/compatibility.md`. Other guidance below is a house default or heuristic; read enough of the sections needed for the decision.
 
 ## Contents
 
@@ -19,24 +19,25 @@ Condensed from Anthropic's skill authoring best practices. Every rule below is a
 
 | Field | Rule |
 | --- | --- |
-| `name` | 1–64 chars, lowercase letters, digits, single hyphens. No XML tags. Cannot contain "anthropic" or "claude". Must equal the directory name. |
-| `description` | 1–1024 chars, non-empty, no XML tags. States what the skill does and when to use it. |
-| body | Under 500 lines. Split into bundled files before approaching the limit. |
+| `name` | Portable: 1–64 characters, lowercase Unicode alphanumerics and single hyphens, matching directory name. ASCII is easiest across clients. |
+| `description` | Portable: non-empty string, at most 1,024 characters. Explain capability, intent, and boundaries. |
+| optional fields | Portable: license, compatibility, metadata, experimental allowed-tools. See compatibility reference for types and client extensions. |
+| body | Recommendation: below 500 lines/about 5,000 instruction tokens; 150 lines is a house router heuristic, not validity. |
 
-A file whose first line is not `---` has no frontmatter and never loads.
+Use valid YAML starting at line 1 between `---` delimiters. Client leniency does not establish portable validity. Anthropic reserved-name/XML-tag restrictions and third-person preference are platform guidance, not portable laws.
 
 ## Naming
 
 Prefer gerund form: `processing-pdfs`, `analyzing-spreadsheets`, `writing-documentation`. Noun phrases (`pdf-processing`) and imperatives (`process-pdfs`) are acceptable. Keep one pattern across a collection.
 
-Avoid vague (`helper`, `utils`, `tools`), generic (`documents`, `data`, `files`), and reserved-word names.
+Prefer distinctive names over vague (`helper`, `utils`, `tools`) or generic (`documents`, `data`, `files`) ones. Check the selected client's reserved names separately.
 
 ## Descriptions
 
-The description is the only part of a skill in context on every session, so it alone decides whether the skill fires. It is chosen from among potentially a hundred others.
+Clients typically advertise name/description/path before loading instructions. Availability, competing skills, explicit invocation, and client settings also affect selection; description alone never proves discovery.
 
-- Third person, always. The description is injected into the system prompt, and a change of point of view breaks discovery.
-- Both halves: what the skill does, then when to use it, with the key terms a user actually types.
+- Prefer third-person capability phrasing for a consistent catalogue; alternate grammatical forms are not format errors.
+- State what the skill does and when it applies, using realistic intent language and clear boundaries rather than exhaustive exact phrases.
 
 Good:
 
@@ -62,26 +63,21 @@ Match specificity to how fragile the task is.
 | --- | --- | --- |
 | High | Prose steps and heuristics | Several approaches are valid and context decides |
 | Medium | A template or parameterised pseudocode | A preferred pattern exists and some variation is fine |
-| Low | One exact command, no parameters | The operation is fragile, order matters, or consistency is critical |
+| Low | Validated command/schema with explicit inputs and failure boundaries | The operation is fragile, order matters, or consistency is critical |
 
 The narrow-bridge test: if there is one safe way across, give exact guardrails. If it is an open field, give direction and trust the model to find the route.
 
 ## Progressive disclosure
 
-Three tiers, each paid at a different moment:
+Typical client loading has three costs: advertised metadata, delivered instructions, then needed resources. Explicit invocation and client caching/compaction can change the sequence. Executed script output normally enters context without its source, but debugging/security review may need source reads.
 
-1. `name` and `description` — always in context.
-2. `SKILL.md` body — loaded when the description matches.
-3. Bundled files — loaded only when an instruction points at one, scripts executed without being read.
+Navigation defaults:
 
-Rules:
-
-- `SKILL.md` is an overview that points at depth, like a table of contents. It is the only file paid on every trigger.
-- Every bundled path carries a stated condition for opening it. Never demand a file be opened before the task is known.
-- One level deep. Every reference file links directly from `SKILL.md`. A file that is reached only through another reference gets partially read (`head -100`) and the model works from incomplete information.
-- Reference files over 100 lines open with a `## Contents` list of their sections, so a partial read still shows the full scope.
-- Organise by domain when a skill has several: one reference per domain, so a sales question never loads the finance schema.
-- Name files for their content (`form_validation_rules.md`, not `doc2.md`). Forward slashes only.
+- Keep `SKILL.md` as a useful overview with enough routing for the task. Put non-obvious gotchas before the decisions they govern, not behind a link the agent has no reason to follow.
+- State when resources help. A shared prerequisite may legitimately apply to every route; no rule requires each additional file to be conditional in every circumstance.
+- Prefer direct links from `SKILL.md` and Contents for long references. Necessary deeper structure is valid with explicit navigation. Offset/limit or section reads are sufficient when they deliver the needed information; their shape alone is not a defect.
+- Split domains when that reduces irrelevant context without hiding shared contracts. Confirm coverage before treating an unread resource as unnecessary.
+- Use descriptive filenames (`form_validation_rules.md`, not `doc2.md`) and portable forward-slash paths.
 
 Patterns:
 
@@ -101,7 +97,7 @@ Complex operations are sequential, numbered steps. For long ones, ship a checkli
 - [ ] Step 4: Fill the form (run fill_form.py)
 ```
 
-The validator loop is the single most effective pattern: run validator → fix errors → repeat → proceed only when it passes. The validator may be a script (exit code) or a reference document the model checks against (a style guide, a rubric). Make the loop explicit: "If validation fails, fix and run again. Only proceed when it passes."
+For quality-critical operations, make the validation/repair loop explicit: run relevant checks, fix real failures, rerun, and proceed only when those checks pass. A script or manual rubric proves only its stated scope; static success does not establish task quality, live behavior, or authorization.
 
 Conditional workflows guide decision points: "Creating new content? → Creation workflow. Editing? → Editing workflow."
 
@@ -109,7 +105,7 @@ Use plan → validate plan → execute → verify when the operation is a batch,
 
 ## Content rules
 
-- No time-bound facts. "Before August 2025 use the old API" becomes wrong on a date. State the current method; put the old one under an "Old patterns" `<details>` block.
+- Give mutable facts sources, versions/review dates, or runtime verification. Label historical methods; do not treat every date as an error.
 - One term per concept, throughout. Not "API endpoint" here and "URL" there; not "field" here and "box" there.
 - One default with an escape hatch, not a menu. "Use pdfplumber. For scanned PDFs needing OCR, use pdf2image with pytesseract" beats a list of five libraries.
 - Templates for output shape. Strict: "ALWAYS use this exact structure". Flexible: "a sensible default; adjust to the analysis".
@@ -129,69 +125,53 @@ Verbose (≈150 tokens): "PDF (Portable Document Format) files are a common file
 
 ## Scripts
 
-- Solve, don't defer. A script handles its own error conditions (file missing → create the default; permission denied → use a fallback) rather than failing and leaving the model to guess.
+- Fail safely. Handle expected errors with actionable diagnostics and nonzero exits; never create missing data or work around denied permissions unless that fallback is explicitly safe and authorized. Bound retries and output; scripts must run noninteractively without hidden input prompts.
 - No voodoo constants. Every configuration value carries a one-line comment saying why it has that value. If the author cannot justify it, the model cannot either.
 - Verbose validators. Error messages name the specific problem and the valid alternatives: "Field 'signature_date' not found. Available fields: customer_name, order_total".
-- State intent for every script reference. "Run `analyze_form.py` to extract fields" means execute; "See `analyze_form.py` for the extraction algorithm" means read. Execution is preferred: only the output costs tokens.
-- Prefer a bundled script to generated code for anything deterministic, for four reasons: it is more reliable than code written on the spot, it costs no output tokens to produce, it saves the time of writing it, and it behaves the same on every use.
-- List required packages and verify they are available where the skill will run. Claude.ai and Claude Code can install from npm and PyPI; the Claude API code-execution environment has no network and cannot install anything, so a skill meant for it ships with only what the runtime already has.
-- MCP tools are always fully qualified: `ServerName:tool_name`. A bare tool name fails when several servers are present.
-- When inputs can be rendered as images, render them and let the model look.
+- Document inputs, outputs, exits, dependencies, and side effects. Provide `--help`; keep machine-readable data on stdout, diagnostics on stderr. Use dry-run/idempotency for repeatable mutating work. State execute-versus-inspect intent; normal execution avoids source loading, while debugging/security review may require it.
+- Bundle a reusable helper when deterministic/repeated work benefits from tested behavior and an explicit interface. Compare maintenance/dependency cost with saved time and output tokens; not every one-off operation needs another script.
+- Declare versioned dependencies and verify the selected environment's network/package permissions. Do not generalize one hosted product's installation limits to every client. Request approval before provisioning; this skill's pinned uv/PyYAML bootstrap and offline command live in the compatibility reference.
+- Name MCP tools exactly as exposed by the client, with its full qualification (for example `ServerName:tool_name` or a client-generated namespace). Do not assume a universal spelling.
+- Use images or examples when they improve the task's actual quality; avoid unnecessary model calls and artifact generation.
 
 ## The subtraction test
 
-Run this on every instruction in a draft: **would the model do this unprompted?** If yes, cut it. Anthropic removed most of Claude Code's system prompt for Claude 5-generation models with no measurable loss; a skill is a lightweight, opinion-driven guide, not a rulebook.
+Ask what useful information each instruction adds, then test removal against intended outcomes. Do not infer that all profiles share the strongest model's defaults. Without approved behavioral comparisons, a cut may be a reasonable scoped edit, but its quality benefit remains unproven.
 
-| Then → now | What it means for a skill |
+| Candidate | Decide by |
 | --- | --- |
-| Rules → judgment | Keep only rules the model cannot derive from the files: paths, naming contracts, output formats, opinions that are the author's rather than the model's default. Cut anything restating general competence. |
-| Examples → interface design | A template, routing table, or skeleton to fill in beats a worked example. Shape teaches; a walked-through trajectory pins the model to one path. |
-| Upfront → progressive disclosure | `SKILL.md` is the only file paid on every trigger. Everything else carries a "read it when". |
-| Repetition → single source of truth | Each idea lives in exactly one file. Where a workflow and a reference overlap, the reference owns it and the workflow links. |
-| Manual memory → auto-memory | Do not build note-keeping procedure into a skill. Durable artifacts a later reader needs (plans, rubrics, evals) are a different mechanism and stay. |
-| Simple specs → rich references | Ship the artifact, not prose about it: a template over a described structure, a gradeable rubric over "make sure it is good". |
+| Generic ceremony or redundant prose | Whether it changes task results or prevents a real error. Keep exact contracts, costly safety boundaries, and useful rationale. |
+| Worked example versus template | Whether the example improves style/edge-case handling or merely duplicates an interface. Keep compact effective examples, especially when removal worsens observed quality. |
+| Repeated contract | One owner for detailed truth, with brief synchronized reminders at costly safety boundaries. Repetition is not automatically wrong. |
+| Shared reference | Whether shared ownership and section reads deliver needed information efficiently. No blanket inline rule. |
+| Dormant resource | Whether its condition was exercised before judging it unnecessary. No automatic deletion based on a small sample. |
+| Stronger modal | Whether the error is expensive and the instruction was actually missing/unclear at the decision. Do not escalate every suggestion into MUST/NEVER. |
 
-Cuts that always survive review: "think step by step", "consider edge cases", "be thorough", "where appropriate", commands that only confirm a file exists, `chmod +x` after writing a script, `git add`/`commit` after finishing, mandatory-reading prologues, worked examples that walk one imaginary task end to end.
-
-What survives the test despite looking like a rule: a command whose exit status is observable inside a loop that repeats until it passes; exact paths, filenames, and output formats; an opinion that is the author's. The model has defaults; it does not have the team's.
-
-Over-constrain only where a wrong call is expensive: destructive operations, an external contract, security.
+Use paired old/new comparisons across intended profiles for meaningful subtraction claims. Compare task success and human-reviewed quality alongside runtime time/tokens when available. A smaller static estimate alone is not a better skill, and padding unrelated assets cannot improve its verdict. Keep durable artifacts (plans, rubrics, evals) when they serve later readers.
 
 ## Eval-driven development
 
-Build evaluations before writing extensive documentation, so the skill solves observed problems rather than imagined ones.
+Define observable cases before extensive instruction expansion. Repository release policy keeps schema 1, at least three execution cases, and all three required profiles; these are not portable format rules. Static definitions do not prove that a skill worked or that cases were authored first.
 
-1. Identify gaps: run the model on representative tasks without the skill and note the specific failures.
-2. Write three cases that test those gaps, in the case shape of `templates/evals.json`:
+Separate two questions:
 
-```json
-{
-  "id": "pdf-processing-extract-text",
-  "summary": "Extracts every page's text to a file.",
-  "setup": "Use a disposable workspace containing test-files/document.pdf.",
-  "prompt": "Extract all text from this PDF file and save it to output.txt",
-  "expectedBehavior": [
-    "Reads the PDF using an appropriate library or command-line tool.",
-    "Extracts text from every page.",
-    "Saves the text to output.txt in a readable format."
-  ],
-  "forbiddenBehavior": [
-    "Skips pages it cannot parse without saying so.",
-    "Writes anywhere other than output.txt."
-  ]
-}
-```
+- **Discovery**: was the intended metadata available, did automatic selection choose the right skill, and did negative near-misses avoid it? Explicit invocation bypasses selection. A generic `--skill` flag may register metadata rather than force a body load; check the installed client's semantics.
+- **Execution**: after verified delivery, did the task satisfy every expected/forbidden behavior? Use realistic prompts, output/side-effect assertions, and primary evidence. A negative non-trigger sample is not a with-skill execution pass.
 
-3. Establish the baseline: performance without the skill.
-4. Write the minimum instructions that pass the cases.
-5. Run the evaluations, compare against the baseline, refine. There is no built-in runner; the cases are the source of truth, run by hand in fresh sessions.
+For a new skill compare no-skill/with-skill; for an improvement snapshot/digest the original **before editing** and compare old/new. Freeze versions outside active skill trees. Hold prompt, fixture, competing skill set, provider/model/thinking, tools, permissions, containment, and available sampling controls equal. A renamed copy or a differing nested-run allowance contaminates the comparison. Missing controls leave the claim unqualified.
 
-Test on every capability profile the skill will run on (the three in `requiredProfiles`), asking one question per profile:
+For meaningful description tuning, a scalable starting point is about twenty realistic mixed queries, a fixed stratified train/validation split, three repetitions per query, and untouched fresh confirmation prompts. Include paraphrases, competing skills, and plausible near-misses, not obvious keyword opposites. A narrow wording repair need not pay for that campaign. Obtain model/time/spend and nested-run approval first.
+
+Optimize on **training failures only**. Generalize the capability/intent boundary instead of appending the exact failed phrase. Validation may select among frozen versions, but its prompts/results must not enter edit prompts. Do not mutate held-out queries or recycle exposed fresh prompts as confirmation. Report positive selections/counts and false positives/counts separately, with denominators and repetitions. A one-shot sample is coverage, not reliability or statistical confidence.
+
+Grade objective assertions from transcripts and artifacts, not a summary's success flag. Use human review for subjective quality; optional blind paired comparison reduces version-label bias. Compare task success alongside available time/token/cost data. Keep useful examples, rationale, and reusable helpers when they improve outcomes across intended profiles, even if text grows. Mark missing metrics unavailable, not zero.
+
+Quick iteration runs only affected checks and relevant approved samples. Comprehensive **release qualification** retains every execution case under all three profiles, using exact mappings rather than profile labels alone:
 
 | Profile | Question |
 | --- | --- |
-| fast/economical | Does the skill give enough guidance for a model that fills fewer gaps itself? |
-| balanced/default | Is it clear and efficient, with no step the model has to infer? |
-| highest-reasoning | Does it avoid over-explaining what this model already knows? |
+| fast/economical | Does the skill provide enough guidance without forcing the model to invent missing steps? |
+| balanced/default | Is guidance clear and efficient for ordinary production use? |
+| highest-reasoning | Does added context still improve quality rather than over-explain? |
 
-One set of instructions should pass all three. Improving a skill from observed runs is the Improve route; its signals and edits are in the tuning reference.
+The tuning reference owns capture preflight, diagnosis, primary-evidence interpretation, and mapping sidecars/baselines into existing run records. Missing approval, safe discovery isolation, or required external containment blocks live qualification. Do not infer a security sandbox from a copied workspace or permission flags.

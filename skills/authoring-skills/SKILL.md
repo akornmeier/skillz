@@ -5,20 +5,20 @@ description: Creates new Agent Skills and improves existing ones for reliable tr
 
 # authoring-skills
 
-A skill is a directory holding a `SKILL.md` and whatever it needs beside it. Three tiers load at three moments: the frontmatter is always in context and decides firing; the `SKILL.md` body loads when the description matches and is paid on every trigger; bundled files load only when a route reads them, and scripts run without being read at all. Writing a skill is deciding what belongs at which tier, and pushing as much as possible rightward.
+Keep skills discoverable, useful, and economical. Clients usually advertise metadata first, deliver instructions on selection or explicit invocation, and load supporting resources as needed. Exact loading, caching, and permissions vary by client. The linter reports static estimates, not measured tokens or task quality.
 
 ## Contracts
 
 The rules that cannot be derived from the files themselves. Everything else is judgment.
 
-- Frontmatter is required and `name` equals the directory name. Both are checked by the linter.
-- Global skills live in `~/.agents/skills/`, the cross-agent directory; Claude Code reads them through its `~/.claude/skills` symlink. Project skills live in `.claude/skills/`, where git shares them with the team.
-- One skill is one capability. Two unrelated jobs are two skills.
-- `SKILL.md` is the only file loaded on every trigger. Every other path carries a read-it-when condition, and no instruction anywhere says to read a file unconditionally.
-- Every skill ships `evals/evals.json`, written before its body: three cases, each with a prompt and observable expected and forbidden behaviours.
-- A skill is not done until a run of `scripts/lint_skill.py` exits 0 and every dimension of `references/review-rubric.md` passes.
-- Skills stay cross-agent: no Claude Code-only syntax in any `SKILL.md`.
-- An Improve run ends with an observed fresh-session run, or an explicit note that observation was skipped and why.
+- Portable format: YAML frontmatter with `name` matching its directory and a non-empty `description`. Optional fields and client extensions have distinct contracts in the compatibility reference.
+- Local setup: global source here is `~/.agents/skills/`, exposed to Claude Code through a symlink. Choose project/user location for the actual client; never assume a project copy wins or an editing path is the loaded path.
+- House defaults: one capability per skill, a small router, clear resource routing, imperative body instructions. Shared references and short safety reminders are valid when useful. Scripts normally execute without source reads; debugging/security review are exceptions.
+- Repository release policy: schema-1 `evals/evals.json`, at least three execution cases, all three required profiles, and full rubric/evidence review. Write cases before extensive body expansion; static presence proves neither authorship timing nor execution.
+- Improve modes: review-only for reviews/questions (no edits or model calls), targeted repair for narrow changes, comprehensive improvement for explicit broad/release work. Match checks to scope; ask before expanding it.
+- Linter success proves only its selected static checks. No observed pass without primary evidence; report unassessed or blocked coverage explicitly.
+- Prefer portable core instructions. Label client-only features and safe fallbacks; do not treat metadata as permission enforcement.
+- Obtain approval before widening scope, paid/model calls, or changing installed copies outside the requested target.
 
 ## Workflow
 
@@ -36,11 +36,13 @@ Paths are relative to this skill's own directory (announced as the base director
 
 | Path | What it is | Read it when |
 | --- | --- | --- |
-| `references/authoring-guidelines.md` | The official authoring rules, condensed; its Contents list names ten sections | Deciding a name, description, structure, script, or cut. Read the section for the decision at hand, not the file |
-| `references/review-rubric.md` | Fourteen pass/fail dimensions, each with who proves it and the edit that fixes a failure | Grading a skill: last step of Create, first step of Improve, per flagged skill in Audit |
+| `references/compatibility.md` | Portable format, named clients, local policy, runtime setup | Deciding frontmatter, discovery, collisions, permissions, or script prerequisites |
+| `references/authoring-guidelines.md` | Authoring recommendations and evaluation principles | Deciding a name, description, structure, script, cut, or evaluation. Read enough of the relevant sections |
+| `references/review-rubric.md` | Fourteen stable dimensions with pass/fail/not assessed/not applicable evidence states | Comprehensive assessment, or relevant dimensions for a scoped review/repair or audit |
 | `references/tuning-diagnostics.md` | The observe, diagnose, refine, retest loop; the navigation signals a trace exposes; a symptom-to-edit table | Diagnosing an observed run, or deciding what edit a symptom implies |
 | `templates/SKILL.md` | Frontmatter and section skeleton for a new skill | Authoring a `SKILL.md` from scratch |
-| `templates/evals.json` | Eval suite skeleton with three case stubs | Writing a new skill's evals |
-| `scripts/lint_skill.py` | Reports every mechanically provable defect with its fix, and the tokens each route forces | Never. Run it: `python3 <base>/scripts/lint_skill.py <skill-dir>`; no argument scans every installed skill |
-| `scripts/run_fresh_session.py` | Runs one fresh session on a prompt in a disposable copy of a workspace, saves the transcript and session log, and traces them | Never. Run it: `python3 <base>/scripts/run_fresh_session.py <workdir> "<prompt>" --out <file> --trace <skill-dir>` to observe a skill |
-| `scripts/trace_skill_use.py` | Turns a saved fresh-session transcript into a navigation report: fired, files read in order, partial reads, files never opened | Never. Run it: `python3 <base>/scripts/trace_skill_use.py <skill-dir> <transcript>`; the capture script already runs it |
+| `templates/evals.json` | Local schema-1 execution suite skeleton | Writing a new skill's evals |
+| `evals/trigger-queries.json` | Frozen labeled discovery corpus, separate from execution cases | Evaluator preparing approved discovery runs; keep validation/fresh details out of optimizer/edit prompts |
+| `scripts/lint_skill.py` | Format/local-contract errors, attributed advice, static context estimates | Run `uv run --offline --script <base>/scripts/lint_skill.py <skill-dir>` after approved setup; inspect source for debugging/security/interface work |
+| `scripts/run_fresh_session.py` | Capture outcomes, manifest identity, trace and supplemental evidence | Run with Python only after approved live preflight in tuning diagnostics; inspect source when debugging/security-reviewing it |
+| `scripts/trace_skill_use.py` | Correlated delivery evidence and requested read windows | Run `python3 <base>/scripts/trace_skill_use.py <skill-dir> <transcript>` on saved evidence; inspect source when debugging/security-reviewing it |

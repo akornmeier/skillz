@@ -1,21 +1,21 @@
 # Improve Skill
 
-A static pass, then an observed run. The route ends when the traces show the intended reads and the evals pass, not when the report is written.
+Match scope to the request. Do not turn a question or narrow repair into an unrequested rewrite or paid evaluation campaign.
 
-1. Locate — look for `.claude/skills/<name>` under the working directory first, then `~/.agents/skills/<name>` and `~/.claude/skills/<name>`; a project copy wins. Never search the whole filesystem. If no skill is named, list those three roots and confirm which one before touching anything.
-2. Lint — run `python3 <base>/scripts/lint_skill.py <skill-dir>` before any edit. Record its findings and the forced tokens it prints for `SKILL.md` and for each route. These are the "before" numbers.
-3. Grade — read `references/review-rubric.md` and write all fourteen verdict lines in its Output shape before step 4, copying the linter's verdicts for the dimensions it proves. The step is not done until every line exists, even when the linter already names the defect. This is the first move on every improve request, narrow ones included: "it never triggers" is one dimension failing, and the grade says whether it is the only one.
-4. Subtract — instruction by instruction, would the model do this unprompted? If yes, cut it. Read *The subtraction test* in `references/authoring-guidelines.md` for the pairs and the list of what survives. Exact paths, output formats, validator loops, and the author's own opinions stay.
-5. Redistribute — what survives but is not needed on every route moves behind a read-it-when row: output shapes to `templates/`, depth to `references/`, per-route steps to `workflows/`. Each idea lives in exactly one file.
-6. Re-lint and regrade — apply each Fix and rerun the linter until it exits 0, then regrade every dimension. Loop until all pass or a failure is deliberately left with its reason.
-7. Observe — read *Capturing a run* in `references/tuning-diagnostics.md`, then run `python3 <base>/scripts/run_fresh_session.py <workdir> "<prompt>" --out <file> --model <model> --trace <skill-dir>` once per profile in the target's `requiredProfiles`, as one plain command; the target's own `evals/evals.json` prompts are the default source. Skip only when the script exits 2: write "observation skipped: <its message>" and grade dimension 14 as failing. Before interpreting the traces, read *Navigation signals* and *Symptom to edit* in the same file.
-8. Diagnose — every failed expected behaviour and every navigation signal maps to one row of the Symptom-to-edit table. A symptom with no row is reported, not fixed.
-9. Refine and retest — apply the edits, re-lint, rerun the same prompts in new fresh sessions, and compare the traces. Exit when the traces show the intended routes and the evals pass, or when a remaining failure is kept deliberately with its reason.
-10. Report — ALWAYS open with this table, one row per observed symptom, or one row reading "none observed" with the trace lines that show the intended route:
+## Modes
 
-    | Symptom | Evidence | Edit applied | Retest |
-    | --- | --- | --- | --- |
+- **Review-only**: default for review, explain, assess, or questions. Return findings; no edits, snapshots/report files, model calls, or installed-copy changes. Use only already provisioned offline tools.
+- **Targeted repair**: change the requested behavior or wording. Check affected dimensions and focused cases. Leave unrelated profiles and sections alone; ask before widening scope.
+- **Comprehensive improvement**: explicitly requested broad improvement/release work. Assess all fourteen dimensions and retain repository release qualification across every required profile. Missing live approval/evidence leaves release unqualified, not silently waived.
 
-    Evidence is a trace line or transcript excerpt, never a paraphrase; an empty Retest cell means the edit is unproven, and the report says so. Then the fourteen verdict lines before and after; forced tokens before and after, per trigger and per route; what was cut; what moved and where; any dimension still failing and why.
+## Steps
 
-The narrow-ask rule still holds: "it never triggers" runs the whole route, and the observed run is the proof that the new description fires.
+1. Locate and scope: resolve the named editing target and mode. If copies are ambiguous, inspect relevant client roots/configuration using `references/compatibility.md` and ask which to edit. Never assume project precedence or search the entire disk. Editing target and loaded target need separate evidence.
+2. Inspect and lint: run `uv run --offline --script <base>/scripts/lint_skill.py <skill-dir>` with the selected target contract after approved dependency setup. Record errors/advice and metadata/body/static scenario estimates. Do not copy a static verdict into a behavioral grade.
+3. Assess: read relevant dimensions of `references/review-rubric.md`; comprehensive work covers all fourteen. Identify evidence-backed defects and relevant cases. Review-only stops with findings, checks actually run, and unassessed coverage. Do not infer a behavioral failure solely from alternate wording, partial reads, or shared references.
+4. Preserve baseline before edits: snapshot/digest the original target outside active skill-discovery trees. For behavioral comparisons use identical prompts, fixtures, provider/model/thinking, tools, permissions, and containment. Read the evaluation sections of `references/authoring-guidelines.md` when designing comparisons.
+5. Repair narrowly: read the applicable authoring sections, keep useful examples/contracts/safety reminders, and change only the requested or evidenced defect plus coupled consumers. Prefer clear routing and well-placed gotchas to blanket stronger modals. Do not edit descriptions merely to satisfy a phrase regex.
+6. Verify: rerun affected static checks and focused deterministic cases; fix caused failures and repeat until those checks pass. Broader findings require scope approval. Report remaining defects explicitly; a deliberately retained failure is not a pass.
+7. Observe only within approved scope: when live evidence is relevant, read `references/tuning-diagnostics.md` for controlled baselines and preflight. Obtain explicit model/cost/time/top-level/nested-run approval and demonstrated isolation/containment first. No approval or missing guarantee means no launch. Targeted iteration need not run unrelated profiles; comprehensive release retains the full matrix. Runner exits: 0 completed capture, 1 failed, 2 blocked, 3 timed out. None alone grades task assertions.
+8. Diagnose and retest: use primary evidence and the tuning reference to form an edit hypothesis. If no justified edit follows, report the observation rather than inventing one. Rerun affected comparisons under the same controls only within budget; freeze each revision and keep held-out details out of edit prompts.
+9. Report concisely: mode/target, findings or edits, evidence/checks actually run, and remaining coverage. Include scoped rubric statuses when useful; all fourteen for comprehensive assessment. For observed changes, link symptom, primary evidence, edit, and retest result; no mandatory empty table. Label static estimates versus measured runtime cost. If no observation ran, state why and leave behavior unqualified.
