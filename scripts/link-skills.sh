@@ -43,13 +43,21 @@ if [ "$install_hooks" -eq 1 ]; then
   case "$hooks" in /*) ;; *) hooks="$repo/$hooks" ;; esac
   # post-merge fires on merge/fast-forward pulls; post-rewrite on rebase pulls.
   for hook in post-merge post-rewrite; do
+    if [ -e "$hooks/$hook" ] || [ -L "$hooks/$hook" ]; then
+      if [ -L "$hooks/$hook" ] || [ ! -f "$hooks/$hook" ] ||
+         ! grep -qxF '# Managed by skillz scripts/link-skills.sh.' "$hooks/$hook"; then
+        echo "  skip $hooks/$hook: existing hook is not managed by link-skills" >&2
+        continue
+      fi
+    fi
     echo "hook: $hooks/$hook"
     if [ "$dry_run" -eq 0 ]; then
       mkdir -p "$hooks"
       {
+        printf '#!/usr/bin/env bash\n# Managed by skillz scripts/link-skills.sh.\n'
         # Expand the repository lookup when the hook runs, not during installation.
         # shellcheck disable=SC2016
-        printf '#!/usr/bin/env bash\nexec "$(git rev-parse --show-toplevel)/scripts/link-skills.sh"'
+        printf 'exec "$(git rev-parse --show-toplevel)/scripts/link-skills.sh"'
         printf ' %q' "${targets[@]}"
         printf '\n'
       } > "$hooks/$hook"
@@ -65,8 +73,13 @@ for target in "${targets[@]}"; do
   # Prune dangling links that point into this repo's skills directory.
   for link in "$target"/*; do
     [ -L "$link" ] || continue
+    [ ! -e "$link" ] || continue
     dest="$(readlink "$link")"
-    case "$dest" in "$src"/*) [ -e "$link" ] || run rm "$link" ;; esac
+    case "$dest" in /*) ;; *) dest="$(dirname "$link")/$dest" ;; esac
+    # Resolve the parent physically; if it is missing, ownership is uncertain.
+    parent="$(cd "$(dirname "$dest")" 2>/dev/null && pwd -P)" || continue
+    dest="$parent/$(basename "$dest")"
+    case "$dest" in "$src"/*) run rm "$link" ;; esac
   done
 
   for dir in "$src"/*/; do

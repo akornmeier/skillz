@@ -75,6 +75,37 @@ class LinkSkillsTests(unittest.TestCase):
         ])
         self.assertFalse((skill / "node_modules").exists())
 
+    def test_existing_hooks_are_not_overwritten_or_followed(self):
+        hooks = self.repo / ".git/hooks"
+        existing = hooks / "post-merge"
+        content = "#!/bin/sh\nprintf 'existing automation\\n'\n"
+        existing.write_text(content)
+        external = self.root / "external-hook"
+        external.write_text(content)
+        linked = hooks / "post-rewrite"
+        linked.symlink_to(external)
+        self.run_command(str(self.script), "--install-hooks", str(self.root / "target"))
+        with self.subTest(hook="regular"):
+            self.assertEqual(existing.read_text(), content)
+        with self.subTest(hook="symlink"):
+            self.assertTrue(linked.is_symlink())
+            self.assertEqual(external.read_text(), content)
+
+    def test_pruning_resolves_relative_and_parent_traversal_targets(self):
+        target = self.root / "target"
+        target.mkdir()
+        relative = target / "removed-relative"
+        relative.symlink_to(os.path.relpath(self.repo / "skills/removed", target))
+        unrelated = target / "unrelated"
+        destination = str(self.repo / "skills") + "/../missing-outside-skills"
+        unrelated.symlink_to(destination)
+        self.run_command(str(self.script), str(target))
+        with self.subTest(link="relative"):
+            self.assertFalse(relative.is_symlink())
+        with self.subTest(link="unrelated"):
+            self.assertTrue(unrelated.is_symlink())
+            self.assertEqual(os.readlink(unrelated), destination)
+
     def test_dry_run_link_prune_and_conflict_safety(self):
         target = self.root / "target"
         self.run_command(str(self.script), "-n", "--install-hooks", str(target))
