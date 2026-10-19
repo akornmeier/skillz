@@ -55,6 +55,10 @@ class Resolver:
         self.name = self.root.name
         self.files = set(files)
         self.digest = manifest_digest(self.root)
+        content = (self.root / "SKILL.md").read_text(encoding="utf-8-sig")
+        header = re.match(r"\A---\n.*?\n---[ \t]*(?:\n|$)", content, re.S)
+        # Extract the frozen instructions for delivery comparison, not YAML validation.
+        self.instructions = content[header.end():].strip() if header else content.strip()
         self.cwd = None
 
     def match(self, token):
@@ -187,6 +191,24 @@ class Trace:
         if rel == "SKILL.md" and match and outcome == "success":
             self.fire(step, mechanism, f"{tool} SKILL.md")
 
+    def injected(self, text, fmt):
+        """Verify Pi 1.3.0's skill-expansion envelope and frozen instruction text."""
+        if "<skill" not in text:
+            return
+        frame = re.match(r'\A<skill name="([^"]+)" location="([^"]+)">\n', text)
+        if fmt == "pi-json" and frame:
+            name, path = frame.groups()
+            rel, match = self.r.match(path)
+            if name == self.r.name and rel == "SKILL.md" and match is True and Path(path).is_absolute():
+                # Matches agent-session._expandSkillCommand, including its optional request suffix.
+                expected = (f'<skill name="{name}" location="{path}">\n'
+                            f'References are relative to {Path(path).parent}.\n\n'
+                            f'{self.r.instructions}\n</skill>')
+                if text == expected or text.startswith(expected + "\n\n"):
+                    self.delivery(path, 0, "injected", "success", mechanism="injected")
+                    return
+        self.unknown("Unverified skill markup is not confirmed client injection or target delivery.")
+
     def shell(self, command, step, tool, outcome):
         """Conservative classification, not shell interpretation or per-file proof."""
         if not isinstance(command, str):
@@ -200,6 +222,7 @@ class Trace:
         if not parts:
             return
         cmd = Path(parts[0]).name
+        read_command = cmd in {"cat", "head", "tail", "sed", "grep", "rg", "awk"}
         # Compound commands cannot attribute overall exit/output to any one file.
         compound = any(c in command for c in (";", "|", "&&", "$", ">", "<", "`", "\n"))
         if compound:
@@ -207,17 +230,21 @@ class Trace:
         for token in parts[1:]:
             rel, match = self.r.match(token)
             if rel is None:
+                if read_command and self.r.cwd is None and not token.startswith("-") and not Path(token).is_absolute():
+                    self.unknown("Relative shell-read operands lack a recorded working directory.")
                 continue
             if cmd in {"python", "python3", "node", "bash", "sh", "zsh", "deno", "bun"}:
                 self.runs.append({"path": rel, "tool": tool, "step": step, "outcome": outcome,
                                   "targetMatch": match})
-            elif cmd in {"cat", "head", "tail", "sed", "grep", "rg", "awk"}:
+            elif read_command:
                 # A shell result alone does not prove which file's bytes were returned.
                 read_outcome = "failed" if outcome == "failed" else "unknown"
                 self.delivery(token, step, tool, read_outcome, partial=cmd != "cat")
                 self.unknown("Shell file reads lack per-file content attribution" + (" (compound command)." if compound else "."))
 
     def finish(self):
+        if self.results.keys() - self.pending.keys():
+            self.unknown("Tool results lack matching requests; incomplete evidence cannot prove non-activation.")
         for call_id, (step, name, inp) in self.pending.items():
             result, error = self.results.get(call_id, (None, None))
             content = result_text(result)
@@ -284,7 +311,7 @@ def parse_json(lines, trace, fmt):
             trace.r.cwd = Path(e["cwd"])
         if kind == "system" and e.get("subtype") == "init" and isinstance(e.get("skills"), list):
             trace.available = trace.r.name in e["skills"]
-        if kind in {"agent_settled", "result"}:
+        if (fmt == "pi-json" and kind == "agent_settled") or (fmt == "stream-json" and kind == "result"):
             trace.complete = True
         if kind == "tool_execution_start":
             trace.start(e.get("toolCallId"), str(e.get("toolName", "")), e.get("args"))
@@ -314,10 +341,7 @@ def parse_json(lines, trace, fmt):
                 if not isinstance(text, str):
                     trace.unknown("User text block is malformed.")
                     continue
-                # Pi explicit invocation expands a skill into a user content block.
-                for path, body in re.findall(r'<skill\b[^>]*\blocation="([^"]+)"[^>]*>(.*?)</skill>', text, re.S):
-                    if body.strip():
-                        trace.delivery(path, 0, "injected", "success", mechanism="injected")
+                trace.injected(text, fmt)
 
 
 def main(argv):

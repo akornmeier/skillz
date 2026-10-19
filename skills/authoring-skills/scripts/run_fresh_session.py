@@ -17,7 +17,8 @@ from the user's home to make a test pass. Transcript/stderr remain primary evide
 <out>.summary.json records capture facts, NOT behavioral assertions or a task pass.
 
 Exit 0 completed capture, 1 harness/capture/trace failure, 2 blocked preflight/startup,
-3 timed out. Partial evidence is retained. Outputs must be new, outside the fixture.
+3 timed out. Interruptions stop/reap the child and propagate the interrupt after
+recording capture state. Partial evidence is retained. Outputs must be new, outside the fixture.
 --in-place is explicitly mutating and never valid for qualification. A separately
 approved nested run may use --max-depth 2 and a shared --run-budget; depth/count
 sentinels coordinate cooperative runners, not untrusted children. Standard library;
@@ -151,13 +152,14 @@ def consume_budget(path):
 
 
 def run_child(cmd, cwd, out, err, timeout, env):
-    """Kill the process group on timeout; keep stdout/stderr already delivered."""
+    """Kill and reap on timeout/interruption; keep stdout/stderr already delivered."""
     with open(out, "x", encoding="utf-8") as fo, open(err, "x", encoding="utf-8") as fe:
         child = subprocess.Popen(cmd, cwd=cwd, stdout=fo, stderr=fe, stdin=subprocess.DEVNULL,
                                  env=env, start_new_session=True)
         try:
             return child.wait(timeout=timeout)
-        except subprocess.TimeoutExpired:
+        except BaseException:
+            # The child has its own session, so Ctrl-C does not stop it for us.
             try:
                 os.killpg(child.pid, signal.SIGKILL)
             except ProcessLookupError:
@@ -371,6 +373,10 @@ def main(argv):
             Path(str(out) + ".trace.json").write_text(json.dumps(report, indent=2) + "\n")
         summary.update(outcome="completed", reason="capture completed; behavioral assertions not graded")
         code = 0
+    except KeyboardInterrupt:
+        summary.update(outcome="failed" if child_started else "blocked",
+                       reason="capture interrupted; partial evidence retained")
+        raise
     except subprocess.TimeoutExpired:
         summary.update(outcome="timed_out", reason="child or tracer exceeded timeout; partial evidence retained")
         code = 3

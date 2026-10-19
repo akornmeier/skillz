@@ -8,7 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, call, patch
 
 SKILL = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SKILL / "scripts"))
@@ -120,6 +120,16 @@ class RunnerTests(unittest.TestCase):
         code, s = self.run_capture("--timeout", "1")
         self.assertEqual((code, s["outcome"]), (3, "timed_out"))
         self.assertTrue(self.out.exists())
+
+    def test_interruption_records_failed_capture_before_reraising(self):
+        self.launch.side_effect = KeyboardInterrupt
+        with self.assertRaises(KeyboardInterrupt):
+            self.run_capture()
+        summary = json.loads(Path(str(self.out) + ".summary.json").read_text())
+        if summary.get("workspace"):
+            self.addCleanup(shutil.rmtree, Path(summary["workspace"]).parent, ignore_errors=True)
+        self.assertEqual(summary["outcome"], "failed")
+        self.assertIn("interrupt", summary["reason"])
 
     def test_signal_is_failure(self):
         self.launch.side_effect = lambda *args: (self.fake_child(*args), -15)[1]
@@ -282,6 +292,17 @@ class RunnerTests(unittest.TestCase):
 
 
 class ProcessTests(unittest.TestCase):
+    def test_interrupted_wait_kills_and_reaps_child_group(self):
+        child = Mock(pid=12345)
+        child.wait.side_effect = [KeyboardInterrupt, -9]
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(r.subprocess, "Popen", return_value=child), \
+             patch.object(r.os, "killpg") as kill:
+            with self.assertRaises(KeyboardInterrupt):
+                r.run_child(["fixture-only"], tmp, str(Path(tmp) / "out"), str(Path(tmp) / "err"), 1, {})
+        kill.assert_called_once_with(12345, r.signal.SIGKILL)
+        self.assertEqual(child.wait.call_args_list, [call(timeout=1), call()])
+
     def test_real_fake_executable_exit_and_timeout(self):
         # Only Python fixture code executes, never an authenticated agent CLI.
         with tempfile.TemporaryDirectory() as tmp:

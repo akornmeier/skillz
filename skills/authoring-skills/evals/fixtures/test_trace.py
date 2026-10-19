@@ -179,6 +179,44 @@ class TraceTests(unittest.TestCase):
             self.assertIs(r["fired"], False)
             self.assertEqual(r["reads"], [])
 
+    def test_relative_shell_read_without_cwd_is_unknown(self):
+        start = {"type": "tool_execution_start", "toolCallId": "a", "toolName": "bash",
+                 "args": {"command": "cat target/SKILL.md"}}
+        r = self.report([start, self.end(), {"type": "agent_settled"}])
+        self.assertIsNone(r["fired"])
+
+    def test_terminal_event_must_match_client_protocol(self):
+        for fmt, header, terminal in (
+            ("pi-json", {"type": "session"}, {"type": "result"}),
+            ("stream-json", {"type": "system", "subtype": "init"}, {"type": "agent_settled"}),
+        ):
+            with self.subTest(fmt=fmt):
+                self.assertIsNone(self.report([header, terminal], fmt)["fired"])
+
+    def test_orphan_results_do_not_prove_non_activation(self):
+        self.assertIsNone(self.report(self.complete(self.end()))["fired"])
+        # Correlate after parsing: late requests still identify their result.
+        self.assertIs(self.report(self.complete(self.end(), self.start()))["fired"], True)
+
+    def injected_text(self):
+        return (f'<skill name="target" location="{self.root}/SKILL.md">\n'
+                f'References are relative to {self.root}.\n\nBody\n</skill>')
+
+    def test_unverified_markup_is_not_delivery(self):
+        valid = self.injected_text()
+        variants = [
+            ("pi-json", valid.replace('name="target"', 'name="unrelated"')),
+            ("pi-json", valid.replace("\n\nBody\n", "\n\nUnrelated instructions\n")),
+            ("pi-json", "Quoted example:\n```xml\n" + valid + "\n```"),
+            ("stream-json", valid),
+        ]
+        for fmt, text in variants:
+            with self.subTest(fmt=fmt, text=text):
+                event = {"type": "user", "message": {"role": "user", "content": [{"type": "text", "text": text}]}}
+                r = self.report([event, {"type": "result"}], fmt)
+                self.assertIsNone(r["fired"])
+                self.assertIsNone(r["targetMatch"])
+
     def test_pi_logged_tool_call_and_injected_load(self):
         request = {"type": "message", "message": {"role": "assistant", "content": [
             {"type": "toolCall", "id": "a", "name": "read", "arguments": {"path": str(self.root / "SKILL.md")}}]}}
@@ -186,7 +224,7 @@ class TraceTests(unittest.TestCase):
                   "content": [{"type": "text", "text": "Body"}]}}
         self.assertIs(self.report([request, result, {"type": "agent_settled"}])["fired"], True)
         injection = {"type": "message", "message": {"role": "user", "content": [{"type": "text",
-            "text": f'<skill name="target" location="{self.root}/SKILL.md">Body</skill>'}]}}
+            "text": self.injected_text()}]}}
         r = self.report(self.complete(injection))
         self.assertIs(r["fired"], True)
         self.assertEqual(r["loadMechanism"], "injected")
