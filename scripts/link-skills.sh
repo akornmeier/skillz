@@ -25,6 +25,13 @@ for arg in "$@"; do
   esac
 done
 [ ${#targets[@]} -gt 0 ] || targets=("$HOME/.agents/skills" "$HOME/.claude/skills")
+# Hooks run from the repository root, not necessarily the installation directory.
+for i in "${!targets[@]}"; do
+  case "${targets[i]}" in
+    /*) ;;
+    *) targets[i]="$PWD/${targets[i]}" ;;
+  esac
+done
 
 run() {
   echo "  $*"
@@ -39,7 +46,13 @@ if [ "$install_hooks" -eq 1 ]; then
     echo "hook: $hooks/$hook"
     if [ "$dry_run" -eq 0 ]; then
       mkdir -p "$hooks"
-      printf '#!/bin/sh\nexec "$(git rev-parse --show-toplevel)/scripts/link-skills.sh"\n' > "$hooks/$hook"
+      {
+        # Expand the repository lookup when the hook runs, not during installation.
+        # shellcheck disable=SC2016
+        printf '#!/usr/bin/env bash\nexec "$(git rev-parse --show-toplevel)/scripts/link-skills.sh"'
+        printf ' %q' "${targets[@]}"
+        printf '\n'
+      } > "$hooks/$hook"
       chmod +x "$hooks/$hook"
     fi
   done
@@ -75,5 +88,7 @@ done
 for manifest in "$src"/*/package.json; do
   [ -f "$manifest" ] || continue
   dir="$(dirname "$manifest")"
-  [ -d "$dir/node_modules" ] || echo "note: $(basename "$dir") has no node_modules; run: npm install --prefix $dir --ignore-scripts"
+  if [ ! -d "$dir/node_modules" ]; then
+    printf 'note: %s has no node_modules; run: npm install --prefix %q --ignore-scripts\n' "$(basename "$dir")" "$dir"
+  fi
 done
