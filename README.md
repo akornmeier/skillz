@@ -29,11 +29,20 @@ evals/
 ## Management
 
 - Pi discovers these skills automatically; no `settings.json` mapping is required.
+- When this repository is cloned elsewhere, `scripts/link-skills.sh` symlinks each skill into `~/.agents/skills` (Pi) and `~/.claude/skills` (Claude Code), and prunes links to skills removed from the repository. Pass `-n` for a dry run or other directories as arguments. Run it once with `--install-hooks` to relink automatically after every `git pull`, merge or rebase, preserving the selected target directories (relative paths are anchored to the installation directory). Existing hooks not managed by this script are left untouched with a warning; integrate the linking command manually if needed.
 - Keep project-specific configuration in the project that consumes a skill rather than modifying the installed skill package.
 - `.skill-lock.json` retains installer metadata for third-party skills. Locally maintained skills in this repository are intentionally not lock-managed.
 - Generated dependencies and caches are ignored. A skill with a package manifest should install its dependencies within its own directory.
 
 ## Validation
+
+Check skill linking and generated hooks in temporary directories:
+
+```bash
+python3 scripts/test_link_skills.py
+bash -n scripts/link-skills.sh
+shellcheck scripts/link-skills.sh
+```
 
 Validate every skill's evaluation definitions and local Markdown links without running models:
 
