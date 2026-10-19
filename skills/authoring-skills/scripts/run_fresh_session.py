@@ -17,8 +17,8 @@ from the user's home to make a test pass. Transcript/stderr remain primary evide
 <out>.summary.json records capture facts, NOT behavioral assertions or a task pass.
 
 Exit 0 completed capture, 1 harness/capture/trace failure, 2 blocked preflight/startup,
-3 timed out. Interruptions stop/reap the child and propagate the interrupt after
-recording capture state. Partial evidence is retained. Outputs must be new, outside the fixture.
+3 timed out. SIGTERM and keyboard interruptions stop/reap the child and propagate
+the termination after recording capture state; prior signal handlers are restored. Partial evidence is retained. Outputs must be new, outside the fixture.
 --in-place is explicitly mutating and never valid for qualification. A separately
 approved nested run may use --max-depth 2 and a shared --run-budget; depth/count
 sentinels coordinate cooperative runners, not untrusted children. Standard library;
@@ -57,6 +57,17 @@ BUDGET_ENV = "AUTHORING_SKILLS_BUDGET_FILE"
 
 class Blocked(Exception):
     """Preflight/startup prerequisites are not satisfied."""
+
+
+class Terminated(BaseException):
+    """Unwind capture cleanup before forwarding a termination signal."""
+    def __init__(self, signum):
+        super().__init__(signum)
+        self.signum = signum
+
+
+def terminate_capture(signum, frame):
+    raise Terminated(signum)
 
 
 def parse(argv):
@@ -154,17 +165,31 @@ def consume_budget(path):
 def run_child(cmd, cwd, out, err, timeout, env):
     """Kill and reap on timeout/interruption; keep stdout/stderr already delivered."""
     with open(out, "x", encoding="utf-8") as fo, open(err, "x", encoding="utf-8") as fe:
-        child = subprocess.Popen(cmd, cwd=cwd, stdout=fo, stderr=fe, stdin=subprocess.DEVNULL,
-                                 env=env, start_new_session=True)
+        child = None
+        pending_term = None
+        def defer_termination(signum, frame):
+            nonlocal pending_term
+            pending_term = signum
+        # Do not unwind Popen after it creates a child but before it returns
+        # the handle needed to stop/reap that child. Exec resets caught handlers.
+        previous = signal.signal(signal.SIGTERM, defer_termination)
         try:
+            try:
+                child = subprocess.Popen(cmd, cwd=cwd, stdout=fo, stderr=fe, stdin=subprocess.DEVNULL,
+                                         env=env, start_new_session=True)
+            finally:
+                signal.signal(signal.SIGTERM, previous)
+                if pending_term is not None:
+                    raise Terminated(pending_term)
             return child.wait(timeout=timeout)
         except BaseException:
             # The child has its own session, so Ctrl-C does not stop it for us.
-            try:
-                os.killpg(child.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-            child.wait()
+            if child is not None:
+                try:
+                    os.killpg(child.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                child.wait()
             raise
 
 
@@ -241,6 +266,20 @@ def trace_capture(target, out):
 
 
 def main(argv):
+    previous = signal.signal(signal.SIGTERM, terminate_capture)
+    try:
+        try:
+            return capture(argv)
+        finally:
+            signal.signal(signal.SIGTERM, previous)
+    except Terminated as exc:
+        # Preserve native signal status after cleanup, or the shell convention
+        # if a caller's restored handler handles/ignores the forwarded signal.
+        signal.raise_signal(exc.signum)
+        return 128 + exc.signum
+
+
+def capture(argv):
     o = parse(argv)
     source = Path(o.workdir).expanduser().absolute()
     out = Path(o.out).expanduser().absolute()
@@ -373,9 +412,10 @@ def main(argv):
             Path(str(out) + ".trace.json").write_text(json.dumps(report, indent=2) + "\n")
         summary.update(outcome="completed", reason="capture completed; behavioral assertions not graded")
         code = 0
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, Terminated) as exc:
+        cause = " by SIGTERM" if isinstance(exc, Terminated) else ""
         summary.update(outcome="failed" if child_started else "blocked",
-                       reason="capture interrupted; partial evidence retained")
+                       reason=f"capture interrupted{cause}; partial evidence retained")
         raise
     except subprocess.TimeoutExpired:
         summary.update(outcome="timed_out", reason="child or tracer exceeded timeout; partial evidence retained")

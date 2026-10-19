@@ -65,22 +65,32 @@ CLIENT_FIELDS = {"pi": {"disable-model-invocation"}, "claude-code": {
 
 
 class UniqueSafeLoader(yaml.SafeLoader):
-    """Safe YAML, rejecting duplicate explicit keys while preserving merge semantics."""
-    def construct_mapping(self, node, deep=False):
-        keys = set()
-        for key_node, _ in node.value:
-            if key_node.tag == "tag:yaml.org,2002:merge":
-                continue
-            key = self.construct_object(key_node, deep=deep)
-            try:
-                if key in keys:
+    """Validate original keys before PyYAML flattens inline/aliased merge sources."""
+    def __init__(self, stream):
+        super().__init__(stream)
+        self.checked_mappings = set()
+
+    def flatten_mapping(self, node):
+        # Flattening mutates nodes; checking each original mapping once preserves
+        # legal merge overrides and aliases reused after their first flattening.
+        if node not in self.checked_mappings:
+            self.checked_mappings.add(node)
+            keys = set()
+            for key_node, _ in node.value:
+                if key_node.tag == "tag:yaml.org,2002:merge":
+                    continue
+                if key_node.tag == "tag:yaml.org,2002:value":
+                    key_node.tag = "tag:yaml.org,2002:str"
+                key = self.construct_object(key_node)
+                try:
+                    if key in keys:
+                        raise yaml.constructor.ConstructorError("mapping", node.start_mark,
+                                                                f"duplicate key {key!r}", key_node.start_mark)
+                    keys.add(key)
+                except TypeError:
                     raise yaml.constructor.ConstructorError("mapping", node.start_mark,
-                                                            f"duplicate key {key!r}", key_node.start_mark)
-                keys.add(key)
-            except TypeError:
-                raise yaml.constructor.ConstructorError("mapping", node.start_mark,
-                                                        "mapping keys must be scalar", key_node.start_mark) from None
-        return super().construct_mapping(node, deep=deep)
+                                                            "mapping keys must be scalar", key_node.start_mark) from None
+        return super().flatten_mapping(node)
 
 
 class Finding:

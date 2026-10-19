@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, call, patch
@@ -130,6 +131,25 @@ class RunnerTests(unittest.TestCase):
             self.addCleanup(shutil.rmtree, Path(summary["workspace"]).parent, ignore_errors=True)
         self.assertEqual(summary["outcome"], "failed")
         self.assertIn("interrupt", summary["reason"])
+
+    def test_sigterm_restores_prior_handler(self):
+        received = []
+        def prior(signum, frame):
+            received.append(signum)
+        original = r.signal.signal(r.signal.SIGTERM, prior)
+        try:
+            self.launch.side_effect = lambda *args: r.signal.raise_signal(r.signal.SIGTERM)
+            code, summary = self.run_capture()
+            self.assertIs(r.signal.getsignal(r.signal.SIGTERM), prior)
+            self.assertEqual(received, [r.signal.SIGTERM])
+            self.assertEqual(code, 128 + r.signal.SIGTERM)
+            self.assertEqual(summary["outcome"], "failed")
+            self.assertIn("SIGTERM", summary["reason"])
+            self.out = self.base / "after-termination.jsonl"
+            self.assertEqual(self.run_capture(live=False)[0], 2)
+            self.assertIs(r.signal.getsignal(r.signal.SIGTERM), prior)
+        finally:
+            r.signal.signal(r.signal.SIGTERM, original)
 
     def test_signal_is_failure(self):
         self.launch.side_effect = lambda *args: (self.fake_child(*args), -15)[1]
@@ -292,6 +312,81 @@ class RunnerTests(unittest.TestCase):
 
 
 class ProcessTests(unittest.TestCase):
+    def test_sigterm_stops_fake_child_and_writes_summary(self):
+        # Isolated Python-only supervisor/child. No authenticated CLI or credentials.
+        with tempfile.TemporaryDirectory(prefix="capture-sigterm-") as tmp:
+            base = Path(tmp).resolve()
+            work, scratch = base / "workspace", base / "scratch"
+            work.mkdir()
+            scratch.mkdir()
+            pid_path, out = base / "child.pid", base / "capture.jsonl"
+            child_code = ("import os,time; from pathlib import Path; Path(" + repr(str(pid_path)) +
+                          ").write_text(str(os.getpid())); time.sleep(60)")
+            script = base / "supervisor.py"
+            script.write_text(
+                "import sys\nsys.path.insert(0," + repr(str(SKILL / "scripts")) + ")\n"
+                "import run_fresh_session as r\n"
+                "r.tempfile.mkdtemp = lambda **kwargs: " + repr(str(scratch)) + "\n"
+                "r.HARNESSES['fixture'] = lambda prompt: [sys.executable, '-c', " + repr(child_code) + "]\n"
+                "r.main([" + repr(str(work)) + ", 'Python fixture only', '--out', " + repr(str(out)) +
+                ", '--harness', 'fixture', '--allow-live', '--timeout', '30'])\n")
+            env = {"PATH": os.environ.get("PATH", ""), "HOME": str(base), "PYTHONDONTWRITEBYTECODE": "1"}
+            child_pid = None
+            with (base / "supervisor.err").open("w") as log:
+                supervisor = subprocess.Popen([sys.executable, str(script)], env=env, stdin=subprocess.DEVNULL,
+                                              stdout=subprocess.DEVNULL, stderr=log, start_new_session=True)
+                try:
+                    deadline = time.monotonic() + 10
+                    while time.monotonic() < deadline:
+                        if pid_path.exists() and pid_path.read_text().strip():
+                            child_pid = int(pid_path.read_text())
+                            break
+                        if supervisor.poll() is not None:
+                            break
+                        time.sleep(0.02)
+                    self.assertIsNotNone(child_pid, "fixture child did not start")
+                    supervisor.terminate()
+                    self.assertEqual(supervisor.wait(timeout=5), -r.signal.SIGTERM)
+                    try:
+                        os.kill(child_pid, 0)
+                        alive = True
+                    except ProcessLookupError:
+                        alive = False
+                    summary_path = Path(str(out) + ".summary.json")
+                    self.assertTrue(summary_path.is_file(), f"missing summary; child alive={alive}")
+                    self.assertFalse(alive, "terminated supervisor left its child running/unreaped")
+                    summary = json.loads(summary_path.read_text())
+                    self.assertEqual(summary["outcome"], "failed")
+                    self.assertIn("SIGTERM", summary["reason"])
+                finally:
+                    if supervisor.poll() is None:
+                        supervisor.kill()
+                        supervisor.wait()
+                    if child_pid:
+                        try:
+                            os.killpg(child_pid, r.signal.SIGKILL)
+                        except ProcessLookupError:
+                            pass
+
+    def test_sigterm_during_spawn_waits_for_child_handle_before_cleanup(self):
+        child = Mock(pid=12345)
+        original = r.signal.signal(r.signal.SIGTERM, r.terminate_capture)
+        def spawn(*args, **kwargs):
+            # Model a signal after the child exists but before Popen returns it.
+            r.signal.raise_signal(r.signal.SIGTERM)
+            return child
+        try:
+            with tempfile.TemporaryDirectory() as tmp, \
+                 patch.object(r.subprocess, "Popen", side_effect=spawn), \
+                 patch.object(r.os, "killpg") as kill:
+                with self.assertRaises(r.Terminated):
+                    r.run_child(["fixture-only"], tmp, str(Path(tmp) / "out"), str(Path(tmp) / "err"), 1, {})
+            kill.assert_called_once_with(12345, r.signal.SIGKILL)
+            child.wait.assert_called_once_with()
+            self.assertIs(r.signal.getsignal(r.signal.SIGTERM), r.terminate_capture)
+        finally:
+            r.signal.signal(r.signal.SIGTERM, original)
+
     def test_interrupted_wait_kills_and_reaps_child_group(self):
         child = Mock(pid=12345)
         child.wait.side_effect = [KeyboardInterrupt, -9]

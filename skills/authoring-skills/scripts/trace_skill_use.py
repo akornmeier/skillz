@@ -21,10 +21,12 @@ import sys
 from pathlib import Path
 
 SKIP_DIRS = {".git", "node_modules", "__pycache__"}
-SKILL_LOAD_RE = re.compile(r"Base directory for this skill:\s*(\S+)")
+SKILL_LOAD_RE = re.compile(r"Base directory for this skill:[ \t]*([^\r\n]+)")
 FILE_TOOLS = {"Read": "read", "read": "read", "Write": "write", "write": "write",
               "Edit": "edit", "edit": "edit", "Grep": "search", "Glob": "search"}
 SHELL_TOOLS = {"Bash", "bash", "shell"}
+# These commands report names/metadata, not file instruction content.
+METADATA_COMMANDS = {"stat", "wc", "ls", "test", "du", "file", "echo", "printf"}
 
 
 def manifest_digest(root):
@@ -148,6 +150,9 @@ class Trace:
                 self.unknown("Conflicting requests reuse a tool ID.")
             return
         self.step += 1
+        if not isinstance(name, str) or not name.strip():
+            self.unknown("Tool request name is malformed.")
+            name = ""
         if not isinstance(inp, dict):
             self.unknown("Tool request arguments are malformed.")
             inp = {}
@@ -241,6 +246,8 @@ class Trace:
                 read_outcome = "failed" if outcome == "failed" else "unknown"
                 self.delivery(token, step, tool, read_outcome, partial=cmd != "cat")
                 self.unknown("Shell file reads lack per-file content attribution" + (" (compound command)." if compound else "."))
+            elif cmd not in METADATA_COMMANDS and outcome != "failed":
+                self.unknown("Unclassified shell command references target files; content delivery is unresolved.")
 
     def finish(self):
         if self.results.keys() - self.pending.keys():
@@ -269,7 +276,7 @@ class Trace:
                 skill = inp.get("skill", inp.get("name", ""))
                 if not isinstance(skill, str) or skill.split(":")[-1] != self.r.name:
                     continue
-                roots = SKILL_LOAD_RE.findall(content)
+                roots = [root.strip() for root in SKILL_LOAD_RE.findall(content) if root.strip()]
                 if outcome == "success" and roots:
                     for root in roots:
                         self.delivery(str(Path(root) / "SKILL.md"), step, name, outcome, mechanism="skill-tool")
@@ -314,34 +321,42 @@ def parse_json(lines, trace, fmt):
         if (fmt == "pi-json" and kind == "agent_settled") or (fmt == "stream-json" and kind == "result"):
             trace.complete = True
         if kind == "tool_execution_start":
-            trace.start(e.get("toolCallId"), str(e.get("toolName", "")), e.get("args"))
+            trace.start(e.get("toolCallId"), e.get("toolName"), e.get("args"))
         elif kind == "tool_execution_end":
             trace.end(e.get("toolCallId"), e.get("result"), e.get("isError"))
         if kind not in {"assistant", "user", "message", "message_end", "turn_end"}:
             continue
         msg = e.get("message", e)
         if not isinstance(msg, dict):
+            trace.unknown("Supported message envelope is malformed.")
             continue
-        if msg.get("role") == "toolResult":
+        role = msg.get("role", kind if kind in {"assistant", "user"} else None)
+        if not isinstance(role, str) or role not in {"user", "assistant", "system", "toolResult"}:
+            trace.unknown("Supported message role is malformed or unrecognized.")
+            continue
+        if role == "toolResult":
             trace.end(msg.get("toolCallId"), msg.get("content"), msg.get("isError", False))
-        content = msg.get("content", [])
+        content = msg.get("content")
         if isinstance(content, str):
             content = [{"type": "text", "text": content}]
         if not isinstance(content, list):
+            trace.unknown("Supported message content is malformed or missing.")
             continue
         for b in content:
-            if not isinstance(b, dict):
+            if not isinstance(b, dict) or not isinstance(b.get("type"), str) or not b["type"].strip():
+                trace.unknown("Supported message content block is malformed.")
+                continue
+            if b["type"] == "text" and not isinstance(b.get("text"), str):
+                trace.unknown("Message text block is malformed.")
                 continue
             if b.get("type") in {"tool_use", "toolCall"}:
-                trace.start(b.get("id"), str(b.get("name", "")), b.get("input", b.get("arguments")))
+                trace.start(b.get("id"), b.get("name"), b.get("input", b.get("arguments")))
             elif b.get("type") == "tool_result":
                 trace.end(b.get("tool_use_id"), b.get("content"), bool(b.get("is_error", False)))
-            elif b.get("type") == "text" and msg.get("role") == "user":
-                text = b.get("text", "")
-                if not isinstance(text, str):
-                    trace.unknown("User text block is malformed.")
-                    continue
-                trace.injected(text, fmt)
+            elif b.get("type") == "text" and role == "user":
+                trace.injected(b["text"], fmt)
+            elif b["type"] not in {"text", "thinking", "redacted_thinking", "image"}:
+                trace.unknown("Unrecognized message block cannot prove absence of delivery.")
 
 
 def main(argv):

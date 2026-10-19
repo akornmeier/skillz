@@ -179,6 +179,38 @@ class TraceTests(unittest.TestCase):
             self.assertIs(r["fired"], False)
             self.assertEqual(r["reads"], [])
 
+    def test_skill_load_directory_can_contain_spaces(self):
+        other = Path(self.tmp.name) / "work space" / "target"
+        shutil.copytree(self.root, other)
+        request = {"type": "assistant", "message": {"content": [
+            {"type": "tool_use", "id": "a", "name": "Skill", "input": {"skill": "target"}}]}}
+        result = {"type": "user", "message": {"content": [
+            {"type": "tool_result", "tool_use_id": "a", "content": f"Base directory for this skill: {other}\nBody"}]}}
+        r = self.report([request, result, {"type": "result"}], "stream-json")
+        self.assertIs(r["fired"], True)
+        self.assertIs(r["targetMatch"], True)
+        self.assertEqual(r["loadMechanism"], "skill-tool")
+
+    def test_unclassified_shell_reads_preserve_uncertainty(self):
+        start = self.start("bash", command=f"env cat {self.root}/SKILL.md")
+        self.assertIsNone(self.report(self.complete(start, self.end()))["fired"])
+        for command in ("stat", "wc -c", "ls", "test -f", "du", "file", "echo", "printf %s"):
+            with self.subTest(command=command):
+                start = self.start("bash", command=f"{command} {self.root}/SKILL.md")
+                self.assertIs(self.report(self.complete(start, self.end()))["fired"], False)
+
+    def test_malformed_message_structures_are_unknown(self):
+        messages = [None, {"role": "assistant"}, {"role": [], "content": []},
+                    {"role": "unknown", "content": []},
+                    {"content": {}}, {"content": [None]}, {"content": [{}]},
+                    {"content": [{"type": " "}]}, {"content": [{"type": "future_delivery"}]},
+                    {"content": [{"type": 12}]}, {"content": [{"type": "text", "text": None}]},
+                    {"content": [{"type": "tool_use", "id": "a", "name": None, "input": {}}]}]
+        for message in messages:
+            with self.subTest(message=message):
+                r = self.report([{"type": "assistant", "message": message}, {"type": "result"}], "stream-json")
+                self.assertIsNone(r["fired"])
+
     def test_relative_shell_read_without_cwd_is_unknown(self):
         start = {"type": "tool_execution_start", "toolCallId": "a", "toolName": "bash",
                  "args": {"command": "cat target/SKILL.md"}}

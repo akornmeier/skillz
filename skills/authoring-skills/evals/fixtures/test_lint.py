@@ -59,6 +59,27 @@ class LintTests(unittest.TestCase):
         self.write('name: fixture\ndescription: Performs fixture tasks.\nmetadata:\n  <<: &base {author: Tony}\n  author: User')
         self.assert_passes()
 
+    def test_duplicate_keys_in_merge_sources_fail(self):
+        sources = [
+            '<<: {name: wrong, name: fixture}\ndescription: Does fixture work',
+            'name: fixture\ndescription: Does fixture work\nmetadata:\n  <<: {author: First, author: Second}',
+            'name: fixture\ndescription: Does fixture work\nmetadata:\n  <<: [{author: First, author: Second}, {version: "1"}]',
+            'name: fixture\ndescription: Does fixture work\nmetadata:\n  <<: {<<: {author: First, author: Second}}',
+        ]
+        for fields in sources:
+            with self.subTest(fields=fields):
+                self.write(fields)
+                findings, summary = self.check()
+                self.assertGreater(summary["fail"], 0)
+                self.assertTrue(any(f.check == "frontmatter" and "duplicate key" in f.what for f in findings))
+
+    def test_merge_overrides_and_reused_aliases_remain_valid(self):
+        self.write('name: fixture\ndescription: Does fixture work\nmetadata:\n'
+                   '  <<: [ &base {author: Tony, version: "1"}, *base ]\n  author: User')
+        self.assert_passes()
+        front, _, _ = lint.parse_frontmatter((self.root / "SKILL.md").read_text())
+        self.assertEqual(front["metadata"], {"author": "User", "version": "1"})
+
     def test_malformed_yaml_and_unsafe_tags_fail(self):
         for fields in ('name: fixture\ndescription: "unclosed', 'name: fixture\nname: duplicate\ndescription: Text',
                        '- name\n- description', 'name: fixture\ndescription: !!python/object/apply:os.system ["echo bad"]',
