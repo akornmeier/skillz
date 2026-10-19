@@ -201,9 +201,10 @@ def inspect_capture(path, harness):
         if kind == "result":
             turns, cost = e.get("num_turns"), e.get("total_cost_usd")
             text = e.get("result", "")
-            if isinstance(text, str) and any(s in text.lower() for s in NOT_STARTED):
-                raise Blocked("harness authentication/quota preflight failed; inspect primary evidence securely")
-            if e.get("is_error") or e.get("subtype") not in (None, "success"):
+            failed = e.get("is_error") or e.get("subtype") not in (None, "success")
+            if failed:
+                if isinstance(text, str) and any(s in text.lower() for s in NOT_STARTED):
+                    raise Blocked("harness authentication/quota preflight failed; inspect primary evidence securely")
                 raise ValueError("harness reported an error result")
             terminal = harness == "claude" or terminal
         elif kind == "agent_settled" and harness == "pi":
@@ -213,10 +214,10 @@ def inspect_capture(path, harness):
         msg = e.get("message")
         if isinstance(msg, dict) and msg.get("role") == "assistant":
             observed_model = msg.get("model") or observed_model
-            error = msg.get("errorMessage", "")
-            if isinstance(error, str) and any(s in error.lower() for s in NOT_STARTED):
-                raise Blocked("harness authentication/quota preflight failed; inspect primary evidence securely")
             if msg.get("stopReason") in {"error", "aborted"}:
+                error = msg.get("errorMessage", "")
+                if isinstance(error, str) and any(s in error.lower() for s in NOT_STARTED):
+                    raise Blocked("harness authentication/quota preflight failed; inspect primary evidence securely")
                 raise ValueError("assistant response failed or was aborted")
         if kind == "system" and e.get("subtype") == "init":
             observed_model = e.get("model") or observed_model
@@ -358,7 +359,7 @@ def main(argv):
                     summary["sessionTrace"] = trace_capture(target, saved_log)
                     if summary["sessionTrace"].get("targetMatch") is False or summary["sessionTrace"].get("other_copy_loaded"):
                         raise ValueError("session log identifies a mismatched target copy")
-            except (OSError, subprocess.TimeoutExpired) as exc:
+            except OSError as exc:
                 raise ValueError("tracer could not complete; capture is not qualified") from exc
             summary["trace"] = report
             if report.get("targetMatch") is False or report.get("other_copy_loaded"):

@@ -80,6 +80,44 @@ class TraceTests(unittest.TestCase):
         r = self.report(self.complete(self.start(path=other / "SKILL.md"), self.end()))
         self.assertIs(r["fired"], True)
         self.assertIs(r["targetMatch"], True)
+        renamed = other.with_name("renamed-package")
+        other.rename(renamed)
+        r = self.report(self.complete(self.start(path=renamed / "SKILL.md"), self.end()))
+        self.assertIs(r["fired"], True)  # Exact manifests still identify copies at other names.
+
+    def test_unrelated_skill_is_not_a_conflicting_copy(self):
+        other = Path(self.tmp.name) / "unrelated-skill"
+        other.mkdir()
+        (other / "SKILL.md").write_text("---\nname: unrelated-skill\ndescription: Other work.\n---\n")
+        r = self.report(self.complete(self.start(path=other / "SKILL.md"), self.end()))
+        self.assertIs(r["fired"], False)
+        self.assertIsNone(r["other_copy_loaded"])
+        self.assertIsNone(r["targetMatch"])
+
+    def test_deleted_candidate_has_unknown_historical_identity(self):
+        other = Path(self.tmp.name) / "deleted-workspace" / "target"
+        r = self.report(self.complete(self.start(path=other / "SKILL.md"), self.end()))
+        self.assertIsNone(r["fired"])
+        self.assertIsNone(r["targetMatch"])
+        self.assertIsNone(r["other_copy_loaded"])
+
+    def test_conflicting_copy_attempts_require_successful_delivery(self):
+        other = Path(self.tmp.name) / "other" / "target"
+        shutil.copytree(self.root, other)
+        (other / "ref.md").write_text("Different manifest")
+        start = self.start(path=other / "SKILL.md")
+        r = self.report(self.complete(start))
+        self.assertIsNone(r["fired"])
+        self.assertIsNone(r["other_copy_loaded"])
+        r = self.report(self.complete(start, self.end(True)))
+        self.assertIs(r["fired"], False)
+        self.assertIsNone(r["other_copy_loaded"])
+        intended, result = self.start(), self.end()
+        intended["toolCallId"] = result["toolCallId"] = "b"
+        r = self.report(self.complete(start, self.end(True), intended, result))
+        self.assertIs(r["fired"], True)
+        self.assertIsNone(r["other_copy_loaded"])
+        self.assertIs(r["targetMatch"], True)
 
     def test_codemode_is_opaque_but_nested_events_work(self):
         opaque = {"type": "tool_execution_start", "toolCallId": "outer", "toolName": "codemode",

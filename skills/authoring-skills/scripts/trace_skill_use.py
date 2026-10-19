@@ -58,7 +58,9 @@ class Resolver:
         self.cwd = None
 
     def match(self, token):
-        """Return (relative path, identity match); None means unrelated/unresolved."""
+        """Return (relative path, identity): (None, None) is unrelated/unresolved;
+        (path, None) identifies a plausible copy whose manifest is unavailable.
+        """
         if not isinstance(token, str):
             return None, None
         path = Path(token).expanduser()
@@ -74,11 +76,20 @@ class Resolver:
             pass
         for parent in path.parents:
             rel = path.relative_to(parent).as_posix()
-            if rel in self.files and (parent / "SKILL.md").is_file():
+            if rel not in self.files:
+                continue
+            same_name = parent.name == self.name
+            if (parent / "SKILL.md").is_file():
                 try:
-                    return rel, manifest_digest(parent) == self.digest
+                    if manifest_digest(parent) == self.digest:
+                        return rel, True
+                    if same_name:
+                        return rel, False
                 except (OSError, ValueError):
-                    return rel, False
+                    if same_name:
+                        return rel, None
+            elif same_name:
+                return rel, None  # Saved evidence may outlive its temporary workspace.
         return None, None
 
     def directory(self, token):
@@ -163,13 +174,16 @@ class Trace:
         item = {"path": rel, "tool": tool, "partial": partial, "step": step,
                 "outcome": outcome, "requestedRange": requested or {}, "targetMatch": match}
         self.reads.append(item)
-        if match is False:
-            self.other_copy = str(Path(path).parent) if rel == "SKILL.md" else str(path)
-            if self.target_match is not True:
-                self.target_match = False
-            return
         if outcome == "unknown":
             self.unknown("A relevant read has no confirmed successful content result.")
+        if match is None and outcome != "failed":
+            self.unknown("Candidate copy manifest is unavailable; historical target identity is unknown.")
+        if match is False:
+            if outcome == "success":
+                self.other_copy = str(Path(path).parent) if rel == "SKILL.md" else str(path)
+                if self.target_match is not True:
+                    self.target_match = False
+            return
         if rel == "SKILL.md" and match and outcome == "success":
             self.fire(step, mechanism, f"{tool} SKILL.md")
 

@@ -103,6 +103,15 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(code, expected)
             self.assertNotEqual(s["outcome"], "completed")
 
+    def test_successful_answer_can_mention_authentication_errors(self):
+        def emit(*args):
+            Path(args[2]).write_text(json.dumps({"type": "result", "subtype": "success", "is_error": False,
+                "result": "Added handling for invalid API key errors."}) + "\n")
+            return 0
+        self.launch.side_effect = emit
+        code, s = self.run_capture("--harness", "claude")
+        self.assertEqual((code, s["outcome"], s["childExit"]), (0, "completed", 0))
+
     def test_timeout_keeps_partial_evidence(self):
         def timeout(*args):
             Path(args[2]).write_text('{"type":"session"}\n')
@@ -166,6 +175,12 @@ class RunnerTests(unittest.TestCase):
         with patch.object(r, "trace_capture", side_effect=ValueError("trace failed")):
             code, s = self.run_capture("--trace", str(self.target))
         self.assertEqual((code, s["outcome"]), (1, "failed"))
+
+    def test_tracer_timeout_preserves_timeout_outcome(self):
+        with patch.object(r, "trace_capture", side_effect=subprocess.TimeoutExpired("tracer", 60)):
+            code, s = self.run_capture("--trace", str(self.target))
+        self.assertEqual((code, s["outcome"], s["childExit"]), (3, "timed_out", 0))
+        self.assertTrue(self.out.stat().st_size)
 
     def test_conflicting_target_copy_blocks_before_launch(self):
         global_root = self.base / "global"
