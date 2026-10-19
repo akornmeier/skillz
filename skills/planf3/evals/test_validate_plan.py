@@ -135,6 +135,20 @@ class EngineeringContractTests(unittest.TestCase):
         self.assertTrue(elements['next-cell'].within(elements['outer-row']))
         self.assertEqual(elements['outer-cell'].text, 'BeforeInnerAfter')
 
+    def test_metadata_void_tags_do_not_leak_into_multiple_verifications(self) -> None:
+        source = plan()
+        block = re.search(r'<div class="verification".*?</div>', source, re.S).group(0)
+        source = source.replace(block, block + block.replace('id="verify-parser"', 'id="verify-second"'))
+        for line_break in ('<br>', '<br/>', '<br />'):
+            with self.subTest(line_break=line_break):
+                candidate = source.replace('<dd>Fixture</dd>', f'<dd>Fixture{line_break}agent</dd>', 1)
+                self.assertEqual(self.codes(candidate), set())
+                parser = validator.PlanParser()
+                parser.feed(candidate)
+                parser.close()
+                self.assertFalse(parser.in_meta)
+                self.assertEqual(set(parser.metadata), validator.REQUIRED_METADATA)
+
     def test_empty_criterion_with_optional_list_end_tag(self) -> None:
         source = plan().replace('<li class="criterion" id="ac-default">Missing pageSize yields 20.</li>',
                                 '<li class="criterion" id="ac-default"><li>Unrelated item</li>')

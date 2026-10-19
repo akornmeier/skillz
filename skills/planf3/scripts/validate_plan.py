@@ -185,7 +185,7 @@ class PlanParser(HTMLParser):
         if tag == "details" and "meta" in classes:
             self.in_meta = True
             self.meta_depth = 1
-        elif self.in_meta:
+        elif self.in_meta and tag not in VOID_TAGS:
             self.meta_depth += 1
         if self.in_meta and tag == "dt":
             self.meta_key = []
@@ -252,7 +252,7 @@ class PlanParser(HTMLParser):
         if tag == "details" and self.in_meta and self.meta_depth == 1:
             self.in_meta = False
             self.meta_depth = 0
-        elif self.in_meta:
+        elif self.in_meta and tag not in VOID_TAGS:
             self.meta_depth -= 1
 
         if self.figure_stack:
