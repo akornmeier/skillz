@@ -130,8 +130,30 @@ class PlanParser(HTMLParser):
     def attrs_dict(attrs: list[tuple[str, str | None]]) -> dict[str, str]:
         return {key.lower(): value or "" for key, value in attrs}
 
+    def close_implied_elements(self, tag: str) -> None:
+        """Close optional list/table siblings without crossing a nested container."""
+        if tag in {"dt", "dd"}:
+            siblings, boundaries = {"dt", "dd"}, {"dl", "table", "td", "th", "html"}
+        elif tag == "li":
+            siblings, boundaries = {"li"}, {"ul", "ol", "menu", "table", "html"}
+        elif tag in {"td", "th"}:
+            siblings, boundaries = {"td", "th"}, {"tr", "table", "html"}
+        elif tag == "tr":
+            siblings, boundaries = {"tr"}, {"table", "html"}
+        elif tag in {"thead", "tbody", "tfoot"}:
+            siblings, boundaries = {"thead", "tbody", "tfoot"}, {"table", "html"}
+        else:
+            return
+        for element in reversed(self.element_stack):
+            if element.tag in siblings:
+                self.handle_endtag(element.tag)
+                break
+            if element.tag in boundaries:
+                break
+
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         tag = tag.lower()
+        self.close_implied_elements(tag)
         values = self.attrs_dict(attrs)
         line, column = self.getpos()
         element = Element(tag, values, line, column + 1, self.element_stack[-1] if self.element_stack else None)
@@ -206,7 +228,10 @@ class PlanParser(HTMLParser):
         tag = tag.lower()
         for index in range(len(self.element_stack) - 1, -1, -1):
             if self.element_stack[index].tag == tag:
-                del self.element_stack[index:]
+                # Finalize captures for omitted child end tags before closing their parent.
+                while len(self.element_stack) > index + 1:
+                    self.handle_endtag(self.element_stack[-1].tag)
+                self.element_stack.pop()
                 break
         if tag == "style":
             self.in_style = False

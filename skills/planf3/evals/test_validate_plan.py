@@ -92,6 +92,54 @@ class EngineeringContractTests(unittest.TestCase):
                         source = re.sub(rf'(<dd class="{field}">).*?(</dd>)', r'\1 \2', source)
                     self.assertIn("PF3_VERIFICATION_FIELD", self.codes(source))
 
+    def test_empty_verification_field_with_omitted_end_tag(self) -> None:
+        source = plan().replace('<dd class="cases">null returns 20.</dd>', '<dd class="cases">')
+        self.assertIn("PF3_VERIFICATION_FIELD", self.codes(source))
+
+    def test_optional_definition_end_tags_preserve_field_text_and_metadata(self) -> None:
+        source = plan().replace('</dt>', '').replace('</dd>', '')
+        self.assertEqual(self.codes(source), set())
+        parser = validator.PlanParser()
+        parser.feed(source)
+        parser.close()
+        cases = next(element for element in parser.elements if 'cases' in element.classes)
+        self.assertEqual(cases.text, 'null returns 20.')
+        self.assertEqual(parser.metadata['created'], '2026-01-01T00:00:00Z')
+
+    def test_multiple_coverage_rows_with_optional_end_tags(self) -> None:
+        source = plan().replace('</ul></section>\n<section id="coverage">',
+                                '<li class="criterion" id="ac-boundary">Maximum is 100.</li>'
+                                '</ul></section>\n<section id="coverage">')
+        source = source.replace('</tr></tbody>',
+                                '</tr><tr><td><a href="#ac-boundary">Boundary</a></td>'
+                                '<td><a href="#task-parser">Parser</a></td>'
+                                '<td><a href="#verify-parser">Boundary case</a></td></tr></tbody>')
+        for omitted in (('</tr>',), ('</td>', '</th>', '</tr>')):
+            with self.subTest(omitted=omitted):
+                optional = source
+                for closing in omitted:
+                    optional = optional.replace(closing, '')
+                self.assertEqual(self.codes(optional), set())
+
+    def test_implied_end_tags_respect_nested_list_and_table_scopes(self) -> None:
+        parser = validator.PlanParser()
+        parser.feed('<dl><dd id="outer-value">Outer<dl><dt>Inner<dd id="inner-value">Value</dl>Tail</dl>'
+                    '<table><tbody><tr id="outer-row"><td id="outer-cell">Before'
+                    '<table><tbody><tr id="inner-row"><td>Inner</table>After'
+                    '<td id="next-cell">Next</table>')
+        parser.close()
+        elements = {element.attrs['id']: element for element in parser.elements if 'id' in element.attrs}
+        self.assertTrue(elements['inner-value'].within(elements['outer-value']))
+        self.assertEqual(elements['outer-value'].text, 'OuterInnerValueTail')
+        self.assertTrue(elements['inner-row'].within(elements['outer-cell']))
+        self.assertTrue(elements['next-cell'].within(elements['outer-row']))
+        self.assertEqual(elements['outer-cell'].text, 'BeforeInnerAfter')
+
+    def test_empty_criterion_with_optional_list_end_tag(self) -> None:
+        source = plan().replace('<li class="criterion" id="ac-default">Missing pageSize yields 20.</li>',
+                                '<li class="criterion" id="ac-default"><li>Unrelated item</li>')
+        self.assertIn("PF3_CONTRACT_EMPTY", self.codes(source))
+
     def test_dangling_fragment_including_outside_coverage(self) -> None:
         source = plan().replace("No blockers.", '<a href="#missing">Missing</a>')
         self.assertIn("PF3_REFERENCE_MISSING", self.codes(source))
