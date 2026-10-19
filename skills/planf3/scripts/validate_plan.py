@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the structural and offline-package contracts of a Plan F3 HTML file."""
+"""Check Plan F3 structure and references, not semantic correctness or executed evidence."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import argparse
 import json
 import re
 import sys
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from datetime import datetime
 from html.parser import HTMLParser
 from pathlib import Path
@@ -17,6 +17,8 @@ REQUIRED_SECTIONS = {
     "purpose",
     "problem",
     "solution",
+    "acceptance",
+    "coverage",
     "files",
     "phases",
     "validation",
@@ -44,6 +46,8 @@ REQUIRED_CSS_VARS = {
 }
 RESOURCE_ATTRIBUTES = {"src", "srcset", "poster", "data"}
 FORBIDDEN_TAGS = {"script", "iframe", "object", "embed"}
+# HTML void elements never own descendants in the contract tree.
+VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}
 
 
 @dataclass(order=True)
@@ -66,12 +70,40 @@ class Figure:
     caption: str = ""
 
 
+@dataclass(eq=False)
+class Element:
+    tag: str
+    attrs: dict[str, str]
+    line: int
+    column: int
+    parent: Element | None
+    text_parts: list[str] = field(default_factory=list)
+
+    @property
+    def classes(self) -> set[str]:
+        return set(self.attrs.get("class", "").split())
+
+    @property
+    def text(self) -> str:
+        return normalize_text("".join(self.text_parts))
+
+    def within(self, ancestor: Element | None) -> bool:
+        parent = self.parent
+        while parent is not None:
+            if parent is ancestor:
+                return True
+            parent = parent.parent
+        return False
+
+
 class PlanParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.diagnostics: list[Diagnostic] = []
         self.ids: dict[str, tuple[int, int]] = {}
         self.sections: set[str] = set()
+        self.elements: list[Element] = []
+        self.element_stack: list[Element] = []
         self.style_count = 0
         self.style_parts: list[str] = []
         self.in_style = False
@@ -98,10 +130,36 @@ class PlanParser(HTMLParser):
     def attrs_dict(attrs: list[tuple[str, str | None]]) -> dict[str, str]:
         return {key.lower(): value or "" for key, value in attrs}
 
+    def close_implied_elements(self, tag: str) -> None:
+        """Close optional list/table siblings without crossing a nested container."""
+        if tag in {"dt", "dd"}:
+            siblings, boundaries = {"dt", "dd"}, {"dl", "table", "td", "th", "html"}
+        elif tag == "li":
+            siblings, boundaries = {"li"}, {"ul", "ol", "menu", "table", "html"}
+        elif tag in {"td", "th"}:
+            siblings, boundaries = {"td", "th"}, {"tr", "table", "html"}
+        elif tag == "tr":
+            siblings, boundaries = {"tr"}, {"table", "html"}
+        elif tag in {"thead", "tbody", "tfoot"}:
+            siblings, boundaries = {"thead", "tbody", "tfoot"}, {"table", "html"}
+        else:
+            return
+        for element in reversed(self.element_stack):
+            if element.tag in siblings:
+                self.handle_endtag(element.tag)
+                break
+            if element.tag in boundaries:
+                break
+
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         tag = tag.lower()
+        self.close_implied_elements(tag)
         values = self.attrs_dict(attrs)
         line, column = self.getpos()
+        element = Element(tag, values, line, column + 1, self.element_stack[-1] if self.element_stack else None)
+        self.elements.append(element)
+        if tag not in VOID_TAGS:
+            self.element_stack.append(element)
 
         element_id = values.get("id")
         if element_id:
@@ -127,7 +185,7 @@ class PlanParser(HTMLParser):
         if tag == "details" and "meta" in classes:
             self.in_meta = True
             self.meta_depth = 1
-        elif self.in_meta:
+        elif self.in_meta and tag not in VOID_TAGS:
             self.meta_depth += 1
         if self.in_meta and tag == "dt":
             self.meta_key = []
@@ -168,6 +226,13 @@ class PlanParser(HTMLParser):
 
     def handle_endtag(self, tag: str) -> None:
         tag = tag.lower()
+        for index in range(len(self.element_stack) - 1, -1, -1):
+            if self.element_stack[index].tag == tag:
+                # Finalize captures for omitted child end tags before closing their parent.
+                while len(self.element_stack) > index + 1:
+                    self.handle_endtag(self.element_stack[-1].tag)
+                self.element_stack.pop()
+                break
         if tag == "style":
             self.in_style = False
         if tag == "title":
@@ -187,7 +252,7 @@ class PlanParser(HTMLParser):
         if tag == "details" and self.in_meta and self.meta_depth == 1:
             self.in_meta = False
             self.meta_depth = 0
-        elif self.in_meta:
+        elif self.in_meta and tag not in VOID_TAGS:
             self.meta_depth -= 1
 
         if self.figure_stack:
@@ -205,6 +270,8 @@ class PlanParser(HTMLParser):
                 self.figure_stack.pop()
 
     def handle_data(self, data: str) -> None:
+        for element in self.element_stack:
+            element.text_parts.append(data)
         if self.in_style:
             self.style_parts.append(data)
         if self.in_title:
@@ -248,6 +315,86 @@ def valid_iso(value: str) -> bool:
     return True
 
 
+def validate_engineering_contract(parser: PlanParser) -> list[Diagnostic]:
+    """Check declared coverage and verification shape without judging their meaning."""
+    diagnostics: list[Diagnostic] = []
+    elements = parser.elements
+    by_id = {element.attrs["id"]: element for element in elements if element.attrs.get("id")}
+    criteria = [element for element in elements if "criterion" in element.classes]
+    tasks = [element for element in elements if "task" in element.classes]
+    verifications = [element for element in elements if "verification" in element.classes]
+
+    def report(element: Element, code: str, message: str) -> None:
+        diagnostics.append(Diagnostic(element.line, element.column, code, message))
+
+    for kind, definitions, prefix, section in (
+        ("criterion", criteria, "ac-", "acceptance"),
+        ("task", tasks, "task-", "phases"),
+        ("verification", verifications, "verify-", "phases"),
+    ):
+        for element in definitions:
+            identifier = element.attrs.get("id", "")
+            if not identifier.startswith(prefix) or len(identifier) == len(prefix) or re.search(r"\s", identifier):
+                report(element, "PF3_CONTRACT_ID", f"{kind} needs a unique id beginning with {prefix!r}")
+            if not element.within(by_id.get(section)):
+                report(element, "PF3_CONTRACT_LOCATION", f"{kind} {identifier!r} must be inside section {section!r}")
+            if not element.text:
+                report(element, "PF3_CONTRACT_EMPTY", f"{kind} {identifier!r} has no content")
+
+    if not criteria:
+        diagnostics.append(Diagnostic(1, 1, "PF3_CRITERIA_MISSING", "add at least one .criterion with an ac-* id inside acceptance"))
+    if not tasks:
+        diagnostics.append(Diagnostic(1, 1, "PF3_TASKS_MISSING", "add at least one .task with a task-* id inside phases"))
+
+    owners = {verification: next((task for task in reversed(tasks) if verification.within(task)), None)
+              for verification in verifications}
+    for verification, owner in owners.items():
+        if owner is None:
+            report(verification, "PF3_VERIFICATION_OWNER", "verification must be nested inside its owning .task")
+        for name in ("cases", "command", "expected", "evidence"):
+            fields = [element for element in elements
+                      if element.tag == "dd" and name in element.classes and element.within(verification)]
+            if len(fields) != 1 or not fields[0].text:
+                report(verification, "PF3_VERIFICATION_FIELD",
+                       f"verification {verification.attrs.get('id', '')!r} needs exactly one non-empty dd.{name}")
+    for task in tasks:
+        if task not in owners.values():
+            report(task, "PF3_TASK_VERIFICATION", f"task {task.attrs.get('id', '')!r} needs its own .verification block")
+
+    links = [element for element in elements if element.tag == "a" and element.attrs.get("href", "").startswith("#")]
+    for link in links:
+        target = unquote(link.attrs["href"][1:])
+        if target and target not in by_id:
+            report(link, "PF3_REFERENCE_MISSING", f"fragment target {target!r} does not exist; repair the href or define its id")
+
+    coverage = by_id.get("coverage")
+    bodies = [element for element in elements if element.tag == "tbody" and element.within(coverage)]
+    rows = [element for element in elements if element.tag == "tr" and any(element.within(body) for body in bodies)]
+    if not rows:
+        diagnostics.append(Diagnostic(1, 1, "PF3_COVERAGE_MISSING", "coverage needs a table tbody with criterion/task/verification links in each row"))
+    mapped_criteria: set[Element] = set()
+    mapped_tasks: set[Element] = set()
+    for row in rows:
+        targets = {by_id.get(unquote(link.attrs["href"][1:])) for link in links if link.within(row)}
+        row_criteria = targets.intersection(criteria)
+        row_tasks = targets.intersection(tasks)
+        row_verifications = targets.intersection(verifications)
+        if len(row_criteria) != 1 or not row_tasks or not row_verifications:
+            report(row, "PF3_COVERAGE_ROW", "coverage row needs links to exactly one criterion, at least one task, and at least one verification")
+        for verification in row_verifications:
+            if owners[verification] not in row_tasks:
+                report(row, "PF3_COVERAGE_OWNER", f"verification {verification.attrs.get('id', '')!r} belongs to a task not linked in this row")
+        mapped_criteria.update(row_criteria)
+        mapped_tasks.update(row_tasks)
+    for criterion in criteria:
+        if criterion not in mapped_criteria:
+            report(criterion, "PF3_CRITERION_UNCOVERED", f"criterion {criterion.attrs.get('id', '')!r} needs a coverage row")
+    for task in tasks:
+        if task not in mapped_tasks:
+            report(task, "PF3_TASK_UNCOVERED", f"task {task.attrs.get('id', '')!r} needs a coverage link to the criterion it serves")
+    return diagnostics
+
+
 def compare_previous(current: PlanParser, previous: PlanParser, diagnostics: list[Diagnostic]) -> None:
     old_created = previous.metadata.get("created", "")
     new_created = current.metadata.get("created", "")
@@ -268,6 +415,7 @@ def validate(path: Path, source: str, previous_path: Path | None) -> list[Diagno
     parser.feed(source)
     parser.close()
     diagnostics = list(parser.diagnostics)
+    diagnostics.extend(validate_engineering_contract(parser))
 
     for match in re.finditer(r"\{\{[\s\S]*?\}\}", source):
         line, column = line_column(source, match.start())
@@ -372,7 +520,7 @@ def main() -> int:
         for item in diagnostics:
             print(f"{item.code} {path}:{item.line}:{item.column} {item.message}", file=sys.stderr)
         if not diagnostics:
-            print(f"VALID: {path}")
+            print(f"STRUCTURALLY VALID: {path} (semantic review and execution evidence still require human/agent checks)")
 
     return 1 if diagnostics else 0
 
