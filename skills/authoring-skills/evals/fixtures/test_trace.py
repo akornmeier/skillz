@@ -173,11 +173,66 @@ class TraceTests(unittest.TestCase):
                 r = self.report(self.complete(event, self.end()))
                 self.assertIsNot(r["fired"], True)
                 self.assertFalse(any(x["outcome"] == "success" for x in r["reads"]))
-        for command in ("wc -c {D}/SKILL.md", "ls {D}/SKILL.md", "python3 {D}/ref.md"):
+        for command in ("wc -c {D}/SKILL.md", "ls {D}/SKILL.md"):
             event = self.start("bash", command=command.format(D=self.root))
             r = self.report(self.complete(event, self.end()))
             self.assertIs(r["fired"], False)
             self.assertEqual(r["reads"], [])
+
+    def test_shell_expansions_are_unknown(self):
+        commands = [f"cat {self.root}/*.md", f"cat {self.root}/{{SKILL,ref}}.md",
+                    f"cat {self.root}/[S]*.md", f"cat {self.root}/SKILL.?d",
+                    f"echo {self.root}/*.md", "cat <(printf Body)"]
+        for command in commands:
+            with self.subTest(command=command):
+                r = self.report(self.complete(self.start("bash", command=command), self.end()))
+                self.assertIsNone(r["fired"])
+
+    def test_inline_interpreters_do_not_execute_data_operands(self):
+        for command in (
+            f"python3 -c 'print(open(__import__(\"sys\").argv[1]).read())' {self.root}/SKILL.md",
+            f"node -e 'process.stdout.write(require(\"fs\").readFileSync(process.argv[1]))' {self.root}/SKILL.md",
+            f"bash -c 'cat \"$1\"' unused {self.root}/SKILL.md",
+        ):
+            with self.subTest(command=command):
+                r = self.report(self.complete(self.start("bash", command=command), self.end()))
+                self.assertIsNone(r["fired"])
+                self.assertEqual(r["runs"], [])
+        command = f"python3 {self.root}/ref.md {self.root}/SKILL.md"
+        r = self.report(self.complete(self.start("bash", command=command), self.end()))
+        self.assertIsNone(r["fired"])
+        self.assertEqual([event["path"] for event in r["runs"]], ["ref.md"])
+
+    def test_shell_non_loading_requires_supported_metadata_semantics(self):
+        for command in ("custom-loader", "env custom-loader", "python3 -m package", "node --eval code"):
+            with self.subTest(command=command):
+                r = self.report(self.complete(self.start("bash", command=command), self.end()))
+                self.assertIsNone(r["fired"])
+
+    def test_search_classification_depends_on_output_mode(self):
+        for mode in ("content", "future-mode", None):
+            with self.subTest(mode=mode):
+                start = self.start("Grep", pattern="^", output_mode=mode)
+                self.assertIsNone(self.report(self.complete(start, self.end()))["fired"])
+        for args in ({}, {"output_mode": "files_with_matches"}, {"output_mode": "count"}):
+            start = self.start("Grep", **args)
+            self.assertIs(self.report(self.complete(start, self.end()))["fired"], False)
+        self.assertIs(self.report(self.complete(self.start("Glob"), self.end()))["fired"], False)
+
+    def test_result_status_is_strictly_boolean(self):
+        for status in (None, 0, 1, "false", [], {}):
+            with self.subTest(status=status):
+                request = {"type": "assistant", "message": {"content": [
+                    {"type": "tool_use", "id": "a", "name": "Read", "input": {"file_path": str(self.root / "SKILL.md")}}]}}
+                result = {"type": "user", "message": {"content": [
+                    {"type": "tool_result", "tool_use_id": "a", "is_error": status, "content": "Body"}]}}
+                r = self.report([request, result, {"type": "result"}], "stream-json")
+                self.assertIsNone(r["fired"])
+                self.assertEqual(r["reads"][0]["outcome"], "unknown")
+                r = self.report(self.complete(self.start(), self.end(status)))
+                self.assertIsNone(r["fired"])
+        # Malformed evidence must not become negative even for non-loading tools.
+        self.assertIsNone(self.report(self.complete(self.start("write"), self.end(None)))["fired"])
 
     def test_skill_load_directory_can_contain_spaces(self):
         other = Path(self.tmp.name) / "work space" / "target"

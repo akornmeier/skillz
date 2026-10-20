@@ -104,6 +104,83 @@ class RunnerTests(unittest.TestCase):
             self.assertEqual(code, expected)
             self.assertNotEqual(s["outcome"], "completed")
 
+    def retry_events(self, error="529 overloaded"):
+        return [
+            {"type": "session"},
+            {"type": "message_end", "message": {"role": "assistant", "stopReason": "error", "errorMessage": error}},
+            {"type": "agent_end", "willRetry": True},
+            {"type": "auto_retry_start", "attempt": 1},
+        ]
+
+    def emit_events(self, events):
+        def emit(*args):
+            Path(args[2]).write_text("\n".join(json.dumps(event) for event in events) + "\n")
+            return 0
+        self.launch.side_effect = emit
+
+    def test_recovered_pi_retry_completes_capture(self):
+        for index, error in enumerate(("529 overloaded", "Invalid API key", "context overflow")):
+            with self.subTest(error=error):
+                self.out = self.base / f"recovered-{index}.jsonl"
+                events = self.retry_events(error)
+                if error == "context overflow":
+                    events = events[:2] + [{"type": "agent_end", "willRetry": False},
+                        {"type": "compaction_end", "reason": "overflow", "willRetry": True}, {"type": "agent_start"}]
+                events.append({"type": "message_end", "message": {
+                    "role": "assistant", "stopReason": "stop", "model": "fixture-model"}})
+                if error != "context overflow":
+                    events.append({"type": "auto_retry_end", "success": True, "attempt": 1})
+                events.extend([{"type": "agent_end", "willRetry": False},
+                               {"type": "agent_settled", "aborted": False}])
+                self.emit_events(events)
+                code, summary = self.run_capture()
+                self.assertEqual((code, summary["outcome"], summary["childExit"]), (0, "completed", 0))
+                self.assertEqual(summary["observedModel"], "fixture-model")
+
+    def test_exhausted_pi_retry_keeps_unrecovered_error(self):
+        for index, (error, expected) in enumerate((("529 overloaded", 1), ("Invalid API key", 2))):
+            self.out = self.base / f"exhausted-{index}.jsonl"
+            self.emit_events(self.retry_events(error) + [
+                {"type": "message_end", "message": {"role": "assistant", "stopReason": "error", "errorMessage": error}},
+                {"type": "agent_end", "willRetry": False},
+                {"type": "auto_retry_end", "success": False, "finalError": error},
+                {"type": "agent_settled", "aborted": False},
+            ])
+            code, summary = self.run_capture()
+            self.assertEqual(code, expected)
+            self.assertNotEqual(summary["outcome"], "completed")
+
+    def test_retry_requires_completion_and_successful_response(self):
+        good = {"type": "message_end", "message": {"role": "assistant", "stopReason": "stop"}}
+        ack = {"type": "auto_retry_end", "success": True}
+        samples = [[], [good], [ack], [good, ack, {"type": "message_end", "message": {
+            "role": "assistant", "stopReason": "error", "errorMessage": "later failure"}}]]
+        for index, suffix in enumerate(samples):
+            self.out = self.base / f"incomplete-retry-{index}.jsonl"
+            self.emit_events(self.retry_events() + suffix + [{"type": "agent_settled", "aborted": False}])
+            self.assertEqual(self.run_capture()[0], 1)
+
+    def test_latest_pi_work_requires_new_settlement(self):
+        good = {"type": "message_end", "message": {"role": "assistant", "stopReason": "stop"}}
+        self.emit_events(self.retry_events() + [good, {"type": "auto_retry_end", "success": True},
+                         {"type": "agent_settled", "aborted": False}, good])
+        self.assertEqual(self.run_capture()[0], 1)
+
+    def test_capture_status_flags_are_strictly_boolean(self):
+        for index, status in enumerate((None, 0, 1, [], "false")):
+            for harness, event in (
+                ("pi", {"type": "agent_settled", "aborted": status}),
+                ("pi", {"type": "agent_end", "willRetry": status}),
+                ("claude", {"type": "result", "is_error": status, "subtype": "success"}),
+            ):
+                with self.subTest(harness=harness, event=event):
+                    self.out = self.base / f"malformed-status-{index}-{event['type']}.jsonl"
+                    events = [event]
+                    if event["type"] == "agent_end":
+                        events.append({"type": "agent_settled", "aborted": False})
+                    self.emit_events(events)
+                    self.assertEqual(self.run_capture("--harness", harness)[0], 1)
+
     def test_successful_answer_can_mention_authentication_errors(self):
         def emit(*args):
             Path(args[2]).write_text(json.dumps({"type": "result", "subtype": "success", "is_error": False,

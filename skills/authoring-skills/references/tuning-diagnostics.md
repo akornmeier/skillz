@@ -59,13 +59,15 @@ The current runner has **no verified discovery/containment adapter** and blocks 
 
 Runner depth/count sentinels coordinate cooperating processes, not hostile children or arbitrary external model APIs. Approved depth two uses a shared launch ledger; a child cannot raise the inherited cap. Verify external containment too. Python/POSIX process controls are prerequisites, not cross-platform sandbox promises.
 
-Exit 0 means **completed capture**, not assertions passed; 1 means harness/capture/trace failure; 2 means blocked preflight/startup; 3 means timed out. Preserve partial evidence. A missing model, denied read, timeout, unavailable metric, or blocked preflight cannot become an observed pass.
+Exit 0 means **completed capture**, not assertions passed; 1 means harness/capture/trace failure; 2 means blocked preflight/startup; 3 means timed out. Preserve partial evidence. Pi recovery is judged from the latest completed response, closed automatic retries, and a subsequent non-aborted settlement. Intermediate errors may recover; exhausted/incomplete retries and unrecovered errors cannot become completed captures. A missing model, denied read, timeout, unavailable metric, or blocked preflight cannot become an observed pass.
 
 ## Evidence and records
 
 Capture primary transcript, stderr, output artifacts/diff, and available session log. Runner writes `<run.jsonl>.summary.json` (schema 1 capture metadata), `.trace.json` when tracing succeeds, optional `.session.jsonl` for Claude, and a shared launch-budget sidecar. The summary records outcome/childExit/reason, requested and available observed model configuration, invocation intent, exact target manifest, workspace/depth/budget, and limitations. Never persist credential/config values merely to reproduce a run.
 
 Run `python3 <base>/scripts/trace_skill_use.py <skill-dir> <transcript> --json` on saved evidence. Trace correlates tool IDs/results, distinguishes reads/writes/edits/executes/loads, and records requested ranges and outcomes. `fired=true` proves observed delivery of matching target content or a confirmed load, not automatic discovery or task quality. `false` requires sufficient supported evidence; malformed/incomplete/opaque evidence can be `null`. Mechanisms include read, skill-tool, injected, none, unknown. Text mentions and codemode source are not execution proof; consume actual nested events only when visible.
+
+Negative evidence uses supported non-loading semantics, not a permissive fallback. Simple metadata-only shell commands and filename/count-only search can remain negative; other shell execution, expansions, inline code, and content/unsupported search modes remain unknown. Script-run records identify only supported literal program operands, not every file argument; they do not prove non-loading. Explicit malformed status values remain unknown, never coerced to success/failure.
 
 A partial read is not automatically insufficient. Successful delivery does not by itself prove the needed section was read or understood; assess outputs and information requirements. A matching manifest reflects files at analysis time, so preserve revision snapshots before allowing edits. Supplemental session evidence may reveal loads absent from streams; absent explicit-load evidence is unknown, not a negative discovery result.
 

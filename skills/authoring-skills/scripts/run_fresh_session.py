@@ -226,9 +226,11 @@ def session_log(transcript):
 
 
 def inspect_capture(path, harness):
-    """Require parseable events and a terminal event; process exit alone is insufficient."""
+    """Classify final capture state, retaining unrecovered errors and incomplete retries."""
     terminal = False
     observed_model = turns = cost = None
+    pi_error = None
+    retry_open = False
     for line in Path(path).read_text(encoding="utf-8").split("\n"):
         if not line.strip():
             continue
@@ -239,26 +241,73 @@ def inspect_capture(path, harness):
         if kind == "result":
             turns, cost = e.get("num_turns"), e.get("total_cost_usd")
             text = e.get("result", "")
-            failed = e.get("is_error") or e.get("subtype") not in (None, "success")
+            error = e.get("is_error", False)
+            if error is not True and error is not False:
+                raise ValueError("harness result status is not boolean")
+            failed = error or e.get("subtype") not in (None, "success")
             if failed:
                 if isinstance(text, str) and any(s in text.lower() for s in NOT_STARTED):
                     raise Blocked("harness authentication/quota preflight failed; inspect primary evidence securely")
                 raise ValueError("harness reported an error result")
             terminal = harness == "claude" or terminal
-        elif kind == "agent_settled" and harness == "pi":
-            if e.get("aborted"):
-                raise ValueError("harness session was aborted")
-            terminal = True
+        if harness == "pi":
+            if kind in ("agent_start", "turn_start", "message_start", "message_end", "turn_end",
+                        "tool_execution_start", "tool_execution_end"):
+                terminal = False
+            if kind == "agent_end" and "willRetry" in e:
+                if e["willRetry"] is not True and e["willRetry"] is not False:
+                    raise ValueError("harness retry intent is not boolean")
+            if kind == "auto_retry_start" or (kind == "agent_end" and e.get("willRetry") is True):
+                retry_open = True
+                terminal = False
+                pi_error = pi_error or "retry has no successful response"
+            elif kind == "auto_retry_end":
+                success = e.get("success")
+                if success is not True and success is not False:
+                    raise ValueError("harness retry status is not boolean")
+                if not retry_open:
+                    raise ValueError("harness retry completion has no pending retry")
+                retry_open = False
+                if success is False:
+                    error = e.get("finalError")
+                    pi_error = error if isinstance(error, str) and error else pi_error or "retry failed"
+            elif kind == "agent_settled":
+                aborted = e.get("aborted", False)
+                if aborted is not True and aborted is not False:
+                    raise ValueError("harness settlement status is not boolean")
+                if aborted:
+                    raise ValueError("harness session was aborted")
+                terminal = True
         msg = e.get("message")
         if isinstance(msg, dict) and msg.get("role") == "assistant":
             observed_model = msg.get("model") or observed_model
-            if msg.get("stopReason") in {"error", "aborted"}:
-                error = msg.get("errorMessage", "")
-                if isinstance(error, str) and any(s in error.lower() for s in NOT_STARTED):
-                    raise Blocked("harness authentication/quota preflight failed; inspect primary evidence securely")
-                raise ValueError("assistant response failed or was aborted")
+            # Partial streaming snapshots cannot supersede a completed response.
+            authoritative = harness != "pi" or kind in {"message_end", "turn_end", "message"}
+            if authoritative:
+                stop = msg.get("stopReason")
+                if stop == "aborted":
+                    raise ValueError("assistant response was aborted")
+                if stop == "error":
+                    error = msg.get("errorMessage")
+                    error = error if isinstance(error, str) else "assistant response failed"
+                    if harness == "pi":
+                        pi_error = error
+                    elif any(s in error.lower() for s in NOT_STARTED):
+                        raise Blocked("harness authentication/quota preflight failed; inspect primary evidence securely")
+                    else:
+                        raise ValueError("assistant response failed")
+                elif harness == "pi" and stop in ("stop", "toolUse", "length"):
+                    # Recovery can be automatic retry, compaction, or continuation.
+                    # Completion still requires a settled session and closed retry.
+                    pi_error = None
         if kind == "system" and e.get("subtype") == "init":
             observed_model = e.get("model") or observed_model
+    if pi_error is not None:
+        if any(s in pi_error.lower() for s in NOT_STARTED):
+            raise Blocked("harness authentication/quota preflight failed; inspect primary evidence securely")
+        raise ValueError("assistant response failed or retry did not recover")
+    if retry_open:
+        raise ValueError("harness retry did not complete")
     if not terminal:
         raise ValueError("capture is empty or lacks a supported terminal event")
     return {"observedModel": observed_model, "turns": turns, "costUSD": cost}

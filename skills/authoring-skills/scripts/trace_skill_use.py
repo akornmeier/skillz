@@ -3,8 +3,9 @@
 
 usage: trace_skill_use.py <skill-dir> <transcript> [--format stream-json|pi-json|text] [--json]
 
-Correlate requests with results. Writes, edits, failed reads, and script execution
-are not loading. Missing results and opaque codemode calls remain unknown. A
+Correlate requests with results. Writes, edits, and failed reads do not prove
+loading. Shell execution and content searches remain unknown unless supported
+non-loading semantics apply. Malformed results and opaque calls stay unknown. A
 successful read proves delivery, not automatic discovery or task success. Read
 windows record navigation, not whether the needed information was sufficient.
 Copies match only when their complete file manifests match the explicit target.
@@ -164,6 +165,9 @@ class Trace:
             self.unknown("Opaque codemode source is not execution evidence; only visible nested events count.")
 
     def end(self, call_id, result, error):
+        if error is not True and error is not False:
+            self.unknown("Tool result status is not boolean; delivery is unresolved.")
+            error = None
         result = result_text(result)
         if not isinstance(call_id, str) or not call_id:
             self.unknown("Tool results without valid IDs cannot be correlated.")
@@ -215,7 +219,7 @@ class Trace:
         self.unknown("Unverified skill markup is not confirmed client injection or target delivery.")
 
     def shell(self, command, step, tool, outcome):
-        """Conservative classification, not shell interpretation or per-file proof."""
+        """Only simple metadata commands prove non-loading; never interpret shell code."""
         if not isinstance(command, str):
             self.unknown("Shell command is not a string.")
             return
@@ -227,27 +231,30 @@ class Trace:
         if not parts:
             return
         cmd = Path(parts[0]).name
-        read_command = cmd in {"cat", "head", "tail", "sed", "grep", "rg", "awk"}
-        # Compound commands cannot attribute overall exit/output to any one file.
-        compound = any(c in command for c in (";", "|", "&&", "$", ">", "<", "`", "\n"))
-        if compound:
+        # Deliberately conservative even inside quotes: no expansion/compound parser.
+        expanded = any(c in command for c in ";|&$><\x60\n\r*?[]{}()\\!~")
+        if cmd in METADATA_COMMANDS and not expanded:
+            return
+        self.unknown("Shell content/execution lacks verified delivery attribution; non-activation is unknown.")
+        if expanded:
             self.unknown("Compound/expanded shell commands cannot prove absence of skill delivery.")
+        # Only a literal first operand of these basic forms names the program.
+        # Inline-code flags, interpreter options, subcommands, and data arguments do not.
+        if cmd in {"python", "python3", "node", "bash", "sh", "zsh"}:
+            if len(parts) > 1 and not expanded and not parts[1].startswith("-"):
+                rel, match = self.r.match(parts[1])
+                if rel is not None:
+                    self.runs.append({"path": rel, "tool": tool, "step": step, "outcome": outcome,
+                                      "targetMatch": match})
+            return
+        if cmd not in {"cat", "head", "tail", "sed", "grep", "rg", "awk"}:
+            return
         for token in parts[1:]:
-            rel, match = self.r.match(token)
+            rel, _ = self.r.match(token)
             if rel is None:
-                if read_command and self.r.cwd is None and not token.startswith("-") and not Path(token).is_absolute():
-                    self.unknown("Relative shell-read operands lack a recorded working directory.")
                 continue
-            if cmd in {"python", "python3", "node", "bash", "sh", "zsh", "deno", "bun"}:
-                self.runs.append({"path": rel, "tool": tool, "step": step, "outcome": outcome,
-                                  "targetMatch": match})
-            elif read_command:
-                # A shell result alone does not prove which file's bytes were returned.
-                read_outcome = "failed" if outcome == "failed" else "unknown"
-                self.delivery(token, step, tool, read_outcome, partial=cmd != "cat")
-                self.unknown("Shell file reads lack per-file content attribution" + (" (compound command)." if compound else "."))
-            elif cmd not in METADATA_COMMANDS and outcome != "failed":
-                self.unknown("Unclassified shell command references target files; content delivery is unresolved.")
+            read_outcome = "failed" if outcome == "failed" else "unknown"
+            self.delivery(token, step, tool, read_outcome, partial=cmd != "cat")
 
     def finish(self):
         if self.results.keys() - self.pending.keys():
@@ -267,6 +274,8 @@ class Trace:
                     window = {k: inp[k] for k in ("offset", "limit") if inp.get(k) is not None}
                     self.delivery(path, step, name, outcome, window, bool(window))
                 else:
+                    if short == "Grep" and inp.get("output_mode", "files_with_matches") not in ("files_with_matches", "count"):
+                        self.unknown("Content/unsupported search output lacks verified delivery attribution.")
                     rel, match = self.r.match(path)
                     self.events.append({"kind": kind, "path": rel, "step": step, "targetMatch": match,
                                         "outcome": outcome})
@@ -354,7 +363,7 @@ def parse_json(lines, trace, fmt):
             if b.get("type") in {"tool_use", "toolCall"}:
                 trace.start(b.get("id"), b.get("name"), b.get("input", b.get("arguments")))
             elif b.get("type") == "tool_result":
-                trace.end(b.get("tool_use_id"), b.get("content"), bool(b.get("is_error", False)))
+                trace.end(b.get("tool_use_id"), b.get("content"), b.get("is_error", False))
             elif b.get("type") == "text" and role == "user":
                 trace.injected(b["text"], fmt)
             elif b["type"] not in {"text", "thinking", "redacted_thinking", "image"}:
