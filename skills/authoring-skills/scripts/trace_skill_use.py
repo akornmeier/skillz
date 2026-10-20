@@ -282,6 +282,8 @@ class Trace:
                         self.delivery(str(Path(root) / "SKILL.md"), step, name, outcome, mechanism="skill-tool")
                 elif outcome != "failed":
                     self.unknown("Skill tool result does not confirm the loaded target path.")
+            else:
+                self.unknown("Unclassified tool call has unsupported delivery semantics; non-activation is unknown.")
         self.reads.sort(key=lambda r: r["step"])
 
     def report(self, fmt, files):

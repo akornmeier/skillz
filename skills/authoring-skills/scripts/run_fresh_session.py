@@ -25,6 +25,7 @@ sentinels coordinate cooperative runners, not untrusted children. Standard libra
 process-group timeout and locked budgets require POSIX. No paid calls in tests.
 """
 import argparse
+from contextlib import ExitStack
 import fcntl
 import json
 import os
@@ -166,21 +167,31 @@ def run_child(cmd, cwd, out, err, timeout, env):
     """Kill and reap on timeout/interruption; keep stdout/stderr already delivered."""
     with open(out, "x", encoding="utf-8") as fo, open(err, "x", encoding="utf-8") as fe:
         child = None
-        pending_term = None
-        def defer_termination(signum, frame):
-            nonlocal pending_term
-            pending_term = signum
-        # Do not unwind Popen after it creates a child but before it returns
-        # the handle needed to stop/reap that child. Exec resets caught handlers.
-        previous = signal.signal(signal.SIGTERM, defer_termination)
+        pending = {}
+        def defer_signal(signum, frame):
+            pending[signum] = frame
+        # Do not unwind Popen before it returns the child handle needed for
+        # cleanup. Preserve ignored SIGINT in the child too; exec resets caught handlers.
+        previous = {sig: signal.getsignal(sig) for sig in (signal.SIGTERM, signal.SIGINT)}
         try:
             try:
-                child = subprocess.Popen(cmd, cwd=cwd, stdout=fo, stderr=fe, stdin=subprocess.DEVNULL,
-                                         env=env, start_new_session=True)
+                with ExitStack() as restore:
+                    for sig, handler in previous.items():
+                        if sig == signal.SIGINT and handler == signal.SIG_IGN:
+                            continue
+                        restore.callback(signal.signal, sig, handler)
+                        signal.signal(sig, defer_signal)
+                    child = subprocess.Popen(cmd, cwd=cwd, stdout=fo, stderr=fe, stdin=subprocess.DEVNULL,
+                                             env=env, start_new_session=True)
             finally:
-                signal.signal(signal.SIGTERM, previous)
-                if pending_term is not None:
-                    raise Terminated(pending_term)
+                if signal.SIGTERM in pending:
+                    raise Terminated(signal.SIGTERM)
+                if signal.SIGINT in pending:
+                    handler = previous[signal.SIGINT]
+                    if callable(handler):
+                        handler(signal.SIGINT, pending[signal.SIGINT])
+                    else:
+                        raise KeyboardInterrupt
             return child.wait(timeout=timeout)
         except BaseException:
             # The child has its own session, so Ctrl-C does not stop it for us.

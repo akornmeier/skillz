@@ -387,6 +387,56 @@ class ProcessTests(unittest.TestCase):
         finally:
             r.signal.signal(r.signal.SIGTERM, original)
 
+    def test_sigint_during_spawn_stops_real_python_child(self):
+        native_popen = subprocess.Popen
+        owned = []
+        def spawn(*args, **kwargs):
+            child = native_popen([sys.executable, "-c", "import time; time.sleep(30)"],
+                                 stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                 stderr=subprocess.DEVNULL, start_new_session=True)
+            owned.append(child)
+            r.signal.raise_signal(r.signal.SIGINT)
+            return child
+        original = r.signal.signal(r.signal.SIGINT, r.signal.default_int_handler)
+        try:
+            with tempfile.TemporaryDirectory() as tmp, patch.object(r.subprocess, "Popen", side_effect=spawn):
+                with self.assertRaises(KeyboardInterrupt):
+                    r.run_child(["fixture-only"], tmp, str(Path(tmp) / "out"), str(Path(tmp) / "err"), 1, {})
+            self.assertEqual(owned[0].poll(), -r.signal.SIGKILL, "spawn interruption left child running")
+            self.assertIs(r.signal.getsignal(r.signal.SIGINT), r.signal.default_int_handler)
+        finally:
+            r.signal.signal(r.signal.SIGINT, original)
+            for child in owned:
+                if child.poll() is None:
+                    os.killpg(child.pid, r.signal.SIGKILL)
+                child.wait()
+
+    def test_spawn_preserves_ignored_and_callable_sigint_handlers(self):
+        received = []
+        def handler(signum, frame):
+            received.append((signum, frame))
+        for previous in (r.signal.SIG_IGN, handler):
+            with self.subTest(handler=previous):
+                child = Mock(pid=12345)
+                child.wait.return_value = 0
+                def spawn(*args, **kwargs):
+                    r.signal.raise_signal(r.signal.SIGINT)
+                    return child
+                original = r.signal.signal(r.signal.SIGINT, previous)
+                try:
+                    with tempfile.TemporaryDirectory() as tmp, \
+                         patch.object(r.subprocess, "Popen", side_effect=spawn), \
+                         patch.object(r.os, "killpg") as kill:
+                        self.assertEqual(r.run_child(["fixture-only"], tmp, str(Path(tmp) / "out"),
+                                                     str(Path(tmp) / "err"), 1, {}), 0)
+                    kill.assert_not_called()
+                    self.assertIs(r.signal.getsignal(r.signal.SIGINT), previous)
+                finally:
+                    r.signal.signal(r.signal.SIGINT, original)
+        self.assertEqual(len(received), 1)
+        self.assertEqual(received[0][0], r.signal.SIGINT)
+        self.assertIsNotNone(received[0][1])
+
     def test_interrupted_wait_kills_and_reaps_child_group(self):
         child = Mock(pid=12345)
         child.wait.side_effect = [KeyboardInterrupt, -9]

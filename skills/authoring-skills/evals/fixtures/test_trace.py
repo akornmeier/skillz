@@ -199,6 +199,22 @@ class TraceTests(unittest.TestCase):
                 start = self.start("bash", command=f"{command} {self.root}/SKILL.md")
                 self.assertIs(self.report(self.complete(start, self.end()))["fired"], False)
 
+    def test_unsupported_tools_cannot_prove_non_activation(self):
+        for name in ("read_file", "mcp__filesystem__read_file", "future_tool"):
+            for result in (self.end(), self.end(True), None):
+                with self.subTest(tool=name, result=result):
+                    events = [self.start(name)]
+                    if result is not None:
+                        events.append(result)
+                    r = self.report(self.complete(*events))
+                    self.assertIsNone(r["fired"])
+                    self.assertTrue(any("Unclassified tool" in note for note in r["limitations"]))
+        # Unknown extra activity does not erase separately confirmed delivery.
+        known, result = self.start(), self.end()
+        known["toolCallId"] = result["toolCallId"] = "b"
+        r = self.report(self.complete(self.start("read_file"), self.end(), known, result))
+        self.assertIs(r["fired"], True)
+
     def test_malformed_message_structures_are_unknown(self):
         messages = [None, {"role": "assistant"}, {"role": [], "content": []},
                     {"role": "unknown", "content": []},
