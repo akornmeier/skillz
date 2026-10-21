@@ -38,7 +38,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from trace_skill_use import manifest_digest, raise_walk_error
+from trace_skill_use import PI_WORK_EVENTS, manifest_digest, raise_walk_error
 
 # Per-child ceiling; operator must approve the actual time/spend limit before launch.
 DEFAULT_TIMEOUT = 1800
@@ -238,6 +238,8 @@ def inspect_capture(path, harness):
         if not isinstance(e, dict):
             raise ValueError("capture contains a non-object event")
         kind = e.get("type")
+        if not isinstance(kind, str) or not kind.strip():
+            raise ValueError("capture event type is malformed")
         if kind == "result":
             turns, cost = e.get("num_turns"), e.get("total_cost_usd")
             text = e.get("result", "")
@@ -251,8 +253,7 @@ def inspect_capture(path, harness):
                 raise ValueError("harness reported an error result")
             terminal = harness == "claude" or terminal
         if harness == "pi":
-            if kind in ("agent_start", "turn_start", "message_start", "message_end", "turn_end",
-                        "tool_execution_start", "tool_execution_end"):
+            if kind in PI_WORK_EVENTS:
                 terminal = False
             if kind == "agent_end" and "willRetry" in e:
                 if e["willRetry"] is not True and e["willRetry"] is not False:

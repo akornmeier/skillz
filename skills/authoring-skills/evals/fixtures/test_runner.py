@@ -166,6 +166,22 @@ class RunnerTests(unittest.TestCase):
                          {"type": "agent_settled", "aborted": False}, good])
         self.assertEqual(self.run_capture()[0], 1)
 
+    def test_capture_rejects_malformed_event_types(self):
+        for index, kind in enumerate((None, [], {}, False, 0, "", " ")):
+            with self.subTest(kind=kind):
+                self.out = self.base / f"event-type-{index}.jsonl"
+                self.emit_events([{"type": "session"}, {"type": kind}, {"type": "agent_settled"}])
+                self.assertEqual(self.run_capture()[0], 1)
+
+    def test_capture_rejects_work_after_old_settlement(self):
+        for index, event in enumerate(({"type": "agent_start"}, {"type": "turn_start"},
+                                       {"type": "message_update"}, {"type": "compaction_start"},
+                                       {"type": "agent_end", "willRetry": False})):
+            with self.subTest(event=event):
+                self.out = self.base / f"late-work-{index}.jsonl"
+                self.emit_events([{"type": "session"}, {"type": "agent_settled"}, event])
+                self.assertEqual(self.run_capture()[0], 1)
+
     def test_capture_status_flags_are_strictly_boolean(self):
         for index, status in enumerate((None, 0, 1, [], "false")):
             for harness, event in (

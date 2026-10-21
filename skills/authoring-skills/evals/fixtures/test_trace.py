@@ -324,6 +324,40 @@ class TraceTests(unittest.TestCase):
         r = self.report([start, self.end(), {"type": "agent_settled"}])
         self.assertIsNone(r["fired"])
 
+    def test_malformed_or_unsupported_event_types_are_unknown(self):
+        for kind in (None, [], {}, False, 0, "", " ", "future_event"):
+            with self.subTest(kind=kind):
+                events = [{"type": "system", "subtype": "init"}, {"type": kind}, {"type": "result"}]
+                r = self.report(events, "stream-json")
+                self.assertIsNone(r["fired"])
+                self.assertTrue(any("event type" in note for note in r["limitations"]))
+
+    def test_pi_settlement_must_follow_latest_work(self):
+        events = [
+            {"type": "agent_start"}, {"type": "turn_start"},
+            {"type": "agent_end", "willRetry": True}, {"type": "agent_end", "willRetry": False},
+            {"type": "auto_retry_start"}, {"type": "auto_retry_end", "success": True},
+            {"type": "compaction_start"}, {"type": "compaction_end", "willRetry": True},
+            {"type": "message_start"}, {"type": "message_update"},
+            {"type": "tool_execution_update"}, {"type": "summarization_retry_scheduled"},
+        ]
+        for event in events:
+            with self.subTest(event=event):
+                transcript = [{"type": "session"}, {"type": "agent_settled"}, event]
+                r = self.report(transcript)
+                self.assertIsNone(r["fired"])
+                self.assertTrue(any("terminal session" in note for note in r["limitations"]))
+                restored = self.report(transcript + [{"type": "agent_settled"}])
+                self.assertIs(restored["fired"], False)
+        metadata = {"type": "session_info_changed", "name": "fixture"}
+        self.assertIs(self.report(self.complete(metadata))["fired"], False)
+
+    def test_incomplete_later_work_does_not_erase_confirmed_delivery(self):
+        events = self.complete(self.start(), self.end()) + [{"type": "agent_start"}]
+        r = self.report(events)
+        self.assertIs(r["fired"], True)
+        self.assertTrue(any("terminal session" in note for note in r["limitations"]))
+
     def test_terminal_event_must_match_client_protocol(self):
         for fmt, header, terminal in (
             ("pi-json", {"type": "session"}, {"type": "result"}),

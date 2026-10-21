@@ -26,6 +26,18 @@ SKILL_LOAD_RE = re.compile(r"Base directory for this skill:[ \t]*([^\r\n]+)")
 FILE_TOOLS = {"Read": "read", "read": "read", "Write": "write", "write": "write",
               "Edit": "edit", "edit": "edit", "Grep": "search", "Glob": "search"}
 SHELL_TOOLS = {"Bash", "bash", "shell"}
+# Shared with capture inspection: every later activity requires fresh settlement.
+PI_WORK_EVENTS = frozenset({
+    "agent_start", "agent_end", "turn_start", "turn_end", "message", "message_start",
+    "message_update", "message_end", "tool_execution_start", "tool_execution_update",
+    "tool_execution_end", "auto_retry_start", "auto_retry_end", "compaction_start",
+    "compaction_end", "summarization_retry_scheduled", "summarization_retry_attempt_start",
+    "summarization_retry_finished",
+})
+TRACE_EVENT_TYPES = PI_WORK_EVENTS | {
+    "session", "system", "assistant", "user", "result", "agent_settled", "queue_update",
+    "entry_appended", "session_info_changed", "thinking_level_changed",
+}
 
 
 def raise_walk_error(error):
@@ -324,6 +336,14 @@ def parse_json(lines, trace, fmt):
             trace.skipped += 1
             continue
         kind = e.get("type")
+        if not isinstance(kind, str) or not kind.strip():
+            trace.unknown("Malformed event type cannot prove absence of delivery.")
+            continue
+        if kind not in TRACE_EVENT_TYPES:
+            trace.unknown("Unrecognized event type has unsupported delivery semantics.")
+            continue
+        if fmt == "pi-json" and kind in PI_WORK_EVENTS:
+            trace.complete = False
         if kind in {"session", "system", "tool_execution_start", "tool_execution_end", "assistant", "user", "message"}:
             trace.recognized = True
         if kind in {"session", "system"} and isinstance(e.get("cwd"), str):
