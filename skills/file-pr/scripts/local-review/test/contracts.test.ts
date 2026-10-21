@@ -30,10 +30,10 @@ describe('strict schemas and evidence', () => {
     expect(() => sealReport({ ...body(), status: 'passed' })).toThrow();
     expect(() => sealReport({ ...body(), transcript: 'unminimized data' })).toThrow();
   });
-  it('bounds every policy before consumers use it; live cannot activate', () => {
+  it('bounds every policy before consumers use it; live flag alone grants no authority', () => {
     expect(validate(PolicySchema, DEFAULT_POLICY)).toEqual(DEFAULT_POLICY);
     for (const [key, value] of Object.entries(DEFAULT_POLICY)) {
-      const invalid = typeof value === 'number' ? 1_000_000_000 : true;
+      const invalid = typeof value === 'number' ? 1_000_000_000 : 'not-a-boolean';
       expect(() => validate(PolicySchema, { ...DEFAULT_POLICY, [key]: invalid }), key).toThrow();
     }
     expect(() => validate(PolicySchema, { ...DEFAULT_POLICY, requestsPerLens: 0 })).toThrow();
@@ -130,7 +130,7 @@ describe('private, atomic minimized state outside checkouts', () => {
     expect(() => validateAttempt(state)).toThrow('Unsettled');
     const reserved = { ...state, rounds: [{ ...state.rounds[0], status: 'reserved' }], reservations: Array.from({ length: 4 }, (_, index) => ({ id: `r${index}`, round: 1, lens: 'correctness', state: 'reserved', reservedUsd: 0.01 })) };
     expect(() => validateAttempt(reserved)).toThrow('bound');
-    expect(() => validateAttempt({ ...reserved, reservations: reserved.reservations.slice(0, 2).map(item => ({ ...item, reservedUsd: 0.08 })) })).toThrow('cap');
+    expect(() => validateAttempt({ ...reserved, reservations: reserved.reservations.slice(0, 2).map(item => ({ ...item, reservedUsd: 0.6 })) })).toThrow('cap');
   });
   it('writes 0700 directories/0600 JSON and Markdown, round-trips without transcript/source', async () => {
     const root = join(await temporary(), 'private', 'reports');

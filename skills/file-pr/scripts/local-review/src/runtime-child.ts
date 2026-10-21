@@ -1,6 +1,8 @@
-// Owned, killable SDK worker. This file has no live transport or credential lookup.
+// Owned, killable SDK worker. All HTTP is host-owned; no credentials or SDK transport fallback.
+globalThis.fetch = async () => { throw new Error('Worker network transport denied'); };
 import { createAgentSession, createExtensionRuntime, ModelRuntime, SessionManager, SettingsManager, type ResourceLoader, type ToolDefinition } from '@earendil-works/pi-coding-agent';
 import type { WorkerInput, WorkerReply, FixtureStep } from './runtime.js';
+import type { AssistantMessage } from './openrouter.js';
 
 // Parent owns reservations and lifetime. Never continue work after its IPC disappears.
 process.once('disconnect', () => process.exit(20));
@@ -22,7 +24,8 @@ process.once('message', async (input: WorkerInput) => {
   if (input.kind !== 'start') return;
   try {
     const runtime = await ModelRuntime.create({ authPath: `${input.directory}/auth.json`, modelsPath: null, modelsStorePath: `${input.directory}/models-cache.json`, allowModelNetwork: false, refreshOnCreate: false });
-    // Explicit non-secret fixture credential satisfies SDK setup only. Never read host auth.
+    runtime.streamSimple = () => { throw new Error('SDK transport fallback denied'); };
+    // Non-secret placeholder satisfies SDK setup only. Transport is always replaced; never read host auth.
     await runtime.setRuntimeApiKey('openrouter', 'offline-fixture-not-a-credential');
     const loader: ResourceLoader = {
       getExtensions: () => ({ extensions: [], errors: [], runtime: createExtensionRuntime() }),
@@ -40,9 +43,9 @@ process.once('message', async (input: WorkerInput) => {
       },
     }));
     const model: Parameters<ModelRuntime['streamSimple']>[0] = {
-      id: input.model.requested, name: 'Offline fixture Haiku', provider: input.model.provider,
+      id: input.model.requested, name: 'Host-transport Haiku', provider: input.model.provider,
       api: 'openai-completions', baseUrl: input.model.endpoint, reasoning: false,
-      input: ['text'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 100000, maxTokens: 3000,
+      input: ['text'], cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 1000000, maxTokens: 3000,
     };
     const { session } = await createAgentSession({ cwd: input.directory, agentDir: input.directory, model, modelRuntime: runtime,
       thinkingLevel: 'off', tools: ['read_git', 'search_git'], customTools: tools, resourceLoader: loader,
@@ -57,11 +60,11 @@ process.once('message', async (input: WorkerInput) => {
     session.agent.streamFunction = async (selected, context) => {
       const permit = await rpc('request', { model: selected, context, maxOutputTokens: input.maxOutputTokens });
       if (!permit.ok) throw new Error('Dispatch denied');
-      const step = permit.data as FixtureStep;
+      const step = (input.mode !== 'live' ? permit.data : {}) as FixtureStep;
       process.send?.({ kind: 'effect', data: { pid: process.pid, maxOutputTokens: input.maxOutputTokens } });
       if (step.crash) process.exit(9);
       if (step.hang) { setInterval(() => {}, 1000); await new Promise(() => {}); }
-      const message: Awaited<ReturnType<ModelRuntime['completeSimple']>> = {
+      const message: AssistantMessage = input.mode === 'live' ? (permit.data as { message: AssistantMessage }).message : {
         role: 'assistant', api: model.api, provider: model.provider, model: model.id,
         responseModel: step.returnedModel ?? model.id, timestamp: Date.now(),
         content: step.calls?.map((call, index) => ({ type: 'toolCall', id: `call-${sequence}-${index}`, name: call.name, arguments: call.args })) ?? [{ type: 'text', text: step.text ?? '{}' }],

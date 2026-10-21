@@ -15,9 +15,9 @@ export const LensSchema = Type.Union([Type.Literal('correctness'), Type.Literal(
 export const PathSchema = Type.String({ minLength: 1, maxLength: 1024 });
 export const LineSpanSchema = Type.Object({ start: Type.Integer({ minimum: 1 }), end: Type.Integer({ minimum: 1 }) }, { additionalProperties: false });
 
-// These are ceilings, not billing authorization. Live inference remains disabled.
+// Scheduling ceilings, not billing authorization. Live mode requires separate operator authority.
 export const PolicySchema = Type.Object({
-  live: Type.Literal(false),
+  live: Type.Boolean(),
   maxRounds: Type.Integer({ minimum: 1, maximum: 2 }),
   concurrency: Type.Literal(2),
   requestsPerLens: Type.Integer({ minimum: 1, maximum: 3 }),
@@ -25,7 +25,7 @@ export const PolicySchema = Type.Object({
   roundDeadlineMs: Type.Integer({ minimum: 1, maximum: 120_000 }),
   maxOutputTokens: Type.Integer({ minimum: 1, maximum: 3000 }),
   attemptRequests: Type.Integer({ minimum: 1, maximum: 12 }),
-  schedulingCapUsd: Type.Number({ exclusiveMinimum: 0, maximum: 0.10 }),
+  schedulingCapUsd: Type.Number({ exclusiveMinimum: 0, maximum: 1.02 }),
   maxCandidates: Type.Integer({ minimum: 1, maximum: 8 }),
   maxChangedFiles: Type.Integer({ minimum: 1, maximum: 60 }),
   maxDiffBytes: Type.Integer({ minimum: 1, maximum: 131_072 }),
@@ -44,7 +44,7 @@ export const PolicySchema = Type.Object({
 export type Policy = Static<typeof PolicySchema>;
 export const DEFAULT_POLICY: Readonly<Policy> = Object.freeze({
   live: false, maxRounds: 2, concurrency: 2, requestsPerLens: 3, toolsPerLens: 8,
-  roundDeadlineMs: 120_000, maxOutputTokens: 3000, attemptRequests: 12, schedulingCapUsd: 0.10,
+  roundDeadlineMs: 120_000, maxOutputTokens: 3000, attemptRequests: 12, schedulingCapUsd: 1.02,
   maxCandidates: 8, maxChangedFiles: 60, maxDiffBytes: 131_072, readLines: 200, readBytes: 8192,
   searchHits: 50, searchBytes: 8192, payloadBytes: 32768, maxBlobBytes: 131_072,
   maxTreeEntries: 20_000, maxScanBytes: 16_777_216, gitOutputBytes: 8_388_608,
@@ -76,6 +76,7 @@ export const ReceiptIdentitySchema = Type.Object({
   packageVersion: Type.Literal('0.1.0'), sdkVersion: Type.Literal('1.3.0'),
   lockHash: digest, runtimeHash: digest, nodeVersion: text,
   reviewSettingsHash: digest, policy: PolicySchema,
+  authority: Type.Optional(Type.Object({ approvalDigest: digest, admissionDigest: digest, purpose: Type.Union([Type.Literal('calibration'), Type.Literal('filing')]) }, { additionalProperties: false })),
 }, { additionalProperties: false });
 export type ReceiptIdentity = Static<typeof ReceiptIdentitySchema>;
 
@@ -92,6 +93,14 @@ export const OmissionSchema = Type.Object({
   path: PathSchema, revision: RevisionSchema, reason: text, changed: Type.Boolean(), semantic: Type.Boolean(),
 }, { additionalProperties: false });
 export type Omission = Static<typeof OmissionSchema>;
+export const CallObservationSchema = Type.Object({
+  generationId: text, requestedUpstream: text, reportedProvider: text, reportedModel: text,
+  inputTokens: Type.Integer({ minimum: 0 }), outputTokens: Type.Integer({ minimum: 0 }), cacheTokens: Type.Integer({ minimum: 0 }), costUsd: Type.Number({ minimum: 0 }),
+  routeDigest: digest,
+}, { additionalProperties: false });
+export type CallObservation = Static<typeof CallObservationSchema>;
+export const CallEvidenceSchema = Type.Partial(CallObservationSchema);
+export type CallEvidence = Static<typeof CallEvidenceSchema>;
 const UsageSchema = Type.Union([
   Type.Object({ state: Type.Literal('known'), requests: Type.Integer({ minimum: 0, maximum: 3 }), inputTokens: Type.Integer({ minimum: 0 }), outputTokens: Type.Integer({ minimum: 0 }), cacheTokens: Type.Integer({ minimum: 0 }), costUsd: Type.Number({ minimum: 0 }) }, { additionalProperties: false }),
   Type.Object({ state: Type.Union([Type.Literal('unavailable'), Type.Literal('uncertain')]), requests: Type.Integer({ minimum: 0, maximum: 3 }), reason: text }, { additionalProperties: false }),
@@ -99,6 +108,8 @@ const UsageSchema = Type.Union([
 export const LensResultSchema = Type.Object({
   lens: LensSchema,
   identities: Type.Optional(Type.Array(ModelIdentitySchema, { maxItems: 3 })),
+  calls: Type.Optional(Type.Array(CallObservationSchema, { maxItems: 3 })),
+  rejectedCalls: Type.Optional(Type.Array(CallEvidenceSchema, { maxItems: 3 })),
   observedModels: Type.Optional(Type.Array(ModelObservationSchema, { maxItems: 3 })),
   contextGaps: Type.Optional(Type.Array(text, { maxItems: 100 })),
   status: Type.Union([Type.Literal('complete'), Type.Literal('incomplete'), Type.Literal('setup-error'), Type.Literal('aborted')]),
@@ -111,7 +122,7 @@ export const ReviewReportBodySchema = Type.Object({
   schemaVersion: Type.Literal(1), reportId: id, attemptId: id, round: Type.Integer({ minimum: 1, maximum: 2 }),
   identity: ReceiptIdentitySchema,
   execution: Type.Optional(Type.Object({
-    mode: Type.Literal('simulated'), goal: text, builderModel: text,
+    mode: Type.Union([Type.Literal('simulated'), Type.Literal('live')]), goal: text, builderModel: text,
     provenance: Type.Array(Type.Object({ canonicalId: id, findingIds: Type.Array(id, { minItems: 1, maxItems: 16 }) }, { additionalProperties: false }), { maxItems: 16 }),
   }, { additionalProperties: false })),
   status: Type.Union([Type.Literal('complete'), Type.Literal('incomplete'), Type.Literal('setup-error')]),
@@ -151,7 +162,9 @@ export const AttemptStateSchema = Type.Object({
   reservations: Type.Array(Type.Object({
     id, round: Type.Integer({ minimum: 1, maximum: 2 }), lens: LensSchema,
     state: Type.Union([Type.Literal('reserved'), Type.Literal('settled'), Type.Literal('uncertain')]),
-    reservedUsd: Type.Number({ minimum: 0, maximum: 0.10 }),
+    reservedUsd: Type.Number({ minimum: 0, maximum: 1.02 }),
+    observation: Type.Optional(CallObservationSchema),
+    rejectedEvidence: Type.Optional(CallEvidenceSchema),
   }, { additionalProperties: false }), { maxItems: 12 }),
 }, { additionalProperties: false });
 export type AttemptState = Static<typeof AttemptStateSchema>;
@@ -312,6 +325,7 @@ export async function saveReport(root: string, input: unknown): Promise<{ json: 
   const markdown = await atomicPrivateWrite(root, `${report.body.reportId}.md`, `# Local review: ${report.body.status}${report.body.execution?.mode === 'simulated' ? ' (SIMULATED, not real review)' : ''}\n\nReport: ${report.body.reportId}\nHead: ${report.body.identity.snapshot.head}\nIdentity: ${report.receipt.identityDigest}\n\n${Object.values(report.body.lenses).map(lens => [
     `## ${lens.lens}: ${lens.status}`,
     `Usage: ${JSON.stringify(lens.usage)}`,
+    `Native calls: ${JSON.stringify(lens.calls ?? [])}; rejected observations: ${JSON.stringify(lens.rejectedCalls ?? [])}`,
     `Observed models: ${JSON.stringify(lens.observedModels ?? lens.identities ?? [])}`,
     `Context gaps: ${JSON.stringify(lens.contextGaps ?? [])}; omissions: ${JSON.stringify(lens.omissions)}`,
     ...(lens.reason ? [`Reason: ${JSON.stringify(lens.reason)}`] : []),
@@ -324,11 +338,12 @@ export function validateAttempt(input: unknown): AttemptState {
   if (new Set(state.rounds.map(round => round.round)).size !== state.rounds.length || new Set(state.reservations.map(item => item.id)).size !== state.reservations.length) throw new ReviewError(20, 'Duplicate ledger entry');
   if (state.rounds.some((round, index) => round.round !== index + 1 || (round.status === 'settled' && !round.reportId))) throw new ReviewError(20, 'Unsettled or out-of-order round');
   if (state.reservations.some(item => !state.rounds.some(round => round.round === item.round))) throw new ReviewError(20, 'Reservation has no round');
+  if (state.reservations.some(item => item.state === 'settled' && item.reservedUsd > 0 && (!item.observation || item.observation.costUsd > item.reservedUsd))) throw new ReviewError(20, 'Missing or excessive authoritative settlement');
   for (const round of state.rounds) for (const lens of ['correctness', 'contracts-risk'] as const) {
     const reservations = state.reservations.filter(item => item.round === round.round && item.lens === lens);
     if (reservations.length > 3 || (round.status === 'settled' && reservations.some(item => item.state !== 'settled'))) throw new ReviewError(20, 'Invalid request settlement/bound');
   }
-  if (state.reservations.reduce((total, item) => total + item.reservedUsd, 0) > 0.10 + Number.EPSILON) throw new ReviewError(20, 'Attempt scheduling cap exceeded');
+  if (state.reservations.reduce((total, item) => total + (item.state === 'settled' ? item.observation?.costUsd ?? item.reservedUsd : item.reservedUsd), 0) > 1.02 + Number.EPSILON) throw new ReviewError(20, 'Attempt scheduling cap exceeded');
   return state;
 }
 export async function saveAttempt(root: string, input: unknown): Promise<string> {

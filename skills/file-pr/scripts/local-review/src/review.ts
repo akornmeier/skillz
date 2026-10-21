@@ -11,13 +11,15 @@ import {
 } from './contracts.js';
 import { captureSnapshot, FILTER_VERSION, TOOL_VERSION, SOURCE_TOOL_SCHEMAS } from './snapshot.js';
 import { runLens, MODEL, PROMPT, LENS_PROMPTS, type AttemptBudget, type FixtureTransport, type Lens } from './runtime.js';
+import { loadApproval, readApprovedKey, validateAuthority } from './approval.js';
+import { createLiveTransport, preflight, type LiveTransport } from './openrouter.js';
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 /** Bind the code actually executing (source or emitted JS), never a caller-provided version label. */
 export async function implementationIdentity() {
   const extension = import.meta.url.endsWith('.ts') ? 'ts' : 'js';
   const directory = dirname(fileURLToPath(import.meta.url));
-  const names = ['contracts', 'snapshot', 'runtime', 'runtime-child', 'review', 'cli'];
+  const names = ['contracts', 'snapshot', 'runtime', 'runtime-child', 'review', 'cli', 'approval', 'openrouter'];
   const sources = await Promise.all(names.map(async name => [name, hashBytes(await readFile(join(directory, `${name}.${extension}`)))]));
   const sdkManifestBytes = await readFile(new URL('../package.json', import.meta.resolve('@earendil-works/pi-coding-agent')));
   const sdkManifest = JSON.parse(sdkManifestBytes.toString('utf8')) as { version?: unknown };
@@ -28,9 +30,10 @@ export async function implementationIdentity() {
     lockHash: hashBytes(await readFile(join(packageRoot, 'pnpm-lock.yaml'))), runtimeHash: hash({ sources, manifest, sdkManifestHash: hashBytes(sdkManifestBytes) }),
     promptHash: hash({ PROMPT, LENS_PROMPTS }), toolPolicyHash: hash({ TOOL_VERSION, SOURCE_TOOL_SCHEMAS }), filterPolicyHash: hash(FILTER_VERSION) };
 }
-export async function receiptIdentity(source: Awaited<ReturnType<typeof captureSnapshot>>, request: ReviewRequest): Promise<ReceiptIdentity> {
+export async function receiptIdentity(source: Awaited<ReturnType<typeof captureSnapshot>>, request: ReviewRequest, authority?: ReceiptIdentity['authority']): Promise<ReceiptIdentity> {
   return { snapshot: source.snapshot.identity, model: { ...MODEL }, ...await implementationIdentity(), policy: request.policy,
-    reviewSettingsHash: hash({ goal: request.goal, builderModel: request.builderModel, policy: request.policy, execution: 'simulated' }) };
+    ...(authority ? { authority } : {}),
+    reviewSettingsHash: hash({ goal: request.goal, builderModel: request.builderModel, policy: request.policy, execution: authority ? 'live' : 'simulated' }) };
 }
 async function readPrivateJson(path: string): Promise<unknown> {
   const file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
@@ -59,22 +62,34 @@ export async function ownAttempt(root: string, attemptId: string, policy: Policy
     if (state.attemptId !== attemptId || state.rounds.some(round => round.status !== 'settled') || state.reservations.some(item => item.state !== 'settled')) throw new ReviewError(20, 'Interrupted/uncertain attempt; reconcile before explicit new attempt');
     state.owner = owner; await saveAttempt(directory, state);
   } catch (error) { await lock.close(); await rm(lockPath, { force: true }); throw error; }
-  // Both lenses serialize durable reservations before any fixture effect.
-  let writes = Promise.resolve();
+  // Both lenses serialize durable reservations before any HTTP/fixture effect.
+  let writes = Promise.resolve(); let persistenceFailed = false;
   function mutate<T>(fn: () => T): Promise<T> {
-    const operation = writes.then(async () => { const value = fn(); await saveAttempt(directory, state); return value; });
+    const operation = writes.then(async () => {
+      if (persistenceFailed) throw new ReviewError(20, 'Attempt persistence failed; dispatch disabled');
+      const value = fn();
+      try { await saveAttempt(directory, state); } catch (error) { persistenceFailed = true; throw error; }
+      return value;
+    });
     writes = operation.then(() => {}, () => {}); return operation;
   }
   let round = 0;
   const budget: AttemptBudget = {
-    reserve: lens => mutate(() => {
+    reserve: (lens, usd = 0) => mutate(() => {
+      if (state.reservations.some(item => item.state === 'uncertain') || !Number.isFinite(usd) || usd < 0 || (policy.live && usd <= 0)
+        || state.reservations.reduce((sum, item) => sum + (item.state === 'settled' ? item.observation?.costUsd ?? item.reservedUsd : item.reservedUsd), 0) + usd > policy.schedulingCapUsd + Number.EPSILON) throw new ReviewError(20, 'Scheduling cap or uncertain billing blocks dispatch');
       if (!round || state.reservations.length >= policy.attemptRequests || state.reservations.filter(item => item.round === round && item.lens === lens).length >= policy.requestsPerLens) throw new ReviewError(20, 'Attempt reservation budget exhausted');
       const id = randomUUID();
-      // Simulated transport has no billable charge. No unverified live rate assumption is used.
-      state.reservations.push({ id, round, lens, state: 'reserved', reservedUsd: 0 }); return id;
+      state.reservations.push({ id, round, lens, state: 'reserved', reservedUsd: usd }); return id;
     }),
-    settle: id => mutate(() => { const item = state.reservations.find(item => item.id === id); if (!item || item.state !== 'reserved') throw new ReviewError(20, 'Unknown reservation'); item.state = 'settled'; }),
-    uncertain: id => mutate(() => { const item = state.reservations.find(item => item.id === id); if (!item) throw new ReviewError(20, 'Unknown reservation'); item.state = 'uncertain'; }),
+    settle: (id, observation) => mutate(() => {
+      const item = state.reservations.find(item => item.id === id); if (!item || item.state !== 'reserved') throw new ReviewError(20, 'Unknown reservation');
+      if (observation) item.observation = observation;
+      item.state = (policy.live && !observation) || (observation && observation.costUsd > item.reservedUsd) ? 'uncertain' : 'settled';
+    }).then(() => {
+      if (state.reservations.find(item => item.id === id)?.state === 'uncertain') throw new ReviewError(20, 'Actual cost exceeded reservation; billing uncertain');
+    }),
+    uncertain: (id, evidence) => mutate(() => { const item = state.reservations.find(item => item.id === id); if (!item) throw new ReviewError(20, 'Unknown reservation'); item.state = 'uncertain'; if (evidence) item.rejectedEvidence = evidence; }),
   };
   return {
     directory, budget, get state() { return structuredClone(state); },
@@ -92,7 +107,7 @@ export async function ownAttempt(root: string, attemptId: string, policy: Policy
 }
 function lensResult(result: Awaited<ReturnType<typeof runLens>>, lens: Lens): LensResult {
   return { lens, status: result.status, findings: result.findings, checkedPaths: result.checkedPaths, omissions: result.omissions,
-    reason: result.reason, usage: result.usage, startedAt: result.startedAt, endedAt: result.endedAt, identities: result.identities, observedModels: result.observedModels ?? [], contextGaps: result.contextGaps ?? [] };
+    reason: result.reason, usage: result.usage, startedAt: result.startedAt, endedAt: result.endedAt, identities: result.identities, calls: result.calls ?? [], rejectedCalls: result.rejectedCalls ?? [], observedModels: result.observedModels ?? [], contextGaps: result.contextGaps ?? [] };
 }
 /** Keep original allegations under each lens; dedupe view retains every finding's provenance. */
 export function deduplicate(lenses: Record<Lens, LensResult>) {
@@ -104,9 +119,27 @@ export function deduplicate(lenses: Record<Lens, LensResult>) {
   return [...groups.values()];
 }
 export async function review(input: unknown, root: string, fixtures?: Record<Lens, FixtureTransport>) {
+  if (validateRequest(input).policy.live) throw new ReviewError(30, 'Explicit live approval API required');
+  return reviewInternal(input, root, fixtures);
+}
+/** Callable by Node clients (including Claude Code and Pi); no native harness workflow required. */
+export async function reviewLive(request: ReviewRequest, stateRoot: string, approvalPath: string) {
+  return reviewInternal({ ...request, policy: { ...request.policy, live: true } }, stateRoot, undefined, approvalPath);
+}
+async function reviewInternal(input: unknown, root: string, fixtures?: Record<Lens, FixtureTransport>, approvalPath?: string) {
   const request = validateRequest(input); const startedAt = Date.now();
   const deadlineAt = startedAt + request.policy.roundDeadlineMs;
-  const source = await captureSnapshot(request, deadlineAt); const identity = await receiptIdentity(source, request);
+  const approval = approvalPath ? await loadApproval(approvalPath) : undefined;
+  if (request.policy.live && !approval) throw new ReviewError(30, 'Explicit approval required');
+  const source = await captureSnapshot(request, deadlineAt);
+  let identity = await receiptIdentity(source, request);
+  let live: LiveTransport | undefined;
+  let admission: Awaited<ReturnType<typeof preflight>> | undefined;
+  if (approval) {
+    validateAuthority(approval, request, source.snapshot.identity, identity.runtimeHash);
+    admission = await preflight(approval, request.policy, AbortSignal.timeout(Math.max(1, deadlineAt - Date.now())));
+    identity = await receiptIdentity(source, request, { approvalDigest: hash(approval), admissionDigest: admission.admissionDigest, purpose: approval.purpose });
+  }
   const attempt = await ownAttempt(root, request.attemptId, request.policy);
   try {
     const prior = attempt.state.rounds.find(round => round.identityDigest === hash(identity));
@@ -116,6 +149,10 @@ export async function review(input: unknown, root: string, fixtures?: Record<Len
       return { report, reused: true, exit: reportExit(report), paths: { json: join(attempt.directory, `${prior.reportId}.json`), markdown: join(attempt.directory, `${prior.reportId}.md`) } };
     }
     const round = await attempt.begin(hash(identity));
+    if (approval && admission) {
+      validateAuthority(approval, request, source.snapshot.identity, identity.runtimeHash);
+      live = createLiveTransport(approval, request.policy, admission, await readApprovedKey(approval, request, source.snapshot.identity, identity.runtimeHash));
+    }
     const remainingMs = request.policy.roundDeadlineMs - (Date.now() - startedAt);
     if (remainingMs <= 0) throw new ReviewError(20, 'Round deadline exhausted before dispatch');
     const controller = new AbortController(); const deadline = setTimeout(() => controller.abort(), remainingMs);
@@ -123,7 +160,7 @@ export async function review(input: unknown, root: string, fixtures?: Record<Len
     try {
       const run = async (lens: Lens) => {
         try {
-          const result = lensResult(await runLens(source, lens, controller.signal, attempt.budget, fixtures?.[lens], request.policy), lens);
+          const result = lensResult(await runLens(source, lens, controller.signal, attempt.budget, live ?? fixtures?.[lens], request.policy), lens);
           if (result.status !== 'complete') controller.abort(); return result;
         } catch (error) { controller.abort(); throw error; }
       };
@@ -137,7 +174,7 @@ export async function review(input: unknown, root: string, fixtures?: Record<Len
     for (const [lens, result] of Object.entries(lenses)) for (const finding of result.findings) finding.id = `${lens === 'correctness' ? 'c' : 'r'}-${hash({ id: finding.id, finding }).slice(0, 24)}`;
     const status = Object.values(lenses).every(result => result.status === 'complete') ? 'complete' : Object.values(lenses).some(result => result.status === 'setup-error') ? 'setup-error' : 'incomplete';
     const report = sealReport({ schemaVersion: 1, reportId: randomUUID(), attemptId: request.attemptId, round, identity, status, lenses,
-      execution: { mode: 'simulated', goal: request.goal, builderModel: request.builderModel, provenance: deduplicate(lenses) },
+      execution: { mode: approval ? 'live' : 'simulated', goal: request.goal, builderModel: request.builderModel, provenance: deduplicate(lenses) },
       omissions: source.snapshot.omissions.filter(item => item.changed), startedAt, endedAt: Date.now() });
     const paths = await saveReport(attempt.directory, report); await attempt.finish(report);
     return { report, reused: false, exit: reportExit(report), paths };
@@ -145,14 +182,22 @@ export async function review(input: unknown, root: string, fixtures?: Record<Len
 }
 
 /** Re-capture actual source and implementation. Pinned OIDs never replace current intended refs. */
-export async function verify(input: unknown, triageInput: unknown, current: { repo: string; baseRef: string; headRef: string }) {
+export async function verify(input: unknown, triageInput: unknown, current: { repo: string; baseRef: string; headRef: string }, approvalPath?: string) {
   const report = validateReport(input);
   if (!report.body.execution) throw new ReviewError(30, 'Missing runtime provenance');
-  const request = validateRequest({ ...current, goal: report.body.execution.goal, builderModel: report.body.execution.builderModel, attemptId: report.body.attemptId, policy: { ...DEFAULT_POLICY } });
+  const request = validateRequest({ ...current, goal: report.body.execution.goal, builderModel: report.body.execution.builderModel, attemptId: report.body.attemptId, policy: report.body.execution.mode === 'live' ? report.body.identity.policy : { ...DEFAULT_POLICY } });
   let source: Awaited<ReturnType<typeof captureSnapshot>>;
   try { source = await captureSnapshot(request); }
   catch (error) { if (error instanceof ReviewError && error.code === 20) throw new ReviewError(21, 'Current source cannot reproduce reviewed snapshot'); throw error; }
-  const identity = await receiptIdentity(source, request);
+  let identity = await receiptIdentity(source, request);
+  if (report.body.execution.mode === 'live') {
+    if (!approvalPath) throw new ReviewError(30, 'Current approval required for live verification');
+    const approval = await loadApproval(approvalPath);
+    validateAuthority(approval, request, source.snapshot.identity, identity.runtimeHash);
+    if (approval.purpose !== 'filing') throw new ReviewError(30, 'Calibration cannot authorize upload');
+    const admission = await preflight(approval, request.policy, AbortSignal.timeout(request.policy.roundDeadlineMs));
+    identity = await receiptIdentity(source, request, { approvalDigest: hash(approval), admissionDigest: admission.admissionDigest, purpose: approval.purpose });
+  }
   validateReport(report, identity);
   if (report.body.status !== 'complete') throw new ReviewError(20, 'Incomplete review');
   const triage = validateTriage(triageInput, report);
@@ -165,9 +210,29 @@ export async function verify(input: unknown, triageInput: unknown, current: { re
       if (actionable(finding) && (!disposition || disposition.status === 'unresolved')) throw new ReviewError(20, 'Unresolved actionable finding');
     }
   }
-  // Offline fixtures test orchestration, not independent real-model review. Never authorize upload.
-  throw new ReviewError(30, 'Simulated evidence cannot authorize real review or upload');
+  if (report.body.execution.mode !== 'live' || !identity.authority || identity.authority.purpose !== 'filing') throw new ReviewError(30, 'Simulated evidence cannot authorize real review or upload');
+  const generations = new Set<string>();
+  for (const lens of Object.values(report.body.lenses)) {
+    if (lens.usage.state !== 'known' || lens.calls?.length !== lens.usage.requests || lens.rejectedCalls?.length) throw new ReviewError(20, 'Missing authoritative live billing evidence');
+    if (lens.calls.reduce((sum, call) => sum + call.costUsd, 0) !== lens.usage.costUsd
+      || lens.calls.reduce((sum, call) => sum + call.inputTokens, 0) !== lens.usage.inputTokens
+      || lens.calls.reduce((sum, call) => sum + call.outputTokens, 0) !== lens.usage.outputTokens
+      || lens.calls.reduce((sum, call) => sum + call.cacheTokens, 0) !== lens.usage.cacheTokens) throw new ReviewError(20, 'Live billing evidence mismatch');
+    for (const [index, call] of lens.calls.entries()) {
+      if (generations.has(call.generationId) || call.reportedModel !== lens.identities?.[index]?.returned) throw new ReviewError(20, 'Duplicate generation or returned model mismatch');
+      generations.add(call.generationId);
+    }
+  }
+  // Metadata fetch must not open a freshness window for changed source/runtime/authority.
+  if (!approvalPath) throw new ReviewError(30, 'Current approval required');
+  const finalApproval = await loadApproval(approvalPath);
+  const finalSource = await captureSnapshot(request);
+  const finalIdentity = await receiptIdentity(finalSource, request, identity.authority);
+  validateAuthority(finalApproval, request, finalSource.snapshot.identity, finalIdentity.runtimeHash);
+  if (hash(finalApproval) !== identity.authority.approvalDigest) throw new ReviewError(21, 'Approval changed during verification');
+  validateReport(report, finalIdentity);
+  return 0;
 }
-export async function verifyFiles(reportPath: string, triagePath: string, current: { repo: string; baseRef: string; headRef: string }) {
-  return verify(await readPrivateJson(reportPath), await readPrivateJson(triagePath), current);
+export async function verifyFiles(reportPath: string, triagePath: string, current: { repo: string; baseRef: string; headRef: string }, approvalPath?: string) {
+  return verify(await readPrivateJson(reportPath), await readPrivateJson(triagePath), current, approvalPath);
 }
