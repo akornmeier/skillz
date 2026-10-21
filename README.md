@@ -34,6 +34,20 @@ evals/
 - `.skill-lock.json` retains installer metadata for third-party skills. Locally maintained skills in this repository are intentionally not lock-managed.
 - Generated dependencies and caches are ignored. A skill with a package manifest should install its dependencies within its own directory.
 
+## Local PR review
+
+`file-pr` now routes new-code uploads through a bounded local-review procedure. Current runner is **offline-only**: synthetic SDK tests are available, but no live transport or credential lookup is enabled. New-code filing stops unless the user explicitly waives review for that attempt; a waiver stays labeled bypassed, never passed. Unchanged existing PR lookup needs no inference.
+
+Scoped setup requires Node >=22.19.0, pnpm 12.9.1 and provisioning approval. From this checkout:
+
+```sh
+pnpm --dir skills/file-pr/scripts/local-review install --frozen-lockfile --ignore-scripts --ignore-pnpmfile
+pnpm --dir skills/file-pr/scripts/local-review run validate
+node skills/file-pr/scripts/local-review/dist/cli.js --help
+```
+
+Helpers resolve from the loaded skill directory when used in other repositories. Reports and attempt state remain private outside Git checkouts. See [runner setup and limitations](skills/file-pr/scripts/local-review/README.md) and [parent review procedure](skills/file-pr/workflows/local-review.md). Live activation requires separately approved source export, provider/privacy/key/budget controls, calibration and rollout sign-off. No Git hooks or subscriptions are changed.
+
 ## Validation
 
 Check skill linking and generated hooks in temporary directories:

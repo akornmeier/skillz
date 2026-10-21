@@ -1,15 +1,29 @@
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
-import { describe, expect, it } from 'vitest';
+import { mkdtemp, readFile, realpath, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
+import { DEFAULT_POLICY, ReviewError, type Finding } from '../src/contracts.js';
+import { review, verify } from '../src/review.js';
+import type { FixtureTransport, Lens } from '../src/runtime.js';
 import { fixtureBoundary } from './gate-fixture.js';
+import { commit, fixtureGit, gitFixture, put } from './git-fixture.js';
+import { checkFixtureReceipt, dismissedTriage, publishingFixture } from './publishing-fixture.js';
 
 const A = 'a'.repeat(40);
 const B = 'b'.repeat(40);
 
-describe('phase-1 operation-log fixture self-checks (not skill execution)', () => {
-  it('keeps original skill byte-for-byte; baseline snapshot held outside discovery by parent', async () => {
-    const skill = await readFile(new URL('../../../SKILL.md', import.meta.url));
-    expect(createHash('sha256').update(skill).digest('hex')).toBe('16f0bdb766426af949e57acec74328b3365ddd2851684bd36b10421b8c59848b');
+describe('procedural gate contract (not LLM skill qualification)', () => {
+  it('routes to existing review procedure and preserves PR conventions', async () => {
+    const skill = await readFile(new URL('../../../SKILL.md', import.meta.url), 'utf8');
+    const workflow = await readFile(new URL('../../../workflows/local-review.md', import.meta.url), 'utf8');
+    expect(skill).toContain('[local-review.md](workflows/local-review.md)');
+    expect(skill).toContain('Do not invent measurements');
+    expect(skill).toContain('babysit-pr');
+    expect(skill).toContain('ready-for-review');
+    expect(skill).toContain('model and harness attribution');
+    expect(workflow.toLowerCase()).toContain('simulated evidence');
+    expect(workflow).toContain('no automatic force-push');
   });
 
   it('preserves profiles and three original cases, freezes eight gate scenarios', async () => {
@@ -84,5 +98,99 @@ describe('phase-1 operation-log fixture self-checks (not skill execution)', () =
     fixture.record({ kind: 'waiver', head: A, reason: 'provider unavailable', userApproved: true });
     expect(fixture.record({ kind: 'verify', head: A })).toBe('bypassed');
     expect(fixture.record({ kind: 'pr-write', head: A })).toBe('bypassed');
+  });
+});
+
+const roots: string[] = [];
+afterEach(async () => { await Promise.all(roots.splice(0).map(path => rm(path, { recursive: true, force: true }))); });
+async function integrationFixture() {
+  const { repo } = await gitFixture(); roots.push(repo);
+  await put(repo, 'src/a.ts', 'export const enabled = false;\n'); await commit(repo);
+  const root = await mkdtemp(join(await realpath(tmpdir()), 'file-pr-gate-')); roots.push(root);
+  const request = { repo, baseRef: 'base', headRef: 'HEAD', goal: 'Disable fixture toggle', builderModel: 'openai/gpt-6', attemptId: 'gate-attempt', policy: { ...DEFAULT_POLICY } };
+  const head = await fixtureGit(repo, 'rev-parse', 'HEAD');
+  return { root, request, head, current: { repo, baseRef: 'base', headRef: 'HEAD' }, stub: await publishingFixture(root, head) };
+}
+function fakeProvider(finding = false, onEffect?: () => void): Record<Lens, FixtureTransport> {
+  const lensFixture = (lens: Lens): FixtureTransport => {
+    const allegation: Finding = { id: 'toggle', lens, severity: 'P2', path: 'src/a.ts', revision: 'head', start: 1, end: 1,
+      quote: 'export const enabled = false;', cause: 'Toggle disables expected behavior', trigger: 'Caller uses toggle', impact: 'Behavior unavailable', classification: 'introduced', uncertainty: null };
+    return { kind: 'fixture', steps: [{ text: JSON.stringify({ findings: finding ? [allegation] : [], checkedPaths: ['src/a.ts'], omissions: [], requiredUnavailable: [] }) }], onEvent(event) { if (event.kind === 'effect') onEffect?.(); } };
+  };
+  return { correctness: lensFixture('correctness'), 'contracts-risk': lensFixture('contracts-risk') };
+}
+
+describe('real synthetic review/verify with executable publishing stubs', () => {
+  it('clean one-round path reaches only fixture authority after real verifier rejects simulation', async () => {
+    const { root, request, head, current, stub } = await integrationFixture(); let effects = 0;
+    await stub.invoke('lookup');
+    const result = await review(request, root, fakeProvider(false, () => effects++));
+    expect(result.exit).toBe(0); expect(result.report.body.round).toBe(1); expect(effects).toBe(2);
+    expect((await stub.invoke('push')).exit).toBe(1);
+    await expect(verify(result.report, dismissedTriage(result.report), current)).rejects.toMatchObject({ code: 30 });
+    await checkFixtureReceipt(result.report, dismissedTriage(result.report), current);
+    await stub.authorize(head, 'fixture-only');
+    expect((await stub.invoke('push')).exit).toBe(0); expect((await stub.invoke('pr-write')).exit).toBe(0);
+    expect(await stub.events()).toEqual([
+      { operation: 'lookup', head, status: 'read-only' }, { operation: 'push', head, status: 'denied' },
+      { operation: 'push', head, status: 'fixture-only' }, { operation: 'pr-write', head, status: 'fixture-only' },
+    ]);
+  });
+
+  it('P2 candidate requires fix/commit/full second review before stub upload; third snapshot stops', async () => {
+    const { root, request, current, stub } = await integrationFixture(); const order: string[] = [];
+    order.push('review'); const first = await review(request, root, fakeProvider(true)); expect(first.exit).toBe(10);
+    const unresolved = dismissedTriage(first.report);
+    for (const disposition of unresolved.dispositions) Object.assign(disposition, { status: 'unresolved', reason: 'Supported defect' });
+    await expect(checkFixtureReceipt(first.report, unresolved, current)).rejects.toMatchObject({ code: 20 });
+    expect((await stub.invoke('push')).exit).toBe(1);
+    order.push('fix'); await put(request.repo, 'src/a.ts', 'export const enabled = true; // Fixed\n'); const fixed = await commit(request.repo);
+    await expect(checkFixtureReceipt(first.report, dismissedTriage(first.report), current)).rejects.toMatchObject({ code: 21 });
+    order.push('review'); const second = await review(request, root, fakeProvider());
+    expect(second.report.body.round).toBe(2); expect(second.report.body.identity.snapshot.head).toBe(fixed);
+    order.push('verify'); await checkFixtureReceipt(second.report, dismissedTriage(second.report), current);
+    await stub.authorize(fixed, 'fixture-only'); order.push('push'); expect((await stub.invoke('push', fixed)).exit).toBe(0);
+    order.push('pr-write'); expect((await stub.invoke('pr-write', fixed)).exit).toBe(0);
+    expect(order).toEqual(['review', 'fix', 'review', 'verify', 'push', 'pr-write']);
+    await put(request.repo, 'src/a.ts', 'export const enabled = 3;\n'); const third = await commit(request.repo);
+    await expect(review(request, root, fakeProvider())).rejects.toMatchObject({ code: 20 });
+    expect((await stub.invoke('push', third)).exit).toBe(1);
+  });
+
+  it('evidence-backed false-positive triage reuses unchanged report without another model effect', async () => {
+    const { root, request, head, current, stub } = await integrationFixture(); let effects = 0;
+    const first = await review(request, root, fakeProvider(true, () => effects++));
+    await checkFixtureReceipt(first.report, dismissedTriage(first.report), current);
+    const reused = await review(request, root, fakeProvider(false, () => effects++));
+    expect(reused.reused).toBe(true); expect(effects).toBe(2);
+    await stub.authorize(head, 'fixture-only'); expect((await stub.invoke('push')).exit).toBe(0);
+  });
+
+  it('unchanged existing PR lookup needs no inference or write', async () => {
+    const { head, stub } = await integrationFixture();
+    expect((await stub.invoke('lookup')).output).toEqual({ exists: true, head });
+    expect(await stub.events()).toEqual([{ operation: 'lookup', head, status: 'read-only' }]);
+  });
+
+  it.each(['provider', 'dirty', 'stale'] as const)('%s blocker cannot reach stub publishing', async blocker => {
+    const { root, request, current, stub } = await integrationFixture();
+    const result = await review(request, root, blocker === 'provider' ? undefined : fakeProvider());
+    if (blocker === 'provider') expect(result.exit).toBe(30);
+    else if (blocker === 'dirty') await put(request.repo, 'untracked.ts', 'private edit\n');
+    else { await put(request.repo, 'src/a.ts', 'export const enabled = 2;\n'); await commit(request.repo); }
+    await expect(checkFixtureReceipt(result.report, dismissedTriage(result.report), current)).rejects.toBeInstanceOf(ReviewError);
+    expect((await stub.invoke('push')).exit).toBe(1); expect((await stub.invoke('pr-write')).exit).toBe(1);
+    expect((await stub.events()).every(event => event.status === 'denied')).toBe(true);
+  });
+
+  it('explicit user waiver stays bypassed, never a passed review or altered receipt', async () => {
+    const { root, request, head, stub } = await integrationFixture(); const result = await review(request, root);
+    const original = JSON.stringify(result.report); expect(result.exit).toBe(30);
+    await expect(stub.authorize(head, 'bypassed')).rejects.toThrow('user approval');
+    expect((await stub.invoke('push')).exit).toBe(1);
+    await stub.authorize(head, 'bypassed', true);
+    expect((await stub.invoke('push')).exit).toBe(0); expect((await stub.invoke('pr-write')).exit).toBe(0);
+    expect((await stub.events()).filter(event => event.status === 'bypassed')).toHaveLength(2);
+    expect(JSON.stringify(result.report)).toBe(original);
   });
 });

@@ -1,7 +1,7 @@
 ---
 name: file-pr
 description: Creates concise GitHub pull requests from the current branch and diff. Use when the user asks to file, open, or create a PR.
-compatibility: Requires a Git repository, access to its remote, and authenticated GitHub tooling or equivalent pull-request API access.
+compatibility: Requires Git, remote access and authenticated GitHub tooling. New-code review additionally requires Node >=22.19, pnpm 12.9.1 and this skill's pinned Pi SDK package; live review remains disabled pending qualification.
 metadata:
   category: pull-request-automation
 ---
@@ -10,13 +10,13 @@ metadata:
 
 ## Workflow
 
-1. Check whether the current branch already has an open PR. Update or report the existing PR instead of creating a duplicate.
-2. Inspect the diff against the intended base branch and confirm it matches the user's goal. Stop on an empty, unrelated, or unexpectedly broad diff.
-3. Review recently merged PRs and Git history for repository title and description conventions.
-4. Write a concise title that explains why the change matters. PR titles often become commit messages.
-5. Open the description with the problem in user-facing terms, then summarize the solution and validation. Do not lead with an implementation inventory.
-6. Respect repository policy and the user's request when choosing draft versus ready-for-review status. Default to ready when review automation requires it and no contrary policy applies.
-7. Create the PR, then verify its URL, base branch, head branch, title, status, and rendered description.
+1. Look up an existing PR read-only. Compare its head SHA with the local candidate. If no new code needs uploading, report the existing PR without inference; never create a duplicate.
+2. Inspect the diff against the intended base and confirm the user's goal. Stop on an empty, unrelated, or unexpectedly broad diff. Review recent merged PRs, Git history and the PR template for conventions.
+3. Before any push or PR write containing new code, follow [local-review.md](workflows/local-review.md). It owns authorized fetch/rebase, focused checks/commits, independent review, parent triage, at most one fix/re-review and immediate receipt verification. Resolve helpers from this skill directory, not the target repository.
+4. **Current rollout: offline only.** No live adapter or credential lookup is enabled. Missing prerequisites, incomplete/stale evidence or remaining P0–P2 findings stop upload. Do not auto-install, substitute another model or call simulated evidence passed. Only an explicit user waiver for this filing attempt may bypass review, labeled **bypassed** in PR validation.
+5. Write a concise supported title explaining why the change matters. Open the description with the user-facing problem, then solution and actual validation. Do not lead with an implementation inventory. End with the actual model and harness attribution; do not publish private reports/transcripts.
+6. Respect repository policy and requested draft status. Default to a real, ready-for-review PR when no contrary policy applies.
+7. After current receipt verification (or disclosed explicit waiver), push only authorized changes and create/update the existing PR. Never silently force-push rebased published history. Verify URL, base/head branches and SHA, title, status and rendered description.
 
 Prefer a concrete title:
 

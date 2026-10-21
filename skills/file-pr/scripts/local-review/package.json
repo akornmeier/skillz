@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Offline-only contracts and immutable source for file-pr review; live activation disabled.",
+  "description": "Offline-only bounded Pi SDK review runner; live activation disabled.",
   "engines": { "node": ">=22.19.0" },
   "packageManager": "pnpm@12.9.1",
   "scripts": {
