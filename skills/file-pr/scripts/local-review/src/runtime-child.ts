@@ -2,6 +2,10 @@
 import { createAgentSession, createExtensionRuntime, ModelRuntime, SessionManager, SettingsManager, type ResourceLoader, type ToolDefinition } from '@earendil-works/pi-coding-agent';
 import type { WorkerInput, WorkerReply, FixtureStep } from './runtime.js';
 
+// Parent owns reservations and lifetime. Never continue work after its IPC disappears.
+process.once('disconnect', () => process.exit(20));
+if (!process.connected) process.exit(20);
+
 // Resolve the SDK's exact pnpm sibling dependency, not a global installation.
 const ai = await import(new URL('../../pi-ai/dist/index.js', import.meta.resolve('@earendil-works/pi-coding-agent')).href) as {
   createAssistantMessageEventStream(): ReturnType<ModelRuntime['streamSimple']>;
@@ -9,6 +13,7 @@ const ai = await import(new URL('../../pi-ai/dist/index.js', import.meta.resolve
 let sequence = 0;
 const pending = new Map<number, (reply: WorkerReply) => void>();
 function rpc(kind: string, data: unknown): Promise<WorkerReply> {
+  if (!process.connected) process.exit(20);
   const id = ++sequence;
   return new Promise(resolve => { pending.set(id, resolve); process.send?.({ kind, id, data }); });
 }

@@ -105,7 +105,8 @@ export function deduplicate(lenses: Record<Lens, LensResult>) {
 }
 export async function review(input: unknown, root: string, fixtures?: Record<Lens, FixtureTransport>) {
   const request = validateRequest(input); const startedAt = Date.now();
-  const source = await captureSnapshot(request); const identity = await receiptIdentity(source, request);
+  const deadlineAt = startedAt + request.policy.roundDeadlineMs;
+  const source = await captureSnapshot(request, deadlineAt); const identity = await receiptIdentity(source, request);
   const attempt = await ownAttempt(root, request.attemptId, request.policy);
   try {
     const prior = attempt.state.rounds.find(round => round.identityDigest === hash(identity));
@@ -121,11 +122,16 @@ export async function review(input: unknown, root: string, fixtures?: Record<Len
     let correctness: LensResult; let risk: LensResult;
     try {
       const run = async (lens: Lens) => {
-        const result = lensResult(await runLens(source, lens, controller.signal, attempt.budget, fixtures?.[lens], request.policy), lens);
-        if (result.status !== 'complete') controller.abort(); return result;
+        try {
+          const result = lensResult(await runLens(source, lens, controller.signal, attempt.budget, fixtures?.[lens], request.policy), lens);
+          if (result.status !== 'complete') controller.abort(); return result;
+        } catch (error) { controller.abort(); throw error; }
       };
-      [correctness, risk] = await Promise.all([run('correctness'), run('contracts-risk')]);
-    } finally { clearTimeout(deadline); }
+      // Ownership outlives every worker, including failures while persisting uncertainty.
+      const [first, second] = await Promise.allSettled([run('correctness'), run('contracts-risk')]);
+      if (first.status === 'rejected' || second.status === 'rejected') throw new ReviewError(20, 'Worker or review persistence failed; inspect uncertain attempt before retry');
+      correctness = first.value; risk = second.value;
+    } finally { controller.abort(); clearTimeout(deadline); }
     const lenses = { correctness, 'contracts-risk': risk };
     // IDs from independent lenses may collide. Namespace them while retaining lens provenance.
     for (const [lens, result] of Object.entries(lenses)) for (const finding of result.findings) finding.id = `${lens === 'correctness' ? 'c' : 'r'}-${hash({ id: finding.id, finding }).slice(0, 24)}`;

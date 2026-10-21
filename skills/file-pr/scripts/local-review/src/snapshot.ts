@@ -46,10 +46,12 @@ function gitEnvironment(): NodeJS.ProcessEnv {
   };
 }
 const gitOptions = ['--no-pager', '--no-optional-locks', '--no-replace-objects', '-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false', '-c', 'protocol.allow=never'];
-function git(cwd: string, args: readonly string[], policy: Policy, extraEnv: NodeJS.ProcessEnv = {}): Promise<Buffer> {
+function git(cwd: string, args: readonly string[], policy: Policy, deadlineAt: number, extraEnv: NodeJS.ProcessEnv = {}): Promise<Buffer> {
   return new Promise((accept, reject) => {
-    execFile('/usr/bin/git', [...gitOptions, ...args], { cwd, env: { ...gitEnvironment(), ...extraEnv }, encoding: 'buffer', timeout: policy.gitTimeoutMs, maxBuffer: policy.gitOutputBytes, windowsHide: true, killSignal: 'SIGKILL' }, (error, stdout) => {
-      if (error) reject(new SnapshotError('Git object operation failed, timed out or exceeded output limit'));
+    const timeout = Math.min(policy.gitTimeoutMs, deadlineAt - Date.now());
+    if (timeout <= 0) { reject(new SnapshotError('Snapshot capture deadline exceeded')); return; }
+    execFile('/usr/bin/git', [...gitOptions, ...args], { cwd, env: { ...gitEnvironment(), ...extraEnv }, encoding: 'buffer', timeout, maxBuffer: policy.gitOutputBytes, windowsHide: true, killSignal: 'SIGKILL' }, (error, stdout) => {
+      if (error) reject(new SnapshotError('Git object operation failed, hit deadline or exceeded output limit'));
       else accept(stdout);
     });
   });
@@ -146,17 +148,17 @@ function deepFreeze<T>(value: T): T {
 }
 
 /** Captures only committed Git objects. No checkout, fetch, hooks, credentials, model or product execution. */
-export async function captureSnapshot(input: unknown) {
+export async function captureSnapshot(input: unknown, absoluteDeadline?: number) {
   const request: ReviewRequest = structuredClone(validateRequest(input));
   const policy = { ...request.policy };
   if (containsSecret(request.goal)) throw new SnapshotError('Suspected secret in user goal');
-  const started = Date.now();
-  const checkDeadline = () => { if (Date.now() - started > policy.roundDeadlineMs) throw new SnapshotError('Snapshot capture deadline exceeded'); };
+  const deadlineAt = Math.min(absoluteDeadline ?? Infinity, Date.now() + policy.roundDeadlineMs);
+  const checkDeadline = () => { if (Date.now() >= deadlineAt) throw new SnapshotError('Snapshot capture deadline exceeded'); };
   let repo: string;
   try { repo = await realpath(request.repo); } catch { throw new SnapshotError('Cannot locate requested checkout', [], 30); }
-  const original = async (args: readonly string[]) => utf8(await git(repo, args, policy)).trimEnd();
+  const original = async (args: readonly string[]) => utf8(await git(repo, args, policy, deadlineAt)).trimEnd();
   let toplevel: string;
-  try { toplevel = await realpath(await original(['rev-parse', '--show-toplevel'])); } catch { throw new SnapshotError('Not a Git checkout', [], 30); }
+  try { toplevel = await realpath(await original(['rev-parse', '--show-toplevel'])); } catch { checkDeadline(); throw new SnapshotError('Not a Git checkout', [], 30); }
   if (repo !== toplevel) throw new SnapshotError('Repo must be canonical checkout root', [], 30);
   const commonDir = await realpath(await original(['rev-parse', '--path-format=absolute', '--git-common-dir']));
   const objects = await realpath(await original(['rev-parse', '--path-format=absolute', '--git-path', 'objects']));
@@ -179,7 +181,7 @@ export async function captureSnapshot(input: unknown) {
     await mkdir(join(isolated, 'objects')); await mkdir(join(isolated, 'refs'));
     await copyFile(index, join(isolated, 'index'));
     const environment = { GIT_DIR: isolated, GIT_WORK_TREE: repo, GIT_OBJECT_DIRECTORY: objects };
-    const run = async (args: readonly string[]) => { checkDeadline(); return git(repo, args, policy, environment); };
+    const run = async (args: readonly string[]) => { checkDeadline(); return git(repo, args, policy, deadlineAt, environment); };
     const text = async (args: readonly string[]) => utf8(await run(args)).trimEnd();
     const flags = nul(utf8(await run(['ls-files', '-v', '-z'])));
     if (flags.some(entry => !entry.startsWith('H '))) throw new SnapshotError('Sparse, assume-unchanged or unsupported index flags', [], 21);
@@ -325,8 +327,8 @@ export async function captureSnapshot(input: unknown) {
       // status may refresh copied stat info; compare semantic stages instead of raw bytes.
       const refreshed = join(isolated, 'fresh-index'); await writeFile(refreshed, currentIndex, { mode: 0o600 });
       const before = await run(['ls-files', '--stage', '-z']);
-      const after = await git(repo, ['ls-files', '--stage', '-z'], policy, { ...environment, GIT_INDEX_FILE: refreshed });
-      const currentFlags = nul(utf8(await git(repo, ['ls-files', '-v', '-z'], policy, { ...environment, GIT_INDEX_FILE: refreshed })));
+      const after = await git(repo, ['ls-files', '--stage', '-z'], policy, deadlineAt, { ...environment, GIT_INDEX_FILE: refreshed });
+      const currentFlags = nul(utf8(await git(repo, ['ls-files', '-v', '-z'], policy, deadlineAt, { ...environment, GIT_INDEX_FILE: refreshed })));
       if (!before.equals(after) || currentFlags.some(entry => !entry.startsWith('H '))) throw new SnapshotError('Index changed during capture', [], 21);
     }
     if ((await run(['status', '--porcelain=v1', '-z', '--untracked-files=all', '--ignore-submodules=all'])).length) throw new SnapshotError('Source changed during capture', [], 21);
