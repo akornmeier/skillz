@@ -271,12 +271,64 @@ class RunnerTests(unittest.TestCase):
             Path(args[2]).write_text("\n".join(json.dumps(e) for e in events))
             return 0
         self.launch.side_effect = emit
-        with patch.object(r, "CLAUDE_PROJECTS", str(projects)):
-            code, s = self.run_capture("--harness", "claude", "--trace", str(self.target))
-        self.assertEqual(code, 0)
-        self.assertEqual((s["observedModel"], s["turns"], s["costUSD"]), ("exact-model", 3, 0.2))
-        self.assertTrue(Path(s["sessionLog"]).is_file())
-        self.assertIs(s["sessionTrace"]["fired"], True)
+        for mode in ("unknown", "automatic", "explicit"):
+            with self.subTest(mode=mode):
+                self.out = self.base / f"session-{mode}.jsonl"
+                with patch.object(r, "CLAUDE_PROJECTS", str(projects)):
+                    code, s = self.run_capture("--harness", "claude", "--trace", str(self.target), "--invocation-mode", mode)
+                self.assertEqual(code, 0)
+                self.assertEqual((s["observedModel"], s["turns"], s["costUSD"]), ("exact-model", 3, 0.2))
+                self.assertTrue(Path(s["sessionLog"]).is_file())
+                self.assertIs(s["sessionTrace"]["fired"], True)
+                self.assertIs(s["trace"]["fired"], True)
+                self.assertIs(s["streamTrace"]["fired"], False)
+                self.assertEqual(s["trace"]["evidenceSource"], "session")
+                self.assertEqual(s["trace"]["evidencePath"], s["sessionLog"])
+                self.assertEqual(json.loads(Path(str(self.out) + ".trace.json").read_text()), s["trace"])
+
+    def test_stream_delivery_and_explicit_fallback_preserve_raw_evidence(self):
+        for loaded in (False, True):
+            with self.subTest(loaded=loaded):
+                self.out = self.base / f"stream-{loaded}.jsonl"
+                events = [{"type": "session"}]
+                if loaded:
+                    events.extend([
+                        {"type": "tool_execution_start", "toolCallId": "a", "toolName": "read",
+                         "args": {"path": str(self.target / "SKILL.md")}},
+                        {"type": "tool_execution_end", "toolCallId": "a", "isError": False,
+                         "result": {"content": [{"type": "text", "text": "Body"}]}},
+                    ])
+                self.emit_events(events + [{"type": "agent_settled"}])
+                code, summary = self.run_capture("--trace", str(self.target), "--invocation-mode", "explicit")
+                self.assertEqual(code, 0)
+                self.assertIs(summary["streamTrace"]["fired"], loaded)
+                self.assertIs(summary["trace"]["fired"], True if loaded else None)
+                self.assertEqual(summary["trace"]["evidenceSource"], "stream")
+                self.assertEqual(summary["trace"]["evidencePath"], str(self.out.resolve()))
+                self.assertFalse(any("Explicit injection" in note for note in summary["streamTrace"]["limitations"]))
+                self.assertEqual(json.loads(Path(str(self.out) + ".trace.json").read_text()), summary["trace"])
+
+    def test_delivery_selection_cannot_mask_identity_mismatches(self):
+        saved = self.base / "fixture-session.jsonl"
+        saved.write_text("{}\n")
+        digest = r.manifest_digest(self.target)
+        def emit(*args):
+            Path(args[2]).write_text('{"type":"result","is_error":false,"subtype":"success"}\n')
+            return 0
+        self.launch.side_effect = emit
+        for index, (source, field, value) in enumerate((
+            ("stream", "targetMatch", False), ("session", "targetMatch", False),
+            ("stream", "targetDigest", "wrong"), ("session", "targetDigest", "wrong"),
+        )):
+            with self.subTest(source=source, field=field):
+                self.out = self.base / f"identity-{index}.jsonl"
+                reports = {"stream": {"fired": False, "targetMatch": None, "targetDigest": digest},
+                           "session": {"fired": True, "targetMatch": True, "targetDigest": digest}}
+                reports[source][field] = value
+                def traced(target, path):
+                    return reports["session" if str(path).endswith(".session.jsonl") else "stream"].copy()
+                with patch.object(r, "session_log", return_value=saved), patch.object(r, "trace_capture", side_effect=traced):
+                    self.assertEqual(self.run_capture("--harness", "claude", "--trace", str(self.target))[0], 1)
 
     def test_failed_tracer_is_failure(self):
         with patch.object(r, "trace_capture", side_effect=ValueError("trace failed")):
@@ -310,6 +362,18 @@ class RunnerTests(unittest.TestCase):
                 self.assertEqual((code, s["outcome"]), (2, "blocked"))
                 self.launch.assert_not_called()
                 link.unlink()
+
+    def test_fixture_scan_errors_are_not_silently_skipped(self):
+        protected = self.source / "protected"
+        protected.mkdir()
+        native_scan = r.os.scandir
+        def scan(path):
+            if Path(path) == protected:
+                raise PermissionError("fixture scan denied")
+            return native_scan(path)
+        with patch.object(r.os, "scandir", side_effect=scan):
+            with self.assertRaises(PermissionError):
+                r.check_fixture(self.source)
 
     def test_symlink_root_rejected(self):
         alias = self.base / "alias"
@@ -506,7 +570,8 @@ class ProcessTests(unittest.TestCase):
                          patch.object(r.os, "killpg") as kill:
                         self.assertEqual(r.run_child(["fixture-only"], tmp, str(Path(tmp) / "out"),
                                                      str(Path(tmp) / "err"), 1, {}), 0)
-                    kill.assert_not_called()
+                    kill.assert_called_once_with(12345, r.signal.SIGKILL)
+                    self.assertEqual(child.wait.call_args_list, [call(timeout=1), call()])
                     self.assertIs(r.signal.getsignal(r.signal.SIGINT), previous)
                 finally:
                     r.signal.signal(r.signal.SIGINT, original)
@@ -524,6 +589,44 @@ class ProcessTests(unittest.TestCase):
                 r.run_child(["fixture-only"], tmp, str(Path(tmp) / "out"), str(Path(tmp) / "err"), 1, {})
         kill.assert_called_once_with(12345, r.signal.SIGKILL)
         self.assertEqual(child.wait.call_args_list, [call(timeout=1), call()])
+
+    def test_parent_exit_stops_owned_worker_group(self):
+        # Ready/release proves descendants cannot keep doing work after their
+        # harness exits, without relying on orphan PID reaping timing.
+        for ending, expected in (("raise SystemExit(7)", 7),
+                                 ("os.kill(os.getpid(), signal.SIGTERM)", -r.signal.SIGTERM),
+                                 ("raise SystemExit(0)", 0)):
+            with self.subTest(ending=ending), tempfile.TemporaryDirectory() as tmp:
+                base = Path(tmp)
+                ready, release, escaped = base / "ready", base / "release", base / "escaped"
+                record, script = base / "owner.json", base / "parent.py"
+                worker_code = ("import time;from pathlib import Path\n"
+                    + f"Path({str(ready)!r}).write_text('ready')\n"
+                    + f"while not Path({str(release)!r}).exists(): time.sleep(0.01)\n"
+                    + f"Path({str(escaped)!r}).write_text('work escaped supervisor')\n")
+                script.write_text("import os,sys,signal,subprocess,time,json\nfrom pathlib import Path\n"
+                    + f"worker=subprocess.Popen([sys.executable,'-c',{worker_code!r}])\n"
+                    + f"Path({str(record)!r}).write_text(json.dumps({{'parent':os.getpid(),'worker':worker.pid}}))\n"
+                    + "deadline=time.monotonic()+3\n"
+                    + f"while not Path({str(ready)!r}).exists() and time.monotonic()<deadline: time.sleep(0.01)\n"
+                    + f"assert Path({str(ready)!r}).exists(), 'fixture worker did not start'\n"
+                    + ending + "\n")
+                try:
+                    status = r.run_child([sys.executable, str(script)], tmp, str(base / "out"), str(base / "err"),
+                                         5, dict(os.environ))
+                    self.assertEqual(status, expected)
+                    release.write_text("continue")
+                    deadline = time.monotonic() + 0.5
+                    while not escaped.exists() and time.monotonic() < deadline:
+                        time.sleep(0.01)
+                    self.assertFalse(escaped.exists(), "worker continued after harness exit")
+                finally:
+                    if record.exists():
+                        owner = json.loads(record.read_text())
+                        try:
+                            os.killpg(owner["parent"], r.signal.SIGKILL)
+                        except ProcessLookupError:
+                            pass
 
     def test_real_fake_executable_exit_and_timeout(self):
         # Only Python fixture code executes, never an authenticated agent CLI.

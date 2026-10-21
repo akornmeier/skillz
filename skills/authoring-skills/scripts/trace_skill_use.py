@@ -4,8 +4,8 @@
 usage: trace_skill_use.py <skill-dir> <transcript> [--format stream-json|pi-json|text] [--json]
 
 Correlate requests with results. Writes, edits, and failed reads do not prove
-loading. Shell execution and content searches remain unknown unless supported
-non-loading semantics apply. Malformed results and opaque calls stay unknown. A
+loading. Shell execution stays unknown; content searches require verified
+attribution. Malformed results and opaque calls stay unknown. A
 successful read proves delivery, not automatic discovery or task success. Read
 windows record navigation, not whether the needed information was sufficient.
 Copies match only when their complete file manifests match the explicit target.
@@ -26,15 +26,18 @@ SKILL_LOAD_RE = re.compile(r"Base directory for this skill:[ \t]*([^\r\n]+)")
 FILE_TOOLS = {"Read": "read", "read": "read", "Write": "write", "write": "write",
               "Edit": "edit", "edit": "edit", "Grep": "search", "Glob": "search"}
 SHELL_TOOLS = {"Bash", "bash", "shell"}
-# These commands report names/metadata, not file instruction content.
-METADATA_COMMANDS = {"stat", "wc", "ls", "test", "du", "file", "echo", "printf"}
+
+
+def raise_walk_error(error):
+    """Never certify a partial manifest or fixture scan."""
+    raise error
 
 
 def manifest_digest(root):
     """Hash relative names and bytes, including eval definitions; reject unsafe links."""
     root = Path(root).resolve(strict=True)
     entries = []
-    for base, dirs, files in os.walk(root):
+    for base, dirs, files in os.walk(root, onerror=raise_walk_error):
         dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
         for name in dirs + sorted(files):
             path = Path(base) / name
@@ -219,7 +222,8 @@ class Trace:
         self.unknown("Unverified skill markup is not confirmed client injection or target delivery.")
 
     def shell(self, command, step, tool, outcome):
-        """Only simple metadata commands prove non-loading; never interpret shell code."""
+        """Shell output cannot prove non-loading, including metadata command options."""
+        self.unknown("Shell content/execution lacks verified delivery attribution; non-activation is unknown.")
         if not isinstance(command, str):
             self.unknown("Shell command is not a string.")
             return
@@ -233,9 +237,6 @@ class Trace:
         cmd = Path(parts[0]).name
         # Deliberately conservative even inside quotes: no expansion/compound parser.
         expanded = any(c in command for c in ";|&$><\x60\n\r*?[]{}()\\!~")
-        if cmd in METADATA_COMMANDS and not expanded:
-            return
-        self.unknown("Shell content/execution lacks verified delivery attribution; non-activation is unknown.")
         if expanded:
             self.unknown("Compound/expanded shell commands cannot prove absence of skill delivery.")
         # Only a literal first operand of these basic forms names the program.

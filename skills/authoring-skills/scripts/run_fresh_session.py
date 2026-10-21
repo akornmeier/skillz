@@ -26,6 +26,7 @@ process-group timeout and locked budgets require POSIX. No paid calls in tests.
 """
 import argparse
 from contextlib import ExitStack
+from copy import deepcopy
 import fcntl
 import json
 import os
@@ -37,7 +38,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from trace_skill_use import manifest_digest
+from trace_skill_use import manifest_digest, raise_walk_error
 
 # Per-child ceiling; operator must approve the actual time/spend limit before launch.
 DEFAULT_TIMEOUT = 1800
@@ -116,7 +117,7 @@ def check_fixture(root):
         raise Blocked("symlinked workspace roots are unsupported")
     if not root.is_dir():
         raise Blocked("workdir is not a directory")
-    for base, dirs, files in os.walk(root):
+    for base, dirs, files in os.walk(root, onerror=raise_walk_error):
         for name in dirs + files:
             path = Path(base) / name
             if path.is_symlink():
@@ -164,7 +165,7 @@ def consume_budget(path):
 
 
 def run_child(cmd, cwd, out, err, timeout, env):
-    """Kill and reap on timeout/interruption; keep stdout/stderr already delivered."""
+    """Stop the owned group when its harness ends; preserve parent status and output."""
     with open(out, "x", encoding="utf-8") as fo, open(err, "x", encoding="utf-8") as fe:
         child = None
         pending = {}
@@ -193,15 +194,14 @@ def run_child(cmd, cwd, out, err, timeout, env):
                     else:
                         raise KeyboardInterrupt
             return child.wait(timeout=timeout)
-        except BaseException:
-            # The child has its own session, so Ctrl-C does not stop it for us.
+        finally:
+            # Parent exit, success or failure, does not imply its workers exited.
             if child is not None:
                 try:
                     os.killpg(child.pid, signal.SIGKILL)
                 except ProcessLookupError:
                     pass
                 child.wait()
-            raise
 
 
 def session_log(transcript):
@@ -455,16 +455,28 @@ def capture(argv):
             summary["limitations"].append("Supplemental session log unavailable; stream may omit explicit skill injection.")
         if target:
             try:
-                report = trace_capture(target, out)
+                summary["streamTrace"] = trace_capture(target, out)
+                reports = {"stream": summary["streamTrace"]}
                 if log:
                     summary["sessionTrace"] = trace_capture(target, saved_log)
-                    if summary["sessionTrace"].get("targetMatch") is False or summary["sessionTrace"].get("other_copy_loaded"):
-                        raise ValueError("session log identifies a mismatched target copy")
+                    reports["session"] = summary["sessionTrace"]
+                # Validate every source before selecting positive confirmation.
+                # A matching supplemental source must never hide a conflicting stream.
+                for source, item in reports.items():
+                    if item.get("targetDigest") != summary["targetDigest"]:
+                        raise ValueError(f"{source} trace target revision differs from capture identity")
+                    if item.get("targetMatch") is False or item.get("other_copy_loaded"):
+                        raise ValueError(f"{source} trace identifies a mismatched target copy")
+                    if item.get("fired") is True and item.get("targetMatch") is not True:
+                        raise ValueError(f"{source} trace has unverified positive delivery")
+                source = "stream"
+                if log and reports["session"].get("fired") is True and reports["stream"].get("fired") is not True:
+                    source = "session"
+                report = deepcopy(reports[source])
+                report.update(evidenceSource=source, evidencePath=str(saved_log if source == "session" else out))
             except OSError as exc:
                 raise ValueError("tracer could not complete; capture is not qualified") from exc
             summary["trace"] = report
-            if report.get("targetMatch") is False or report.get("other_copy_loaded"):
-                raise ValueError("transcript identifies a mismatched target copy")
             if o.invocation_mode == "explicit" and report.get("fired") is False:
                 report["fired"] = None
                 report["loadMechanism"] = "unknown"

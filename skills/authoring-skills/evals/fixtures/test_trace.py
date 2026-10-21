@@ -8,6 +8,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
+from unittest.mock import patch
 
 SKILL = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(SKILL / "scripts"))
@@ -176,7 +177,7 @@ class TraceTests(unittest.TestCase):
         for command in ("wc -c {D}/SKILL.md", "ls {D}/SKILL.md"):
             event = self.start("bash", command=command.format(D=self.root))
             r = self.report(self.complete(event, self.end()))
-            self.assertIs(r["fired"], False)
+            self.assertIsNone(r["fired"])
             self.assertEqual(r["reads"], [])
 
     def test_shell_expansions_are_unknown(self):
@@ -203,7 +204,7 @@ class TraceTests(unittest.TestCase):
         self.assertIsNone(r["fired"])
         self.assertEqual([event["path"] for event in r["runs"]], ["ref.md"])
 
-    def test_shell_non_loading_requires_supported_metadata_semantics(self):
+    def test_shell_commands_do_not_prove_non_loading(self):
         for command in ("custom-loader", "env custom-loader", "python3 -m package", "node --eval code"):
             with self.subTest(command=command):
                 r = self.report(self.complete(self.start("bash", command=command), self.end()))
@@ -252,7 +253,42 @@ class TraceTests(unittest.TestCase):
         for command in ("stat", "wc -c", "ls", "test -f", "du", "file", "echo", "printf %s"):
             with self.subTest(command=command):
                 start = self.start("bash", command=f"{command} {self.root}/SKILL.md")
-                self.assertIs(self.report(self.complete(start, self.end()))["fired"], False)
+                self.assertIsNone(self.report(self.complete(start, self.end()))["fired"])
+
+    def test_file_list_options_remain_unknown(self):
+        for flag in ("-f", "--files-from"):
+            command = f"file {flag} {self.root}/SKILL.md"
+            self.assertIsNone(self.report(self.complete(self.start("bash", command=command), self.end()))["fired"])
+
+    def test_manifest_scan_errors_cannot_produce_partial_identity(self):
+        protected = self.root / "protected"
+        protected.mkdir()
+        (protected / "ref.md").write_text("must be included")
+        native_scan = t.os.scandir
+        def scan(path):
+            if Path(path).resolve() == protected.resolve():
+                raise PermissionError("fixture scan denied")
+            return native_scan(path)
+        with patch.object(t.os, "scandir", side_effect=scan):
+            with self.assertRaises(PermissionError):
+                t.manifest_digest(self.root)
+
+    def test_unreadable_candidate_manifest_is_unknown_not_conflicting(self):
+        (self.root / "protected").mkdir()
+        (self.root / "protected" / "ref.md").write_text("expected")
+        other = Path(self.tmp.name) / "other" / "target"
+        shutil.copytree(self.root, other)
+        (other / "protected" / "ref.md").write_text("different")
+        native_scan = t.os.scandir
+        def scan(path):
+            if Path(path).resolve() == (other / "protected").resolve():
+                raise PermissionError("fixture candidate scan denied")
+            return native_scan(path)
+        with patch.object(t.os, "scandir", side_effect=scan):
+            report = self.report(self.complete(self.start(path=other / "SKILL.md"), self.end()))
+        self.assertIsNone(report["fired"])
+        self.assertIsNone(report["targetMatch"])
+        self.assertIsNone(report["other_copy_loaded"])
 
     def test_unsupported_tools_cannot_prove_non_activation(self):
         for name in ("read_file", "mcp__filesystem__read_file", "future_tool"):
