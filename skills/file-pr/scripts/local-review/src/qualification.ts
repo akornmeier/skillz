@@ -12,7 +12,7 @@ const harnesses = ['pi', 'claude-code'] as const;
 const DefinitionsSchema = Type.Object({ schema: Type.Literal(1), skill: Type.Literal('file-pr'), requiredProfiles: Type.Array(text), cases: Type.Array(Type.Object({ id: text, expectedBehavior: Type.Array(text), forbiddenBehavior: Type.Array(text) }, { additionalProperties: true })) }, { additionalProperties: false });
 // Critical qualification fields from the repository's schema-1 run record, not a replacement schema.
 const RecordSchema = Type.Object({ schema: Type.Literal(1), skill: Type.Literal('file-pr'), skillRevision: text, caseId: text, profile: Type.Union(profiles.map(value => Type.Literal(value))), provider: text, model: text, thinking: text, piVersion: text, fixtureRevision: text,
-  outcome: Type.Literal('pass'), toolConfiguration: Type.Object({ harness: Type.Union(harnesses.map(value => Type.Literal(value))), skillBundleHash: text }, { additionalProperties: true }), loadedFiles: Type.Array(text, { minItems: 1 }),
+  outcome: Type.Literal('pass'), toolConfiguration: Type.Object({ harness: Type.Union(harnesses.map(value => Type.Literal(value))), skillBundleHash: text, runtimeHash: text }, { additionalProperties: true }), loadedFiles: Type.Array(text, { minItems: 1 }),
   assertions: Type.Array(Type.Object({ kind: Type.Union([Type.Literal('expected'), Type.Literal('forbidden')]), text, outcome: Type.Literal('pass'), evidence: Type.Array(text, { minItems: 1 }) }, { additionalProperties: true }), { minItems: 1 }), evidence: Type.Array(text, { minItems: 1 }) }, { additionalProperties: true });
 
 export async function skillBundleHash() {
@@ -33,7 +33,7 @@ async function evidenceHash(path: string, root: string) {
 }
 
 /** Mechanical coverage/identity checks only, not independent grading of assertion truth. */
-export async function checkQualificationRecords(recordsManifest: string, currentSkillHash: string) {
+export async function checkQualificationRecords(recordsManifest: string, currentSkillHash: string, currentRuntimeHash: string) {
   const definitions = validate(DefinitionsSchema, JSON.parse(await readFile(new URL('../../../evals/evals.json', import.meta.url), 'utf8')));
   if (hash(definitions.requiredProfiles) !== hash(profiles)) throw new ReviewError(30, 'Qualification profile contract changed');
   const manifest = validate(Type.Object({ files: Type.Array(text, { minItems: 1, maxItems: 512 }) }, { additionalProperties: false }), await readCalibrationJson(recordsManifest));
@@ -46,7 +46,7 @@ export async function checkQualificationRecords(recordsManifest: string, current
     const record = validate(RecordSchema, await readCalibrationJson(path));
     const definition = definitions.cases.find(item => item.id === record.caseId);
     const key = `${record.toolConfiguration.harness}:${record.caseId}:${record.profile}`;
-    if (!definition || seen.has(key) || record.toolConfiguration.skillBundleHash !== currentSkillHash || !record.loadedFiles.some(file => file.endsWith('/SKILL.md') || file === 'SKILL.md')) throw new ReviewError(21, 'Duplicate, stale or unrelated qualification record');
+    if (!definition || seen.has(key) || record.toolConfiguration.skillBundleHash !== currentSkillHash || record.toolConfiguration.runtimeHash !== currentRuntimeHash || !record.loadedFiles.some(file => file.endsWith('/SKILL.md') || file === 'SKILL.md')) throw new ReviewError(21, 'Duplicate, stale or unrelated qualification record');
     for (const [kind, required] of [['expected', definition.expectedBehavior], ['forbidden', definition.forbiddenBehavior]] as const) {
       for (const assertion of required) if (!record.assertions.some(item => item.kind === kind && item.text === assertion)) throw new ReviewError(20, 'Qualification omits required behavioral assertion');
     }
@@ -69,7 +69,7 @@ export async function qualifyCalibration(root: string, judgmentsPath: string, re
   const directory = await privateRoot(root); const grade = await gradeCalibration(directory, judgmentsPath);
   const currentSkillHash = await skillBundleHash();
   if (!grade.eligible || grade.runtimeHash !== currentRuntimeHash || grade.skillHash !== currentSkillHash) throw new ReviewError(21, 'Calibration failed or belongs to another implementation');
-  const evidence = await checkQualificationRecords(recordsManifest, currentSkillHash);
+  const evidence = await checkQualificationRecords(recordsManifest, currentSkillHash, currentRuntimeHash);
   const draft = { schema: 1, approved: false, by: null, status: 'awaiting-user-signoff', runtimeHash: currentRuntimeHash, skillHash: currentSkillHash, calibrationHash: hash(grade), ...evidence, qualificationHash: hash({ grade, artifacts: evidence.artifacts }), disclaimer: 'Artifact/coverage validation is not independent human verification of assertion truth. Explicit user rollout acceptance still required.' };
   await atomicPrivateWrite(directory, 'qualification.json', JSON.stringify(draft)); return draft;
 }

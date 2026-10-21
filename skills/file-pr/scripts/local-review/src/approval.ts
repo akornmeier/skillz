@@ -4,6 +4,8 @@ import { isAbsolute, join, parse } from 'node:path';
 import { Type, type Static } from 'typebox';
 import { DEFAULT_POLICY, PolicySchema, ReviewError, hash, validate, type ReviewRequest, type SnapshotIdentity } from './contracts.js';
 
+import { CalibrationBudgetSchema } from './calibration.js';
+
 const text = Type.String({ minLength: 1, maxLength: 4096, pattern: '\\S' });
 const digest = Type.String({ pattern: '^[a-f0-9]{64}$' });
 const sha = Type.String({ pattern: '^(?:[a-f0-9]{40}|[a-f0-9]{64})$' });
@@ -16,6 +18,7 @@ export const ApprovalSchema = Type.Object({
   sourceExport: Type.Boolean(), keyFileRead: Type.Boolean(), keyPath: text,
   privacy: Type.Object({ zdr: Type.Boolean(), dataCollection: Type.Literal('deny'), consent: Type.Boolean(), accountLoggingDisabled: Type.Boolean() }, { additionalProperties: false }),
   limits: PolicySchema,
+  calibrationBudget: Type.Optional(CalibrationBudgetSchema),
   maxInputUsdPerToken: Type.Number({ exclusiveMinimum: 0, maximum: 0.0000005 }),
   maxOutputUsdPerToken: Type.Number({ exclusiveMinimum: 0, maximum: 0.0000025 }),
   scopes: Type.Array(Type.Object({ repo: text, baseRef: text, attemptId: text, heads: Type.Array(sha, { minItems: 1, maxItems: 2, uniqueItems: true }) }, { additionalProperties: false }), { minItems: 1, maxItems: 12 }),

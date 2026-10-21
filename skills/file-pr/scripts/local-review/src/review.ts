@@ -19,7 +19,7 @@ const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 export async function implementationIdentity() {
   const extension = import.meta.url.endsWith('.ts') ? 'ts' : 'js';
   const directory = dirname(fileURLToPath(import.meta.url));
-  const names = ['contracts', 'snapshot', 'runtime', 'runtime-child', 'review', 'cli', 'approval', 'openrouter'];
+  const names = ['contracts', 'snapshot', 'runtime', 'runtime-child', 'review', 'cli', 'approval', 'openrouter', 'calibration', 'calibration-cli', 'qualification'];
   const sources = await Promise.all(names.map(async name => [name, hashBytes(await readFile(join(directory, `${name}.${extension}`)))]));
   const sdkManifestBytes = await readFile(new URL('../package.json', import.meta.resolve('@earendil-works/pi-coding-agent')));
   const sdkManifest = JSON.parse(sdkManifestBytes.toString('utf8')) as { version?: unknown };
@@ -150,8 +150,12 @@ async function reviewInternal(input: unknown, root: string, fixtures?: Record<Le
     }
     const round = await attempt.begin(hash(identity));
     if (approval && admission) {
-      validateAuthority(approval, request, source.snapshot.identity, identity.runtimeHash);
-      live = createLiveTransport(approval, request.policy, admission, await readApprovedKey(approval, request, source.snapshot.identity, identity.runtimeHash));
+      const confirmAuthority = async () => {
+        if (!approvalPath || hash(await loadApproval(approvalPath)) !== hash(approval)) throw new ReviewError(30, 'Approval changed or revoked before dispatch');
+        validateAuthority(approval, request, source.snapshot.identity, identity.runtimeHash);
+      };
+      await confirmAuthority();
+      live = createLiveTransport(approval, request.policy, admission, await readApprovedKey(approval, request, source.snapshot.identity, identity.runtimeHash), fetch, confirmAuthority);
     }
     const remainingMs = request.policy.roundDeadlineMs - (Date.now() - startedAt);
     if (remainingMs <= 0) throw new ReviewError(20, 'Round deadline exhausted before dispatch');

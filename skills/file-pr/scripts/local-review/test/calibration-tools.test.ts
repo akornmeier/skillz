@@ -1,30 +1,33 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { Type } from 'typebox';
 import { mkdtemp, readFile, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DEFAULT_POLICY, atomicPrivateWrite, hash, sealReport, validate, type Finding } from '../src/contracts.js';
+import { DEFAULT_POLICY, atomicPrivateWrite, hash, sealReport, validate, validateReport, type Finding } from '../src/contracts.js';
 import { collectCalibration, gradeCalibration, loadCorpus, loadPrepared, prepareCalibration, readCalibrationJson, type PreparedCalibration } from '../src/calibration.js';
-import { checkQualificationRecords, qualifyCalibration } from '../src/qualification.js';
+import { checkQualificationRecords, qualifyCalibration, skillBundleHash } from '../src/qualification.js';
 import { calibrationCli, type CalibrationHost } from '../src/calibration-cli.js';
 import { body } from './fixtures.js';
 
 let root: string; let prepared: PreparedCalibration;
 const runtimeHash = hash('synthetic-runtime'); const skillHash = hash('synthetic-skill');
-const limits = () => ({ maxCostUsd: 12 * DEFAULT_POLICY.schedulingCapUsd, maxRequests: 72, maxDurationMs: 12 * DEFAULT_POLICY.roundDeadlineMs, builderModel: 'openai/fixture-builder', runtimeHash, skillHash });
+const limits = () => ({ maxCostUsd: 12 * DEFAULT_POLICY.schedulingCapUsd, maxRequests: 72, maxDurationMs: 12 * DEFAULT_POLICY.roundDeadlineMs, deadlineAt: Date.now() + 12 * DEFAULT_POLICY.roundDeadlineMs, builderModel: 'openai/fixture-builder', runtimeHash, skillHash });
 beforeAll(async () => { root = await mkdtemp(join(await realpath(tmpdir()), 'file-pr-calibration-')); prepared = await prepareCalibration(root, 'unit-cohort', runtimeHash, skillHash); });
 afterAll(async () => { if (root) await rm(root, { recursive: true, force: true }); });
 afterEach(async () => {
   for (const name of ['collection.json', 'collection.lock', 'grade.json', 'judgments.json', 'records.json', 'qualification.json', ...Array.from({ length: 12 }, (_, index) => `sample-${index}.json`)]) await rm(join(root, name), { force: true });
   await rm(join(root, 'evidence'), { recursive: true, force: true });
+  vi.restoreAllMocks();
 });
 
-async function artifacts(options: { omitRequired?: boolean; falsePositives?: number } = {}) {
+async function artifacts(options: { omitRequired?: boolean; falsePositives?: number; mode?: 'live' | 'simulated' } = {}) {
   const corpus = await loadCorpus(); const results = []; const judgments = [];
   for (const [index, item] of prepared.cases.entries()) {
     const source = corpus.cases.find(entry => entry.id === item.id)!; const label = corpus.gold.find(entry => entry.id === item.id)!;
     const draft = body();
     draft.identity.runtimeHash = runtimeHash;
+    draft.identity.policy.live = options.mode === 'live';
+    if (options.mode === 'live') draft.identity.authority = { approvalDigest: hash('synthetic-approval'), admissionDigest: hash('synthetic-admission'), purpose: 'calibration' };
     Object.assign(draft.identity.snapshot, { repo: item.repo, gitCommonDir: join(item.repo, '.git'), base: item.base, mergeBase: item.base, head: item.head });
     Object.assign(draft, { reportId: `sample-${index}`, attemptId: item.attemptId });
     const findings: Finding[] = [];
@@ -34,8 +37,14 @@ async function artifacts(options: { omitRequired?: boolean; falsePositives?: num
       findings.push({ id: `finding-${index}`, lens: 'correctness', severity: 'P2', path, revision: 'head', start: line, end: line, quote: lines[line - 1]!, cause: label.impact, trigger: label.trigger, impact: label.impact, classification: 'introduced', uncertainty: null });
     }
     draft.lenses.correctness.findings = findings;
-    for (const lens of Object.values(draft.lenses)) { lens.identities = [draft.identity.model]; lens.checkedPaths = Object.keys(source.after); if (lens.usage.state === 'known') lens.usage.costUsd = 0.001; }
-    draft.execution = { mode: 'simulated', goal: 'Structural fixture, not real model evidence', builderModel: 'openai/fixture-builder', provenance: findings.map(finding => ({ canonicalId: finding.id, findingIds: [finding.id] })) };
+    for (const lens of Object.values(draft.lenses)) {
+      lens.identities = [draft.identity.model]; lens.checkedPaths = Object.keys(source.after);
+      if (lens.usage.state === 'known') {
+        lens.usage.costUsd = 0.001;
+        if (options.mode === 'live') lens.calls = [{ generationId: `synthetic-${index}-${lens.lens}`, requestedUpstream: 'google-vertex/global', reportedProvider: 'Google', reportedModel: draft.identity.model.returned, inputTokens: lens.usage.inputTokens, outputTokens: lens.usage.outputTokens, cacheTokens: lens.usage.cacheTokens, costUsd: lens.usage.costUsd, routeDigest: hash('synthetic-route') }];
+      }
+    }
+    draft.execution = { mode: options.mode ?? 'simulated', goal: 'Structural fixture, not real model evidence', builderModel: 'openai/fixture-builder', provenance: findings.map(finding => ({ canonicalId: finding.id, findingIds: [finding.id] })) };
     const report = sealReport(draft); await atomicPrivateWrite(root, `sample-${index}.json`, JSON.stringify(report));
     results.push({ id: item.id, reportFile: `sample-${index}.json`, reportDigest: report.receipt.reportDigest, wallMs: 1, costUsd: 0.002, requests: 2 });
     judgments.push({ id: item.id, triageMs: null, findings: findings.map(finding => ({ id: finding.id, disposition: 'supported', matchesSeed: label.actionable, evidence: `Synthetic grading fixture: ${finding.path}:${finding.start}; ${label.trigger}` })) });
@@ -85,18 +94,33 @@ describe('calibration preparation and bounded execution, no provider calls', () 
 });
 
 describe('evidence-backed grading, never simulated release approval', () => {
-  it('grades both-lens versus correctness catches but refuses simulated promotion', async () => {
-    await artifacts(); const grade = await gradeCalibration(root, join(root, 'judgments.json'));
-    expect(grade).toMatchObject({ detected: 8, correctnessDetected: 8, seeded: 8, falsePositives: 0, cleanControls: 4, requiredDetected: true, qualityMet: true, eligible: false, rolloutApproved: false, coldStartupMs: null, modelOnlyMs: null });
+  it('computes both-lens versus correctness metrics on native-evidence-shaped unit fixtures', async () => {
+    await artifacts({ mode: 'live' }); const grade = await gradeCalibration(root, join(root, 'judgments.json'));
+    expect(grade).toMatchObject({ detected: 8, correctnessDetected: 8, seeded: 8, falsePositives: 0, cleanControls: 4, requiredDetected: true, qualityMet: true, eligible: true, rolloutApproved: false, coldStartupMs: null, modelOnlyMs: null });
     expect(grade.rows.reduce((sum, row) => sum + row.rawCandidates, 0)).toBe(8);
   });
   it('mandatory cross-file/error-path misses fail despite six remaining seeded catches', async () => {
-    await artifacts({ omitRequired: true }); const grade = await gradeCalibration(root, join(root, 'judgments.json'));
+    await artifacts({ mode: 'live', omitRequired: true }); const grade = await gradeCalibration(root, join(root, 'judgments.json'));
     expect(grade.detected).toBe(6); expect(grade.requiredDetected).toBe(false); expect(grade.qualityMet).toBe(false);
   });
   it('two actionable clean-control false positives fail quality floor', async () => {
-    await artifacts({ falsePositives: 2 }); const grade = await gradeCalibration(root, join(root, 'judgments.json'));
+    await artifacts({ mode: 'live', falsePositives: 2 }); const grade = await gradeCalibration(root, join(root, 'judgments.json'));
     expect(grade.falsePositives).toBe(2); expect(grade.qualityMet).toBe(false);
+  });
+  it('keeps simulated candidates out of real detection numerators and promotion', async () => {
+    await artifacts(); const grade = await gradeCalibration(root, join(root, 'judgments.json'));
+    expect(grade.detected).toBe(0); expect(grade.eligible).toBe(false); expect(grade.rows.reduce((sum, row) => sum + row.rawCandidates, 0)).toBe(8);
+  });
+  it('rejects a live label without native billing/authority evidence', async () => {
+    const { results } = await artifacts();
+    for (const result of results) {
+      const input = validate(Type.Object({ body: Type.Object({}, { additionalProperties: true }) }, { additionalProperties: true }), await readCalibrationJson(join(root, result.reportFile)));
+      const report = sealReport({ ...input.body, execution: { mode: 'live', goal: 'Structural unit fixture', builderModel: 'openai/fixture', provenance: [] } });
+      await atomicPrivateWrite(root, result.reportFile, JSON.stringify(report)); result.reportDigest = report.receipt.reportDigest;
+    }
+    const state = await readCalibrationJson(join(root, 'collection.json')); if (!state || typeof state !== 'object') throw new Error('Invalid fixture state');
+    await atomicPrivateWrite(root, 'collection.json', JSON.stringify({ ...state, results }));
+    expect((await gradeCalibration(root, join(root, 'judgments.json'))).eligible).toBe(false);
   });
   it('requires explicit judgment for every raw allegation', async () => {
     const { judgments } = await artifacts(); judgments[0]!.findings = [];
@@ -123,13 +147,13 @@ describe('evidence-backed grading, never simulated release approval', () => {
   });
 });
 
-async function recordArtifacts() {
+async function recordArtifacts(bundleHash = skillHash) {
   const definitions = validate(Type.Object({ cases: Type.Array(Type.Object({ id: Type.String(), expectedBehavior: Type.Array(Type.String()), forbiddenBehavior: Type.Array(Type.String()) }, { additionalProperties: true })) }, { additionalProperties: true }), JSON.parse(await readFile(new URL('../../../evals/evals.json', import.meta.url), 'utf8')));
   const files: string[] = [];
   await atomicPrivateWrite(join(root, 'evidence'), 'transcript.txt.md', 'Synthetic coverage fixture only. No real harness execution.');
   for (const harness of ['pi', 'claude-code']) for (const profile of ['fast/economical', 'balanced/default', 'highest-reasoning']) for (const item of definitions.cases) {
     const name = `record-${files.length}.json`;
-    await atomicPrivateWrite(join(root, 'evidence'), name, JSON.stringify({ schema: 1, skill: 'file-pr', skillRevision: 'synthetic', caseId: item.id, profile, provider: 'fixture', model: 'fixture', thinking: 'off', piVersion: '1.3.0', fixtureRevision: 'synthetic', outcome: 'pass', toolConfiguration: { harness, skillBundleHash: skillHash }, loadedFiles: ['SKILL.md'],
+    await atomicPrivateWrite(join(root, 'evidence'), name, JSON.stringify({ schema: 1, skill: 'file-pr', skillRevision: 'synthetic', caseId: item.id, profile, provider: 'fixture', model: 'fixture', thinking: 'off', piVersion: '1.3.0', fixtureRevision: 'synthetic', outcome: 'pass', toolConfiguration: { harness, skillBundleHash: bundleHash, runtimeHash }, loadedFiles: ['SKILL.md'],
       assertions: [...item.expectedBehavior.map(text => ({ kind: 'expected', text, outcome: 'pass', evidence: ['transcript.txt.md'] })), ...item.forbiddenBehavior.map(text => ({ kind: 'forbidden', text, outcome: 'pass', evidence: ['transcript.txt.md'] }))], evidence: ['transcript.txt.md'] }));
     files.push(`evidence/${name}`);
   }
@@ -138,25 +162,42 @@ async function recordArtifacts() {
 
 describe('both-harness qualification artifact contract, not actual harness quality', () => {
   it('requires complete case/profile coverage for both Pi and Claude Code with present evidence', async () => {
-    const files = await recordArtifacts(); const coverage = await checkQualificationRecords(join(root, 'records.json'), skillHash);
+    const files = await recordArtifacts(); const coverage = await checkQualificationRecords(join(root, 'records.json'), skillHash, runtimeHash);
     expect(coverage.records).toBe(files.length); expect(coverage.harnesses).toEqual(['pi', 'claude-code']); expect(coverage.profiles).toHaveLength(3);
+  });
+  it('successful synthetic grade and complete matrix still emit an unapproved signoff draft', async () => {
+    const original = prepared; prepared = { ...prepared, skillHash: await skillBundleHash() };
+    await atomicPrivateWrite(root, 'prepared.json', JSON.stringify(prepared));
+    try {
+      await artifacts({ mode: 'live' }); const files = await recordArtifacts(prepared.skillHash);
+      const draft = await qualifyCalibration(root, join(root, 'judgments.json'), join(root, 'records.json'), runtimeHash);
+      expect(draft).toMatchObject({ approved: false, by: null, status: 'awaiting-user-signoff', records: files.length, runtimeHash });
+    } finally { prepared = original; await atomicPrivateWrite(root, 'prepared.json', JSON.stringify(prepared)); }
   });
   it('rejects an omitted profile/harness record', async () => {
     const files = await recordArtifacts(); await atomicPrivateWrite(root, 'records.json', JSON.stringify({ files: files.slice(1) }));
-    await expect(checkQualificationRecords(join(root, 'records.json'), skillHash)).rejects.toMatchObject({ code: 20 });
+    await expect(checkQualificationRecords(join(root, 'records.json'), skillHash, runtimeHash)).rejects.toMatchObject({ code: 20 });
   });
   it('rejects duplicate records even when total count matches', async () => {
     const files = await recordArtifacts(); files[files.length - 1] = files[0]!; await atomicPrivateWrite(root, 'records.json', JSON.stringify({ files }));
-    await expect(checkQualificationRecords(join(root, 'records.json'), skillHash)).rejects.toMatchObject({ code: 21 });
+    await expect(checkQualificationRecords(join(root, 'records.json'), skillHash, runtimeHash)).rejects.toMatchObject({ code: 21 });
   });
   it('rejects stale skill identity and empty primary evidence', async () => {
-    await recordArtifacts(); await expect(checkQualificationRecords(join(root, 'records.json'), hash('stale'))).rejects.toMatchObject({ code: 21 });
+    await recordArtifacts(); await expect(checkQualificationRecords(join(root, 'records.json'), hash('stale'), runtimeHash)).rejects.toMatchObject({ code: 21 });
     await atomicPrivateWrite(join(root, 'evidence'), 'transcript.txt.md', '');
-    await expect(checkQualificationRecords(join(root, 'records.json'), skillHash)).rejects.toMatchObject({ code: 30 });
+    await expect(checkQualificationRecords(join(root, 'records.json'), skillHash, runtimeHash)).rejects.toMatchObject({ code: 30 });
+  });
+  it('rejects absent or stale runtime identity despite unchanged skill instructions', async () => {
+    const files = await recordArtifacts();
+    await expect(checkQualificationRecords(join(root, 'records.json'), skillHash, hash('new-runtime'))).rejects.toMatchObject({ code: 21 });
+    const record = validate(Type.Object({ toolConfiguration: Type.Record(Type.String(), Type.Unknown()) }, { additionalProperties: true }), await readCalibrationJson(join(root, files[0]!)));
+    const configuration = { ...record.toolConfiguration }; delete configuration.runtimeHash;
+    await atomicPrivateWrite(join(root, 'evidence'), 'record-0.json', JSON.stringify({ ...record, toolConfiguration: configuration }));
+    await expect(checkQualificationRecords(join(root, 'records.json'), skillHash, runtimeHash)).rejects.toMatchObject({ code: 20 });
   });
   it('rejects profile evidence path traversal without reading outside root', async () => {
     const files = await recordArtifacts(); files[0] = '../not-readable.json'; await atomicPrivateWrite(root, 'records.json', JSON.stringify({ files }));
-    await expect(checkQualificationRecords(join(root, 'records.json'), skillHash)).rejects.toMatchObject({ code: 30 });
+    await expect(checkQualificationRecords(join(root, 'records.json'), skillHash, runtimeHash)).rejects.toMatchObject({ code: 30 });
   });
 });
 
@@ -177,5 +218,27 @@ describe('portable calibration CLI', () => {
     const stub = host(); stub.loadApproval = async () => ({ status: 'DRAFT', purpose: 'calibration', expiresAt: Date.now() + 10000 });
     await expect(calibrationCli(['run', '--root', root, '--approval', '/synthetic/approval', '--builder-model', 'openai/fixture'], stub)).rejects.toMatchObject({ code: 20 });
     await expect(calibrationCli(['run', '--secret', 'DO_NOT_PRINT'], host())).rejects.not.toThrow('DO_NOT_PRINT');
+  });
+  it('collects twelve native-evidence-shaped callback fixtures and settles aggregate holds', async () => {
+    await artifacts({ mode: 'live' }); await rm(join(root, 'collection.json'));
+    let calls = 0;
+    const state = await collectCalibration(root, limits(), async request => {
+      const index = prepared.cases.findIndex(item => item.attemptId === request.attemptId); calls++;
+      expect(await readCalibrationJson(join(root, 'collection.json'))).toMatchObject({ activeCase: prepared.cases[index]!.id, reservedUsd: DEFAULT_POLICY.schedulingCapUsd });
+      return validateReport(await readCalibrationJson(join(root, `sample-${index}.json`)));
+    });
+    expect(calls).toBe(12); expect(state).toMatchObject({ status: 'complete', activeCase: null, reservedUsd: 0 });
+    expect(state.results).toHaveLength(12); expect(state.results.reduce((sum, item) => sum + item.costUsd!, 0)).toBeCloseTo(0.024);
+  });
+  it('does not restart aggregate authority lifetime after asynchronous setup', async () => {
+    const current = { ...prepared, skillHash: await skillBundleHash() }; await atomicPrivateWrite(root, 'prepared.json', JSON.stringify(current));
+    let clock = Date.now(); vi.spyOn(Date, 'now').mockImplementation(() => clock); let calls = 0;
+    const stub = host();
+    stub.loadApproval = async () => ({ status: 'approved', purpose: 'calibration', expiresAt: clock + 3600000, calibrationBudget: { by: 'user', preparedHash: hash(current), expiresAt: clock + 5000, maxCostUsd: limits().maxCostUsd, maxRequests: 72, maxDurationMs: 1440000 } });
+    stub.runtimeHash = async () => { clock += 6000; return runtimeHash; };
+    stub.review = async () => { calls++; throw new Error('Expired aggregate authority reached review'); };
+    try { await expect(calibrationCli(['run', '--root', root, '--approval', '/synthetic/approval', '--builder-model', 'openai/fixture'], stub)).rejects.toMatchObject({ code: 20 }); }
+    finally { await atomicPrivateWrite(root, 'prepared.json', JSON.stringify(prepared)); }
+    expect(calls).toBe(0);
   });
 });

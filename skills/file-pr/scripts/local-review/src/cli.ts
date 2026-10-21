@@ -1,18 +1,24 @@
 import { pathToFileURL } from 'node:url';
 import { DEFAULT_POLICY, ReviewError, defaultStateRoot, validateRequest } from './contracts.js';
 import { captureSnapshot } from './snapshot.js';
+import { calibrationCli } from './calibration-cli.js';
 import { draftApproval, loadApproval, validateAuthority } from './approval.js';
 import { preflight } from './openrouter.js';
 import { implementationIdentity, review, reviewLive, verifyFiles } from './review.js';
 
 const help = {
-  usage: ['review --repo PATH --base REF --head REF --goal TEXT --builder-model ID --attempt ID [--approval PATH]', 'verify --report PATH --triage PATH --repo PATH --base REF --head REF [--approval PATH]', 'draft-template', 'preflight --approval PATH --repo PATH --base REF --head REF --goal TEXT --builder-model ID --attempt ID', '--help', '--dry-run'],
+  usage: ['review --repo PATH --base REF --head REF --goal TEXT --builder-model ID --attempt ID [--approval PATH]', 'verify --report PATH --triage PATH --repo PATH --base REF --head REF [--approval PATH]', 'draft-template', 'preflight --approval PATH --repo PATH --base REF --head REF --goal TEXT --builder-model ID --attempt ID', 'calibrate --help', '--help', '--dry-run'],
   setup: 'Node >=22.19, pinned package dependencies. Live review requires --approval PATH and dedicated private key file. Help/dry-run/template never read keys or dispatch. Preflight reads public metadata only. Offline fixtures are internal tests only.',
   exits: { 0: 'Complete without actionable candidates, or dry-run/help. Not push authorization.', 10: 'Complete with candidates needing parent triage.', 20: 'Incomplete, uncertain, locked or exhausted.', 21: 'Stale identity or dirty source.', 30: 'Setup/auth/identity error; simulated review cannot authorize upload.' },
   blocked: 'Live route/privacy, source export, scoped key access, model availability, token/output semantics and rates/budget require approval and verification.',
 };
 export async function cli(args: string[]): Promise<{ exit: number; output: unknown; diagnostic?: string }> {
   try {
+    if (args[0] === 'calibrate') return { exit: 0, output: await calibrationCli(args.slice(1), {
+      runtimeHash: async () => (await implementationIdentity()).runtimeHash,
+      draftApproval, loadApproval,
+      review: async (request, approvalPath) => (await reviewLive(request, defaultStateRoot(), approvalPath)).report,
+    }) };
     if (args.includes('--help') || args.length === 0) return { exit: 0, output: help };
     const command = args[0];
     if (command === 'draft-template' && args.length === 1) return { exit: 0, output: draftApproval() };
@@ -44,6 +50,7 @@ export async function cli(args: string[]): Promise<{ exit: number; output: unkno
       validateAuthority(approval, liveRequest, source.snapshot.identity, (await implementationIdentity()).runtimeHash);
       return { exit: 0, output: { preflight: await preflight(approval, liveRequest.policy, AbortSignal.timeout(request.policy.roundDeadlineMs)), authorization: false, keyRead: false } };
     }
+    if (values.has('approval') && (await loadApproval(required('approval'))).purpose === 'calibration') throw new ReviewError(30, 'Use calibrate run to enforce aggregate calibration authority');
     const result = values.has('approval') ? await reviewLive(request, defaultStateRoot(), required('approval')) : await review(request, defaultStateRoot());
     return { exit: result.exit, output: result };
   } catch (error) {

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Offline-only bounded Pi SDK review runner; live activation disabled.",
+  "description": "Bounded OpenRouter API-key review, calibration and qualification for Claude Code and Pi.",
   "engines": { "node": ">=22.19.0" },
   "packageManager": "pnpm@12.9.1",
   "scripts": {

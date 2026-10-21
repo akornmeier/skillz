@@ -46,6 +46,7 @@ export async function calibrationCli(args: string[], host: CalibrationHost): Pro
   const authority = validate(Type.Object({ status: Type.Literal('approved'), purpose: Type.Literal('calibration'), expiresAt: Type.Number(), calibrationBudget: CalibrationBudgetSchema }, { additionalProperties: true }), await host.loadApproval(approvalPath));
   const budget = authority.calibrationBudget;
   if (authority.expiresAt <= Date.now() || budget.expiresAt <= Date.now() || budget.expiresAt > authority.expiresAt || budget.preparedHash !== hash(prepared)) throw new ReviewError(30, 'Aggregate calibration authority expired or mismatched');
-  return collectCalibration(root, { maxCostUsd: budget.maxCostUsd, maxRequests: budget.maxRequests, maxDurationMs: budget.maxDurationMs, builderModel: required('builder-model'), runtimeHash: await host.runtimeHash(), skillHash: await skillBundleHash() }, request => host.review(request, approvalPath));
+  const deadlineAt = Math.min(authority.expiresAt, budget.expiresAt, Date.now() + budget.maxDurationMs);
+  return collectCalibration(root, { deadlineAt, maxCostUsd: budget.maxCostUsd, maxRequests: budget.maxRequests, maxDurationMs: budget.maxDurationMs, builderModel: required('builder-model'), runtimeHash: await host.runtimeHash(), skillHash: await skillBundleHash() }, request => host.review(request, approvalPath));
 }
 

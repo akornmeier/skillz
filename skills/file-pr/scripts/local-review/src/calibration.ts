@@ -25,7 +25,7 @@ const JudgmentsSchema = Type.Object({ schema: Type.Literal(1), runId: text, asse
   findings: Type.Array(Type.Object({ id: text, disposition: Type.Union([Type.Literal('supported'), Type.Literal('dismissed')]), matchesSeed: Type.Boolean(), evidence: text }, { additionalProperties: false }), { maxItems: 16 }) }, { additionalProperties: false }), { minItems: 12, maxItems: 12 }) }, { additionalProperties: false });
 export type PreparedCalibration = Static<typeof PreparedSchema>;
 export type CalibrationJudgments = Static<typeof JudgmentsSchema>;
-export type CalibrationLimits = { maxCostUsd: number; maxRequests: number; maxDurationMs: number; builderModel: string; runtimeHash: string; skillHash: string };
+export type CalibrationLimits = { maxCostUsd: number; maxRequests: number; maxDurationMs: number; deadlineAt: number; builderModel: string; runtimeHash: string; skillHash: string };
 
 /** Private operator artifacts only; never follow a symlink or read an arbitrary large transcript. */
 export async function readCalibrationJson(path: string): Promise<unknown> {
@@ -102,13 +102,26 @@ function validateSample(report: ReviewReport, item: PreparedCalibration['cases']
   if (report.body.identity.runtimeHash !== prepared.runtimeHash || report.body.identity.snapshot.repo !== item.repo || report.body.identity.snapshot.head !== item.head || report.body.identity.snapshot.base !== item.base || report.body.attemptId !== item.attemptId || report.body.round !== 1) throw new ReviewError(21, 'Calibration report identity mismatch');
 }
 
+function completeLiveSample(report: ReviewReport) {
+  if (report.body.execution?.mode !== 'live' || !report.body.identity.policy.live || report.body.identity.authority?.purpose !== 'calibration' || report.body.status !== 'complete') return false;
+  const generations = new Set<string>();
+  return Object.values(report.body.lenses).every(lens => {
+    if (lens.usage.state !== 'known' || lens.calls?.length !== lens.usage.requests || lens.identities?.length !== lens.usage.requests) return false;
+    if (lens.calls.reduce((sum, call) => sum + call.costUsd, 0) !== lens.usage.costUsd || lens.calls.reduce((sum, call) => sum + call.inputTokens, 0) !== lens.usage.inputTokens || lens.calls.reduce((sum, call) => sum + call.outputTokens, 0) !== lens.usage.outputTokens || lens.calls.reduce((sum, call) => sum + call.cacheTokens, 0) !== lens.usage.cacheTokens) return false;
+    return lens.calls.every((call, index) => {
+      if (generations.has(call.generationId) || call.reportedModel !== lens.identities![index]!.returned) return false;
+      generations.add(call.generationId); return true;
+    });
+  });
+}
+
 /** Collect once. Reservations precede callbacks; interrupted/uncertain runs never auto-resume. */
 export async function collectCalibration(root: string, limits: CalibrationLimits, runReview: (request: ReviewRequest) => Promise<ReviewReport>) {
   const directory = await privateRoot(root); const prepared = await loadPrepared(directory);
   if (prepared.runtimeHash !== limits.runtimeHash || prepared.skillHash !== limits.skillHash) throw new ReviewError(21, 'Calibration implementation changed; prepare a new cohort');
-  if (!Number.isFinite(limits.maxCostUsd) || limits.maxCostUsd <= 0 || limits.maxCostUsd > 12 * DEFAULT_POLICY.schedulingCapUsd || !Number.isInteger(limits.maxRequests) || limits.maxRequests < 1 || limits.maxRequests > 72 || !Number.isFinite(limits.maxDurationMs) || limits.maxDurationMs <= 0 || limits.maxDurationMs > 12 * DEFAULT_POLICY.roundDeadlineMs) throw new ReviewError(30, 'Invalid aggregate calibration limits');
+  if (!Number.isFinite(limits.deadlineAt) || !Number.isFinite(limits.maxCostUsd) || limits.maxCostUsd <= 0 || limits.maxCostUsd > 12 * DEFAULT_POLICY.schedulingCapUsd || !Number.isInteger(limits.maxRequests) || limits.maxRequests < 1 || limits.maxRequests > 72 || !Number.isFinite(limits.maxDurationMs) || limits.maxDurationMs <= 0 || limits.maxDurationMs > 12 * DEFAULT_POLICY.roundDeadlineMs) throw new ReviewError(30, 'Invalid aggregate calibration limits');
   const owner = await open(join(directory, 'collection.lock'), constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | constants.O_NOFOLLOW, 0o600);
-  const state: Static<typeof CollectionSchema> = { schema: 1, preparedHash: hash(prepared), status: 'running', startedAt: Date.now(), maxCostUsd: limits.maxCostUsd, maxRequests: limits.maxRequests, deadlineAt: Date.now() + limits.maxDurationMs, activeCase: null, reservedUsd: 0, reason: null, results: [] };
+  const state: Static<typeof CollectionSchema> = { schema: 1, preparedHash: hash(prepared), status: 'running', startedAt: Date.now(), maxCostUsd: limits.maxCostUsd, maxRequests: limits.maxRequests, deadlineAt: Math.min(limits.deadlineAt, Date.now() + limits.maxDurationMs), activeCase: null, reservedUsd: 0, reason: null, results: [] };
   const save = () => atomicPrivateWrite(directory, 'collection.json', JSON.stringify(state));
   let admitted = false;
   try {
@@ -122,6 +135,7 @@ export async function collectCalibration(root: string, limits: CalibrationLimits
       if (await git(item.repo, 'rev-parse', 'HEAD') !== item.head || await git(item.repo, 'rev-parse', 'base') !== item.base || await git(item.repo, 'status', '--porcelain', '--untracked-files=all')) throw new ReviewError(21, 'Prepared calibration source changed');
       await verifyFrozenSource(item);
       state.activeCase = item.id; state.reservedUsd = DEFAULT_POLICY.schedulingCapUsd; await save();
+      if (Date.now() + DEFAULT_POLICY.roundDeadlineMs > state.deadlineAt) throw new ReviewError(20, 'Aggregate calibration authority expires before full round');
       const started = Date.now();
       const report = validateReport(await runReview({ repo: item.repo, baseRef: 'base', headRef: 'HEAD', goal: 'Review committed change for introduced defects', builderModel: limits.builderModel, attemptId: item.attemptId, policy: { ...DEFAULT_POLICY } }));
       validateSample(report, item, prepared);
@@ -130,7 +144,7 @@ export async function collectCalibration(root: string, limits: CalibrationLimits
       const costUsd = known ? Object.values(report.body.lenses).reduce((sum, lens) => sum + (lens.usage.state === 'known' ? lens.usage.costUsd : 0), 0) : null;
       const reportFile = `sample-${state.results.length}.json`; await atomicPrivateWrite(directory, reportFile, JSON.stringify(report));
       state.results.push({ id: item.id, reportFile, reportDigest: report.receipt.reportDigest, wallMs: Date.now() - started, costUsd, requests: requestCount });
-      if (String(report.body.execution?.mode) !== 'live' || report.body.status !== 'complete' || costUsd === null || costUsd > state.reservedUsd || requestCount > 2 * DEFAULT_POLICY.requestsPerLens) throw new ReviewError(20, 'Non-live, incomplete or uncertain calibration sample; stop and reconcile');
+      if (!completeLiveSample(report) || costUsd === null || costUsd > state.reservedUsd || requestCount > 2 * DEFAULT_POLICY.requestsPerLens) throw new ReviewError(20, 'Non-live, incomplete or uncertain calibration sample; stop and reconcile');
       state.activeCase = null; state.reservedUsd = 0; await save();
     }
     state.status = 'complete'; await save(); return state;
@@ -162,8 +176,8 @@ export async function gradeCalibration(root: string, judgmentsPath: string) {
     const supported = findings.filter(finding => finding.severity !== 'P3' && finding.classification === 'introduced' && judgment.findings.find(entry => entry.id === finding.id)?.disposition === 'supported');
     const matches = supported.filter(finding => judgment.findings.find(entry => entry.id === finding.id)?.matchesSeed);
     if (judgment.findings.some(entry => entry.matchesSeed && (!label.actionable || entry.disposition !== 'supported' || !matches.some(finding => finding.id === entry.id && finding.path === label.path)))) throw new ReviewError(20, 'Seed match lacks supported anchored defect judgment');
-    const complete = String(report.body.execution?.mode) === 'live' && report.body.status === 'complete';
-    return { id: item.id, complete, detected: matches.length > 0, correctnessDetected: matches.some(finding => finding.lens === 'correctness'), falsePositives: label.actionable ? 0 : new Set(supported.map(finding => hash({ path: finding.path, start: finding.start, cause: finding.cause.trim().toLowerCase().replace(/\s+/g, ' ') }))).size, rawCandidates: findings.length, roundMs: report.body.endedAt - report.body.startedAt, triageMs: judgment.triageMs, costUsd: sample.costUsd };
+    const complete = completeLiveSample(report);
+    return { id: item.id, complete, detected: complete && matches.length > 0, correctnessDetected: complete && matches.some(finding => finding.lens === 'correctness'), falsePositives: !complete || label.actionable ? 0 : new Set(supported.map(finding => hash({ path: finding.path, start: finding.start, cause: finding.cause.trim().toLowerCase().replace(/\s+/g, ' ') }))).size, rawCandidates: findings.length, roundMs: report.body.endedAt - report.body.startedAt, triageMs: judgment.triageMs, costUsd: sample.costUsd };
   }));
   const detected = rows.filter(row => row.detected).length; const falsePositives = rows.reduce((sum, row) => sum + row.falsePositives, 0);
   const requiredDetected = gold.filter(label => label.required).every(label => rows.some(row => row.id === label.id && row.detected));

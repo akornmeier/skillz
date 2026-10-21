@@ -159,10 +159,11 @@ export function serializeContext(contextInput: unknown, approval: Approval, poli
   if (Buffer.byteLength(body) > policy.payloadBytes) throw new ReviewError(20, 'Actual HTTP body exceeds export bound');
   return body;
 }
-export function createLiveTransport(approval: Approval, policy: Policy, admission: Awaited<ReturnType<typeof preflight>>, key: string, fetcher: typeof fetch = fetch): LiveTransport {
+export function createLiveTransport(approval: Approval, policy: Policy, admission: Awaited<ReturnType<typeof preflight>>, key: string, fetcher: typeof fetch = fetch, confirmAuthority?: () => Promise<void>): LiveTransport {
   const generations = new Set<string>();
   return { kind: 'live', ...admission, serialize: context => serializeContext(context, approval, policy),
     async dispatch(body, signal) {
+      await confirmAuthority?.();
       if (approval.expiresAt <= Date.now()) throw new ReviewError(30, 'Approval expired before dispatch');
       const raw = await boundedJson(fetcher, `${ORIGIN}/chat/completions`, { method: 'POST', signal, headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'X-OpenRouter-Metadata': 'enabled' }, body });
       signal.throwIfAborted();

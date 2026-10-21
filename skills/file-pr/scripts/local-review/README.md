@@ -1,56 +1,85 @@
 # Local PR review runner
 
-**Offline-only, release unqualified.** Real Pi SDK sessions run against synthetic transport in deterministic tests. CLI has no live transport and reads no provider credentials. Installation does not enable inference. Simulated reports cannot authorize upload. Paid calibration, provider certification and user rollout approval remain outstanding.
+Shared Node CLI for **Claude Code and Pi**. Uses pinned Pi SDK internally, not Pi CLI or either harness's subscription/auth. Real OpenRouter dispatch is explicit opt-in through a scoped private approval and dedicated key file. No approval means no live review. Simulated/calibration evidence cannot authorize publishing. Paid calibration, harness qualification and user rollout signoff are separate from deterministic tests.
 
 ## Setup
 
-After explicit scoped provisioning approval, from this repository root:
+After scoped provisioning approval, from this repository root:
 
 ```sh
 pnpm --dir skills/file-pr/scripts/local-review install --frozen-lockfile --ignore-scripts --ignore-pnpmfile
 pnpm --dir skills/file-pr/scripts/local-review run validate
 ```
 
-Node >=22.19.0, pnpm 12.9.1; exact SDK 1.3.0, TypeBox, TypeScript and Vitest pins in package/lock. `.npmrc` disables lifecycle scripts. No global Pi CLI installation required. `validate` runs strict typecheck, emitted build and only `test/*.test.ts`, never target-product suites. Fixture repos/state live outside skill discovery, with no remotes. Test files run serially, including controlled runtime-drift verification.
+Node >=22.19.0, pnpm 12.9.1, SDK 1.3.0 and exact TypeBox/TypeScript/Vitest pins. Lifecycle scripts disabled. Tests discover only `test/*.test.ts`, use synthetic private repos and intercepted HTTP, and never execute product suites. Pi invocation `/skill:file-pr`; Claude Code `/file-pr`. End-to-end qualification requires both harnesses, not merely shared-library tests.
 
-In an arbitrary target repository, resolve the helper from the loaded skill's location, not cwd:
+## CLI and operator approval
+
+In another repository resolve `RUNNER` from the loaded skill's absolute directory, not cwd:
 
 ```sh
 RUNNER="/absolute/path/to/file-pr/scripts/local-review/dist/cli.js"
 node "$RUNNER" --help
+node "$RUNNER" draft-template
 node "$RUNNER" review --repo /absolute/repo --base origin/main --head HEAD \
   --goal 'Describe requested behavior' --builder-model openai/gpt-6.1-sol \
   --attempt stable-filing-id --dry-run
-node "$RUNNER" review --repo /absolute/repo --base origin/main --head HEAD \
-  --goal 'Describe requested behavior' --builder-model openai/gpt-6.1-sol --attempt stable-filing-id
-node "$RUNNER" verify --report /private/report.json --triage /private/triage.json \
-  --repo /absolute/repo --base origin/main --head HEAD
 ```
 
-Help is import-safe. Review dry-run reads/filter-checks local Git objects and hashes runtime without inference or state writes; verify dry-run describes intended work without reading report/triage. Normal `review` currently produces setup-error evidence without inference. `verify` always refuses simulated evidence. Stdout JSON, redacted stderr diagnostics. No auto-install, auth discovery, fetch, rebase, commit, push or GitHub writes.
+Help/draft/dry-run do not read keys or generate. Review dry-run inspects local source/runtime; verify dry-run only describes intended work. JSON stdout, redacted stderr. No auto-install, auth discovery, fetch/rebase/stage/commit/push/GitHub writes. Scope and helper safety are the same in both harnesses.
+
+Save a template only to an explicitly chosen **canonical private directory outside Git**, with file mode 0600 and owner permissions. It stays `DRAFT` until actual operator approval. Do not paste keys into chat. Key must be a separate private 0600 file, never an environment fallback or normal Pi/Claude auth. Approval names its exact path, model, full upstream tag, expected reported provider, privacy/ZDR/account-logging consent, source export, key read, expiry, limits and repository/base/attempt/head scopes. Choosing a route requires user approval; metadata availability doesn't grant consent.
+
+Calibration purpose permits only scoped synthetic reviews. Filing additionally requires explicit user rollout signoff/evidence bound to current runtime hash. Head scopes are exact: authorize new fix SHA before second full review, retain attempt ID. Operator configuration records trusted authority; fields alone are not cryptographic proof of consent. The coding agent must not invent approvals.
+
+```sh
+node "$RUNNER" preflight --approval "$APPROVAL_JSON" \
+  --repo "$REPO" --base "$BASE" --head HEAD --goal "$GOAL" \
+  --builder-model "$BUILDER_MODEL" --attempt "$ATTEMPT_ID"
+node "$RUNNER" review --approval "$APPROVAL_JSON" \
+  --repo "$REPO" --base "$BASE" --head HEAD --goal "$GOAL" \
+  --builder-model "$BUILDER_MODEL" --attempt "$ATTEMPT_ID"
+node "$RUNNER" verify --approval "$APPROVAL_JSON" \
+  --report "$REPORT_JSON" --triage "$TRIAGE_JSON" \
+  --repo "$REPO" --base "$BASE" --head HEAD
+```
+
+Preflight checks fresh public model/route/pricing metadata, not key access or paid generation. Live review reads only approved key; host owns HTTP, workers never receive it. Production verifier checks current authority and metadata without reading key. Only live filing verification can authorize normal review gating; calibration and simulation always reject for upload. Parent triage/fixes and publishing procedure: [local-review workflow](../../workflows/local-review.md).
 
 | Exit | Meaning |
 | --- | --- |
-| 0 | Help/dry-run, or internal complete fixture with no actionable candidates. Not upload authority. |
-| 10 | Complete fixture with candidates requiring parent triage. |
+| 0 | Command success; review has no actionable candidates. Help/dry-run/review-0 alone are not upload authority. |
+| 10 | Complete review with candidates requiring parent triage. |
 | 20 | Incomplete, uncertain, locked, exhausted or invalid evidence. |
 | 21 | Stale identity or dirty source. |
-| 30 | Setup/auth/identity failure, including disabled live transport and simulated verification. |
+| 30 | Setup/model/authority failure, including simulated upload verification. |
 
-## Boundaries
+## Bounds and billing
 
-- `contracts.ts` owns strict TypeBox schemas and derived types for policy, snapshots, findings, receipts, triage and ledger. Unknown fields reject. Canonical digests detect corruption/drift, not malicious edits by the same local user. Finding evidence proves location, not allegation truth. P0–P2 block unresolved; P3 alone does not.
-- `snapshot.ts` pins base/head/merge-base/tree and full changed inventory. Base-side reads mean **merge-base**. Clean committed source only; no automatic staging. Sparse/assume-unchanged indexes reject. Source tools use filtered pinned blob text, not host paths or current checkout.
-- Exactly `read_git(revision, path, start, end)` and literal `search_git(revision, literal, pathPrefix)` are exposed. Exclusions cover credential/private data, suspected secrets, binary/LFS, symlink/submodule, vendor/generated and oversized payloads. Changed excluded semantic source is incomplete. Lockfiles require their own ecosystem-matching manifest and expose summary only. Secret detection is conservative, not an export guarantee.
-- Git uses isolated index/config, explicit credential-free environment and argv-only object operations. No checkout scripts, hooks, filters, fsmonitor, external diff/textconv, lazy fetch or network protocols execute on the source path. Submodule checkout contents are not read.
-- `runtime.ts` owns pre-effect reservations and child lifetime; `runtime-child.ts` runs actual SDK sessions with empty resource loader, dedicated empty auth/agent directory, in-memory settings/session, only snapshot IPC tools, retries/compaction/cache warming off. Parent validates finalized response identity and authoritative settlement. Abort-ignoring fixture transport is terminated in its owned child. IPC disconnect exits workers after parent death; rejected persistence aborts and awaits both lenses before releasing ownership.
-- `review.ts` runs two fresh lenses concurrently, validates quotes/changed lines/coverage, retains provenance and performs no judge call. One absolute round deadline bounds initial/in-flight Git subprocesses and remaining model time. It recomputes actual runtime/lock/prompt/tool/filter/settings identity during verification. Source changes/fixes/rebases invalidate earlier evidence; second round covers the full PR diff.
-- Limits: two rounds, two lenses/round, three requests and eight source calls/lens, 120 seconds/round; 3,000 output tokens/request, 60 changed files, 128 KiB diff, 200 lines/8 KiB read, 50 hits/8 KiB search, 32 KiB complete serialized request. Lower validated ceilings cannot widen policy. Additional tree/scan/blob/Git bounds fail closed rather than slice context.
-- Reports/triage/attempt state stay outside Git checkouts, default `~/.local/state/file-pr-review`. Directories 0700, files 0600; exclusive temporary writes, fsync and atomic rename. JSON authoritative; Markdown minimized. No full transcript persistence; finding snippets remain private. Per-attempt lock, round and request reservations precede effects. Exact completed identities reuse reports; unfinished/uncertain work never auto-resumes. Keep one attempt ID across repairs. Never delete uncertainty to reset budgets.
-- Missing usage is unavailable/uncertain, not zero dollars. Zero-cost fixture reservations are explicitly simulated, not provider accounting or an approved $0.10 invoice guarantee. Cancellation does not establish remote billing cancellation.
+- Two rounds, two concurrent fresh lenses, three generation requests and eight source calls/lens; whole-round 120-second deadline includes capture. Second round reviews full PR diff. No retry, compaction, judge, fallback, server tools/plugins or background continuation.
+- 3,000 output tokens, 60 changed files, 128 KiB diff, 200 lines/8 KiB read, 50 hits/8 KiB search and **32 KiB final HTTP JSON**, including history/tools/route controls. Never slice required coverage. Byte bounds are not certified native token counts.
+- Approved scheduling ceiling **$1.02/attempt**. At observed highest tier $0.50/M input, $2.50/M output, reserve full advertised 1M context plus capped output: **$0.5075/request**. Two concurrent holds fit. This is deliberately pessimistic reservation, not expected price. Example 20k input + 3k output at low tier is $0.0035 before other applicable charges; not measured usage.
+- Serialized ledger reservations precede HTTP. Known actual usage/cost replaces hold and releases unused amount. Missing/invalid usage, failed HTTP, timeout/cancellation, over-reservation cost or failed persistence retains uncertainty, aborts sibling and blocks new dispatch/retry. Scheduling guard is not a provider invoice guarantee.
+- Exact model and full upstream pinned; no fallback or redirect/retry. Fresh metadata validates all price tiers/capabilities and refuses unbounded charges/caching. Unit-price routing is not total-request budget. Requested regional tag and actual reported provider are recorded separately; metadata isn't independent data-residency proof.
 
-## Qualification
+## Source and state
 
-Parent procedure: [local-review workflow](../../workflows/local-review.md). Baseline eval cases/profiles remain frozen; gate tests use a scripted boundary and disposable executable stubs, not actual GitHub publishing or proof an LLM follows instructions. See [calibration protocol](test/calibration/README.md) for frozen synthetic labels and separately approved live gates. No detection, latency, cost, vendor savings or behavioral-profile claims from fixtures.
+Strict schemas/derived types in `contracts.ts`. Receipts bind actual runtime/SDK/lock/prompt/tools/filter/settings, execution mode and authority/admission identity. Digests detect drift/corruption, not a malicious local operator. Quotes establish location, not allegation truth. P0–P2 remain actionable; every candidate needs evidence-backed parent disposition.
 
-Before a live adapter can be shipped/enabled: approve route/upstream privacy/source export/key access, certify exact availability/version/token/output/rate semantics and intercepted network limits, implement audited transport/spend settlement, run frozen calibration and all required skill/profile qualification, then obtain explicit sign-off. No configuration flag enables live execution in this build.
+Snapshots use pinned Git base/head/merge-base/tree, isolated config/index and credential-free argv-only object reads. Only `read_git` and literal `search_git`; no checkout scripts/hooks/filters/fsmonitor/textconv/lazy fetch/network. Changed secret/private/binary/LFS/symlink/submodule/vendor/generated/oversize source blocks completeness. Lockfiles expose summary plus exact ecosystem-matching manifest. Conservative secret filtering is not an export guarantee.
+
+Reports/triage/ledger live outside checkouts, default `~/.local/state/file-pr-review`: directories0700/files0600, exclusive temporary writes, fsync/atomic rename and attempt lock. No full transcript persistence beyond finding snippets. Exact completed identity can reuse; uncertain/interrupted state never auto-resumes. Parent waits for both workers on failures; IPC disconnect exits children after parent death. Reconcile owned lock/billing before explicit recovery; don't delete uncertainty to reset budgets.
+
+## Calibration and rollout
+
+[Calibration protocol](test/calibration/README.md) covers offline preparation, separately approved collection, explicit source-backed grading, both-harness evidence and human signoff. Commands:
+
+```sh
+node "$RUNNER" calibrate prepare --root "$PRIVATE_RUN" --id calibration-unique-id
+node "$RUNNER" calibrate draft --root "$PRIVATE_RUN"
+node "$RUNNER" calibrate run --root "$PRIVATE_RUN" --approval "$APPROVAL_JSON" --builder-model "$BUILDER_MODEL"
+node "$RUNNER" calibrate grade --root "$PRIVATE_RUN" --judgments "$JUDGMENTS_JSON"
+node "$RUNNER" calibrate qualify --root "$PRIVATE_RUN" --judgments "$JUDGMENTS_JSON" --records "$RECORDS_MANIFEST"
+```
+
+`run` needs a separate user-approved aggregate `calibrationBudget` in the same private approval, bound to prepared manifest hash. Draft budget is a proposal, not authorization. Grading never invokes a judge model. Qualification checks critical schema-1 record fields, complete case/profile coverage for Pi and Claude Code, current skill hash, assertion coverage and nonempty private local primary artifacts (<=32MiB each). It does not independently prove human assertion truth or fully validate every optional run-record field. Output remains `approved:false`, awaiting actual user signoff. Fixture tests cannot qualify live quality. No subscriptions/hooks/cloud account settings are changed.

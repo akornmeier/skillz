@@ -22,7 +22,7 @@ describe('procedural gate contract (not LLM skill qualification)', () => {
     expect(skill).toContain('babysit-pr');
     expect(skill).toContain('ready-for-review');
     expect(skill).toContain('model and harness attribution');
-    expect(workflow.toLowerCase()).toContain('simulated evidence');
+    expect(workflow).toContain('Simulated/calibration reports cannot authorize upload.');
     expect(workflow).toContain('no automatic force-push');
   });
 

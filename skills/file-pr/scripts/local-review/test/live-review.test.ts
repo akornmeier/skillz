@@ -84,6 +84,15 @@ describe('live HTTP through actual isolated SDK children, no real credentials or
     });
     await expect(verify(result.report, triage(result.report), env.current, env.approvalPath)).rejects.toThrow('expiry');
   });
+  it('approval revoked during review preflight stops before key read or generation', async () => {
+    const env = await setup(); const http = intercept();
+    http.fetcher.mockImplementationOnce(async () => {
+      await writeFile(env.approvalPath, JSON.stringify({ ...env.approval, sourceExport: false }));
+      return Response.json({ data: [{ id: env.approval.model, canonical_slug: env.approval.canonicalModel, context_length: 1000000 }] });
+    });
+    await expect(reviewLive(env.request, env.stateRoot, env.approvalPath)).rejects.toMatchObject({ code: 30 });
+    expect(http.posts).toBe(0);
+  });
   it('missing/wrong-scope authority never reaches metadata, key read or HTTP', async () => {
     const env = await setup(); const http = intercept();
     await expect(reviewLive(env.request, env.stateRoot, join(env.root, 'missing'))).rejects.toThrow('approval');
