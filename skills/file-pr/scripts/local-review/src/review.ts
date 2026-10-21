@@ -123,13 +123,14 @@ export async function review(input: unknown, root: string, fixtures?: Record<Len
   return reviewInternal(input, root, fixtures);
 }
 /** Callable by Node clients (including Claude Code and Pi); no native harness workflow required. */
-export async function reviewLive(request: ReviewRequest, stateRoot: string, approvalPath: string) {
-  return reviewInternal({ ...request, policy: { ...request.policy, live: true } }, stateRoot, undefined, approvalPath);
+export async function reviewLive(request: ReviewRequest, stateRoot: string, approvalPath: string, expectedApprovalDigest?: string) {
+  return reviewInternal({ ...request, policy: { ...request.policy, live: true } }, stateRoot, undefined, approvalPath, expectedApprovalDigest);
 }
-async function reviewInternal(input: unknown, root: string, fixtures?: Record<Lens, FixtureTransport>, approvalPath?: string) {
+async function reviewInternal(input: unknown, root: string, fixtures?: Record<Lens, FixtureTransport>, approvalPath?: string, expectedApprovalDigest?: string) {
   const request = validateRequest(input); const startedAt = Date.now();
   const deadlineAt = startedAt + request.policy.roundDeadlineMs;
   const approval = approvalPath ? await loadApproval(approvalPath) : undefined;
+  if (expectedApprovalDigest && (!approval || hash(approval) !== expectedApprovalDigest)) throw new ReviewError(30, 'Collection approval changed or revoked');
   if (request.policy.live && !approval) throw new ReviewError(30, 'Explicit approval required');
   const source = await captureSnapshot(request, deadlineAt);
   let identity = await receiptIdentity(source, request);

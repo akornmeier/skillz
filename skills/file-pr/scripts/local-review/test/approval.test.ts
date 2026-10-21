@@ -11,6 +11,7 @@ afterEach(async () => { vi.unstubAllGlobals(); await Promise.all(roots.splice(0)
 function authority() {
   const snapshot = identity().snapshot; const req = { ...request(), repo: snapshot.repo, baseRef: snapshot.intendedBaseRef, policy: { ...request().policy, live: true } };
   const approval = { ...draftApproval(), status: 'approved' as const, approvedBy: 'synthetic operator', expiresAt: Date.now() + 60000, sourceExport: true, keyFileRead: true,
+    calibrationBudget: { by: 'user' as const, preparedHash: 'a'.repeat(64), expiresAt: Date.now() + 50000, maxCostUsd: 1.02, maxRequests: 6, maxDurationMs: 120000 },
     limits: req.policy, privacy: { zdr: true, dataCollection: 'deny' as const, consent: true, accountLoggingDisabled: true },
     scopes: [{ repo: snapshot.repo, baseRef: req.baseRef, attemptId: req.attemptId, heads: [snapshot.head] }] };
   return { snapshot, req, approval };
@@ -25,7 +26,7 @@ describe('explicit operator authority', () => {
   it('scope, purpose, privacy, expiry and policy all fail before dedicated key path is touched', async () => {
     const { approval, req, snapshot } = authority();
     for (const change of [
-      { expiresAt: 1 }, { status: 'DRAFT' as const }, { sourceExport: false }, { keyFileRead: false },
+      { expiresAt: 1 }, { calibrationBudget: { ...approval.calibrationBudget, expiresAt: 1 } }, { status: 'DRAFT' as const }, { sourceExport: false }, { keyFileRead: false },
       { privacy: { ...approval.privacy, zdr: false } }, { privacy: { ...approval.privacy, consent: false } },
       { scopes: [{ ...approval.scopes[0]!, heads: ['c'.repeat(40)] }] }, { scopes: [{ ...approval.scopes[0]!, repo: '/other' }] },
       { scopes: [{ ...approval.scopes[0]!, attemptId: 'other' }] }, { scopes: [{ ...approval.scopes[0]!, baseRef: 'other' }] },

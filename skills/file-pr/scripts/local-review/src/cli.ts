@@ -17,7 +17,7 @@ export async function cli(args: string[]): Promise<{ exit: number; output: unkno
     if (args[0] === 'calibrate') return { exit: 0, output: await calibrationCli(args.slice(1), {
       runtimeHash: async () => (await implementationIdentity()).runtimeHash,
       draftApproval, loadApproval,
-      review: async (request, approvalPath) => (await reviewLive(request, defaultStateRoot(), approvalPath)).report,
+      review: async (request, approvalPath, approvalDigest) => (await reviewLive(request, defaultStateRoot(), approvalPath, approvalDigest)).report,
     }) };
     if (args.includes('--help') || args.length === 0) return { exit: 0, output: help };
     const command = args[0];

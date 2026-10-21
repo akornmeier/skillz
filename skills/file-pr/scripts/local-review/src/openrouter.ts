@@ -38,7 +38,7 @@ const ReplySchema = Type.Object({
     prompt_tokens_details: Type.Object({ cached_tokens: integer, cache_write_tokens: Type.Optional(Type.Literal(0)), audio_tokens: Type.Optional(Type.Literal(0)), video_tokens: Type.Optional(Type.Literal(0)) }, object),
   }, object),
   openrouter_metadata: Type.Object({ requested: text, is_byok: Type.Optional(Type.Literal(false)), strategy: Type.Union([Type.Literal('direct'), Type.Literal('alias')]), attempt: Type.Literal(1),
-    endpoints: Type.Object({ total: Type.Literal(1), available: Type.Array(Type.Object({ provider: text, model: text, selected: Type.Literal(true) }, object), { minItems: 1, maxItems: 1 }) }, object),
+    endpoints: Type.Object({ total: Type.Integer({ minimum: 1 }), available: Type.Array(Type.Object({ provider: text, model: text, selected: Type.Boolean() }, object), { minItems: 1 }) }, object),
     attempts: Type.Optional(Type.Array(Type.Object({ provider: text, model: text, status: Type.Literal(200) }, object), { minItems: 1, maxItems: 1 })),
     pipeline: Type.Optional(Type.Array(Type.Unknown(), { maxItems: 0 })),
   }, object),
@@ -173,8 +173,9 @@ export function createLiveTransport(approval: Approval, policy: Policy, admissio
         const result = validate(ReplySchema, raw);
         const validModel = (model: string) => model === approval.model || model === approval.canonicalModel;
         const metadata = result.openrouter_metadata;
-        if (!validModel(result.model) || result.provider !== approval.reportedProvider || metadata.requested !== approval.model
-          || [...metadata.endpoints.available, ...(metadata.attempts ?? [])].some(route => route.provider !== approval.reportedProvider || !validModel(route.model))
+        const selected = metadata.endpoints.available.filter(endpoint => endpoint.selected);
+        if (metadata.endpoints.total < metadata.endpoints.available.length || selected.length !== 1 || !validModel(result.model) || result.provider !== approval.reportedProvider || metadata.requested !== approval.model
+          || [...selected, ...(metadata.attempts ?? [])].some(route => route.provider !== approval.reportedProvider || !validModel(route.model))
           || result.usage.completion_tokens > policy.maxOutputTokens || result.usage.prompt_tokens > 1000000
           || result.usage.total_tokens !== result.usage.prompt_tokens + result.usage.completion_tokens
           || result.usage.prompt_tokens_details.cached_tokens > result.usage.prompt_tokens) throw new ReviewError(20, 'Returned routing or usage mismatch');

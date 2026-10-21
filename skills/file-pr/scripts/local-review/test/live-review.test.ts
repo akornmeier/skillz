@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { draftApproval, type Approval } from '../src/approval.js';
+import { draftApproval, loadApproval, type Approval } from '../src/approval.js';
+import { prepareCalibration } from '../src/calibration.js';
+import { calibrationCli } from '../src/calibration-cli.js';
+import { skillBundleHash } from '../src/qualification.js';
 import { DEFAULT_POLICY, hash, sealReport, validateAttempt, type CallObservation, type ReviewReport } from '../src/contracts.js';
 import { implementationIdentity, ownAttempt, reviewLive, verify } from '../src/review.js';
 import { cli } from '../src/cli.js';
@@ -19,6 +22,7 @@ async function setup(purpose: Approval['purpose'] = 'calibration', overrides: Pa
   const runtime = await implementationIdentity();
   const approval: Approval = { ...draftApproval(), status: 'approved', purpose, approvedBy: 'synthetic operator', expiresAt: Date.now() + 60000, requestedUpstream: 'google-vertex/global', reportedProvider: 'Google',
     sourceExport: true, keyFileRead: true, keyPath, privacy: { zdr: true, dataCollection: 'deny', consent: true, accountLoggingDisabled: true }, limits: request.policy,
+    ...(purpose === 'calibration' ? { calibrationBudget: { by: 'user' as const, preparedHash: hash('synthetic-prepared'), expiresAt: Date.now() + 50000, maxCostUsd: 1.02, maxRequests: 6, maxDurationMs: 120000 } } : {}),
     scopes: [{ repo, baseRef: 'base', attemptId: request.attemptId, heads: [head] }],
     rollout: purpose === 'filing' ? { by: 'user', signoff: 'synthetic test only', evidence: ['synthetic qualification'], runtimeHash: runtime.runtimeHash } : null };
   const approvalPath = join(root, 'approval.json'); await writeFile(approvalPath, JSON.stringify(approval), { mode: 0o600 });
@@ -83,6 +87,29 @@ describe('live HTTP through actual isolated SDK children, no real credentials or
       return Response.json({ data: [{ id: env.approval.model, canonical_slug: env.approval.canonicalModel, context_length: 1000000 }] });
     });
     await expect(verify(result.report, triage(result.report), env.current, env.approvalPath)).rejects.toThrow('expiry');
+  });
+  it.each(['expiry', 'cost'] as const)('aggregate %s revocation between cases blocks the next paid effect', async change => {
+    const env = await setup(); const runtime = await implementationIdentity();
+    const root = join(env.root, 'cohort'); const prepared = await prepareCalibration(root, 'revocation', runtime.runtimeHash, await skillBundleHash());
+    env.approval.expiresAt = Date.now() + 3600000;
+    env.approval.scopes = prepared.cases.map(item => ({ repo: item.repo, baseRef: 'base', attemptId: item.attemptId, heads: [item.head] }));
+    env.approval.calibrationBudget = { by: 'user', preparedHash: hash(prepared), expiresAt: Date.now() + 1800000, maxCostUsd: 12.24, maxRequests: 72, maxDurationMs: 1440000 };
+    await writeFile(env.approvalPath, JSON.stringify(env.approval));
+    let checkedPaths: string[] = []; let cases = 0;
+    const http = intercept(async id => Response.json(reply(id, JSON.stringify({ findings: [], checkedPaths, omissions: [], requiredUnavailable: [] }))));
+    await expect(calibrationCli(['run', '--root', root, '--approval', env.approvalPath, '--builder-model', 'openai/fixture-builder'], {
+      runtimeHash: async () => runtime.runtimeHash, draftApproval, loadApproval,
+      review: async (request, approvalPath, _expectedDigest?: string) => {
+        cases++; checkedPaths = (await captureSnapshot(request)).snapshot.payload.inventory.map(item => item.path);
+        const result = await reviewLive(request, env.stateRoot, approvalPath, _expectedDigest);
+        expect(result.exit).toBe(0);
+        if (cases > 1) throw new Error('Second case generated after aggregate revocation');
+        if (change === 'expiry') env.approval.calibrationBudget!.expiresAt = 1;
+        else env.approval.calibrationBudget!.maxCostUsd = 1.01;
+        await writeFile(env.approvalPath, JSON.stringify(env.approval)); return result.report;
+      },
+    })).rejects.toMatchObject({ code: 30 });
+    expect(cases).toBe(2); expect(http.posts).toBe(2);
   });
   it('approval revoked during review preflight stops before key read or generation', async () => {
     const env = await setup(); const http = intercept();

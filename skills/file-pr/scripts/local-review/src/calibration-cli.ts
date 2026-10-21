@@ -7,7 +7,7 @@ export type CalibrationHost = {
   runtimeHash(): Promise<string>;
   draftApproval(): unknown;
   loadApproval(path: string): Promise<unknown>;
-  review(request: ReviewRequest, approvalPath: string): Promise<ReviewReport>;
+  review(request: ReviewRequest, approvalPath: string, approvalDigest: string): Promise<ReviewReport>;
 };
 const help = {
   usage: ['calibrate prepare --root PATH --id ID', 'calibrate draft --root PATH', 'calibrate run --root PATH --approval PATH --builder-model ID', 'calibrate grade --root PATH --judgments PATH', 'calibrate qualify --root PATH --judgments PATH --records PATH'],
@@ -45,8 +45,9 @@ export async function calibrationCli(args: string[], host: CalibrationHost): Pro
   const prepared = await loadPrepared(root); const approvalPath = required('approval');
   const authority = validate(Type.Object({ status: Type.Literal('approved'), purpose: Type.Literal('calibration'), expiresAt: Type.Number(), calibrationBudget: CalibrationBudgetSchema }, { additionalProperties: true }), await host.loadApproval(approvalPath));
   const budget = authority.calibrationBudget;
+  const approvalDigest = hash(authority);
   if (authority.expiresAt <= Date.now() || budget.expiresAt <= Date.now() || budget.expiresAt > authority.expiresAt || budget.preparedHash !== hash(prepared)) throw new ReviewError(30, 'Aggregate calibration authority expired or mismatched');
   const deadlineAt = Math.min(authority.expiresAt, budget.expiresAt, Date.now() + budget.maxDurationMs);
-  return collectCalibration(root, { deadlineAt, maxCostUsd: budget.maxCostUsd, maxRequests: budget.maxRequests, maxDurationMs: budget.maxDurationMs, builderModel: required('builder-model'), runtimeHash: await host.runtimeHash(), skillHash: await skillBundleHash() }, request => host.review(request, approvalPath));
+  return collectCalibration(root, { deadlineAt, maxCostUsd: budget.maxCostUsd, maxRequests: budget.maxRequests, maxDurationMs: budget.maxDurationMs, builderModel: required('builder-model'), runtimeHash: await host.runtimeHash(), skillHash: await skillBundleHash() }, request => host.review(request, approvalPath, approvalDigest));
 }
 

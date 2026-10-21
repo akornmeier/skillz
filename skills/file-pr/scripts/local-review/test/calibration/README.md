@@ -37,7 +37,7 @@ A real private approval needs `purpose: calibration`, exact prepared scopes and 
 }
 ```
 
-These are proposed maxima, **not approved spending**. Choose actual values before changing outer approval status to `approved`. Aggregate budget expiry cannot exceed outer approval expiry; manifest hash must match. Collection carries absolute expiry through setup and each sample, requiring enough approved time for the whole next 120-second round. Do not reset relative lifetime after async work.
+These are proposed maxima, **not approved spending**. Choose actual values before changing outer approval status to `approved`. Aggregate budget expiry cannot exceed outer approval expiry; manifest hash must match. Collection carries absolute expiry through setup and each sample, requiring enough approved time for the whole next 120-second round. Do not reset relative lifetime after async work. Every case is bound to the original full approval digest before key access and dispatch; edits, expiry or lowered limits stop collection instead of adopting new authority.
 
 The approved per-attempt scheduling ceiling is $1.02. Conservative holds reserve advertised full context at highest tier, currently $0.5075/request; actual known settlement releases unused amount. This isn't expected call cost or an invoice guarantee. One calibration case consumes one snapshot round, at most six generation calls. Collection reserves full attempt allowance/six requests before each sample, releases only known unused budget, and stops on unknown/incomplete effects. Smaller aggregate budgets may stop earlier even when ordinary expected token charges are low.
 
@@ -78,7 +78,7 @@ Repeat for all cases; use empty findings only for zero candidates. `dismissed` a
 node "$RUNNER" calibrate grade --root "$PRIVATE_RUN" --judgments "$JUDGMENTS_JSON"
 ```
 
-`grade.json` retains all cases, raw candidate workload, both-lens and correctness-only detection, false positives, triage time, requests/cost observations and unavailable metrics. Clean-control actionable allegations retained as supported count as false positives; dismissed raw candidates remain visible. Missing/incomplete cases don't enter pass numerators or qualify.
+`grade.json` retains all cases, raw candidate workload, both-lens and correctness-only detection, false positives, triage time, request/input/output/cache-token counts, cost observations and unavailable metrics. Clean-control actionable allegations retained as supported count as false positives; dismissed raw candidates remain visible. Missing/incomplete cases don't enter pass numerators or qualify.
 
 Promotion requires >=6/8 defects, including **caller-schema-mismatch** and **error-path-regression**, <=1 triaged actionable false positive across four clean controls, complete actual live reports and no safety failures. Proposed measured targets: p50 <=45 seconds, every round <=120 seconds, scheduled observed review spend <=$0.10/sample. $0.10 remains a performance target, not the $1.02 admission ceiling. Unknown cold/warm startup or model-only timing stays `null`, never zero. Failure means repair/retest within approval, not lower thresholds. Tiny corpus is not reliability/SLA/savings evidence.
 

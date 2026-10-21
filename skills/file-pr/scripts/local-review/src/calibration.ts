@@ -165,7 +165,7 @@ export async function gradeCalibration(root: string, judgmentsPath: string) {
   if (state.preparedHash !== hash(prepared) || judgments.runId !== prepared.id || new Set(judgments.cases.map(item => item.id)).size !== 12 || judgments.cases.some(item => !prepared.cases.some(entry => entry.id === item.id))) throw new ReviewError(21, 'Calibration judgments belong to another cohort');
   const rows = await Promise.all(prepared.cases.map(async item => {
     const sample = state.results.find(entry => entry.id === item.id); const judgment = judgments.cases.find(entry => entry.id === item.id)!; const label = gold.find(entry => entry.id === item.id)!;
-    if (!sample) return { id: item.id, complete: false, detected: false, correctnessDetected: false, falsePositives: 0, rawCandidates: 0, roundMs: null, triageMs: judgment.triageMs, costUsd: null };
+    if (!sample) return { id: item.id, complete: false, detected: false, correctnessDetected: false, falsePositives: 0, rawCandidates: 0, roundMs: null, triageMs: judgment.triageMs, costUsd: null, requests: null, inputTokens: null, outputTokens: null, cacheTokens: null };
     if (!/^sample-\d+\.json$/.test(sample.reportFile)) throw new ReviewError(30, 'Unsafe calibration report reference');
     const report = validateReport(await readCalibrationJson(join(directory, sample.reportFile)));
     validateSample(report, item, prepared);
@@ -177,7 +177,10 @@ export async function gradeCalibration(root: string, judgmentsPath: string) {
     const matches = supported.filter(finding => judgment.findings.find(entry => entry.id === finding.id)?.matchesSeed);
     if (judgment.findings.some(entry => entry.matchesSeed && (!label.actionable || entry.disposition !== 'supported' || !matches.some(finding => finding.id === entry.id && finding.path === label.path)))) throw new ReviewError(20, 'Seed match lacks supported anchored defect judgment');
     const complete = completeLiveSample(report);
-    return { id: item.id, complete, detected: complete && matches.length > 0, correctnessDetected: complete && matches.some(finding => finding.lens === 'correctness'), falsePositives: !complete || label.actionable ? 0 : new Set(supported.map(finding => hash({ path: finding.path, start: finding.start, cause: finding.cause.trim().toLowerCase().replace(/\s+/g, ' ') }))).size, rawCandidates: findings.length, roundMs: report.body.endedAt - report.body.startedAt, triageMs: judgment.triageMs, costUsd: sample.costUsd };
+    return { id: item.id, complete, detected: complete && matches.length > 0, correctnessDetected: complete && matches.some(finding => finding.lens === 'correctness'), falsePositives: !complete || label.actionable ? 0 : new Set(supported.map(finding => hash({ path: finding.path, start: finding.start, cause: finding.cause.trim().toLowerCase().replace(/\s+/g, ' ') }))).size, rawCandidates: findings.length, roundMs: report.body.endedAt - report.body.startedAt, triageMs: judgment.triageMs, costUsd: sample.costUsd, requests: sample.requests,
+      inputTokens: observedCost === null ? null : Object.values(report.body.lenses).reduce((sum, lens) => sum + (lens.usage.state === 'known' ? lens.usage.inputTokens : 0), 0),
+      outputTokens: observedCost === null ? null : Object.values(report.body.lenses).reduce((sum, lens) => sum + (lens.usage.state === 'known' ? lens.usage.outputTokens : 0), 0),
+      cacheTokens: observedCost === null ? null : Object.values(report.body.lenses).reduce((sum, lens) => sum + (lens.usage.state === 'known' ? lens.usage.cacheTokens : 0), 0) };
   }));
   const detected = rows.filter(row => row.detected).length; const falsePositives = rows.reduce((sum, row) => sum + row.falsePositives, 0);
   const requiredDetected = gold.filter(label => label.required).every(label => rows.some(row => row.id === label.id && row.detected));
@@ -189,6 +192,10 @@ export async function gradeCalibration(root: string, judgmentsPath: string) {
   const spendTargetMet = rows.every(row => row.costUsd !== null && row.costUsd <= 0.10);
   const eligible = state.status === 'complete' && rows.every(row => row.complete) && qualityMet && timingMet && spendTargetMet;
   const grade = { schema: 1, runId: prepared.id, preparedHash: hash(prepared), runtimeHash: prepared.runtimeHash, skillHash: prepared.skillHash, corpusHash: CORPUS_HASH, goldHash: GOLD_HASH, assessor: judgments.assessor, judgmentsHash: hash(judgments), collectionHash: hash(state), rows,
+    requests: rows.every(row => row.requests !== null) ? rows.reduce((sum, row) => sum + (row.requests ?? 0), 0) : null,
+    inputTokens: rows.every(row => row.inputTokens !== null) ? rows.reduce((sum, row) => sum + (row.inputTokens ?? 0), 0) : null,
+    outputTokens: rows.every(row => row.outputTokens !== null) ? rows.reduce((sum, row) => sum + (row.outputTokens ?? 0), 0) : null,
+    cacheTokens: rows.every(row => row.cacheTokens !== null) ? rows.reduce((sum, row) => sum + (row.cacheTokens ?? 0), 0) : null,
     detected, seeded: 8, correctnessDetected: rows.filter(row => row.correctnessDetected).length, falsePositives, cleanControls: 4, requiredDetected, p50Ms, latencyTargetMet: p50Ms !== null && p50Ms <= 45000, costUsd, coldStartupMs: null, warmStartupMs: null, modelOnlyMs: null, qualityMet, timingMet, spendTargetMet, eligible, rolloutApproved: false };
   await atomicPrivateWrite(directory, 'grade.json', JSON.stringify(grade)); return grade;
 }

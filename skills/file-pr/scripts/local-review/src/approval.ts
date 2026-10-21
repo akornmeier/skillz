@@ -55,6 +55,8 @@ export function validateAuthority(approval: Approval, request: ReviewRequest, sn
   if (approval.status !== 'approved' || approval.expiresAt <= Date.now() || !approval.sourceExport || !approval.keyFileRead
     || !approval.privacy.consent || !approval.privacy.zdr || !approval.privacy.accountLoggingDisabled || !isAbsolute(approval.keyPath)
     || !request.policy.live || hash(approval.limits) !== hash(request.policy)) throw new ReviewError(30, 'Approval authority, expiry or limits denied');
+  const budget = approval.calibrationBudget;
+  if (approval.purpose === 'calibration' && (!budget || budget.expiresAt <= Date.now() || budget.expiresAt > approval.expiresAt)) throw new ReviewError(30, 'Approval calibration budget missing or expired');
   const scope = approval.scopes.find(scope => scope.repo === snapshot.repo && scope.baseRef === request.baseRef && scope.attemptId === request.attemptId && scope.heads.includes(snapshot.head));
   if (!scope || (approval.purpose === 'calibration' && approval.scopes.some(scope => scope.heads.length !== 1))) throw new ReviewError(30, 'Approval scope denied');
   if (approval.purpose === 'filing' && (approval.scopes.length !== 1 || !approval.rollout || approval.rollout.runtimeHash !== runtimeHash)) throw new ReviewError(30, 'Filing requires current user rollout signoff');

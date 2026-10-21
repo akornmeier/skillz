@@ -53,6 +53,15 @@ describe('host-owned OpenRouter protocol (intercepted HTTP only)', () => {
     expect(result.observation).toMatchObject({ requestedUpstream: 'google-vertex/global', reportedProvider: 'Google', generationId: 'gen-synthetic', reportedModel: approval.canonicalModel, costUsd: .00002 });
     expect(JSON.stringify(result)).not.toContain('synthetic-key');
   });
+  it('distinguishes unselected routing candidates from actual attempts', async () => {
+    const raw = reply(); raw.openrouter_metadata.endpoints.total = 2;
+    raw.openrouter_metadata.endpoints.available.push({ provider: 'Unselected provider', model: approval.canonicalModel, selected: false });
+    const transport = createLiveTransport({ ...approval, expiresAt: Date.now() + 60000 }, policy, { reservationUsd: .5075, admissionDigest: 'a'.repeat(64) }, 'synthetic-key-000000000', async () => json(raw));
+    expect((await transport.dispatch('{}', signal())).observation.reportedProvider).toBe('Google');
+    raw.id = 'gen-second';
+    Object.assign(raw.openrouter_metadata.endpoints.available[1]!, { selected: true, provider: 'Google' });
+    await expect(transport.dispatch('{}', signal())).rejects.toThrow();
+  });
   it.each(['usage', 'id', 'model', 'provider', 'openrouter_metadata'] as const)('missing %s retains unknown billing, no retry', async field => {
     const raw: Record<string, unknown> = reply(); delete raw[field];
     const fetcher = vi.fn<typeof fetch>(async () => json(raw));

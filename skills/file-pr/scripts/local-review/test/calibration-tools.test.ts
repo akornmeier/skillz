@@ -96,7 +96,7 @@ describe('calibration preparation and bounded execution, no provider calls', () 
 describe('evidence-backed grading, never simulated release approval', () => {
   it('computes both-lens versus correctness metrics on native-evidence-shaped unit fixtures', async () => {
     await artifacts({ mode: 'live' }); const grade = await gradeCalibration(root, join(root, 'judgments.json'));
-    expect(grade).toMatchObject({ detected: 8, correctnessDetected: 8, seeded: 8, falsePositives: 0, cleanControls: 4, requiredDetected: true, qualityMet: true, eligible: true, rolloutApproved: false, coldStartupMs: null, modelOnlyMs: null });
+    expect(grade).toMatchObject({ detected: 8, correctnessDetected: 8, seeded: 8, requests: 24, inputTokens: 480, outputTokens: 720, cacheTokens: 0, falsePositives: 0, cleanControls: 4, requiredDetected: true, qualityMet: true, eligible: true, rolloutApproved: false, coldStartupMs: null, modelOnlyMs: null });
     expect(grade.rows.reduce((sum, row) => sum + row.rawCandidates, 0)).toBe(8);
   });
   it('mandatory cross-file/error-path misses fail despite six remaining seeded catches', async () => {
@@ -139,7 +139,7 @@ describe('evidence-backed grading, never simulated release approval', () => {
     if (!collection || typeof collection !== 'object' || Array.isArray(collection)) throw new Error('Invalid fixture collection');
     await atomicPrivateWrite(root, 'collection.json', JSON.stringify({ ...collection, status: 'blocked', results: [] }));
     const grade = await gradeCalibration(root, join(root, 'judgments.json'));
-    expect(grade.rows).toHaveLength(12); expect(grade.eligible).toBe(false); expect(grade.costUsd).toBeNull();
+    expect(grade.rows).toHaveLength(12); expect(grade.eligible).toBe(false); expect(grade.costUsd).toBeNull(); expect(grade.inputTokens).toBeNull(); expect(grade.requests).toBeNull();
   });
   it('refuses release qualification from simulated calibration before reading profile artifacts', async () => {
     await artifacts();
