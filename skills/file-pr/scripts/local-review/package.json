@@ -1,0 +1,24 @@
+{
+  "name": "@local/file-pr-review",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Offline-only contracts and immutable source for file-pr review; live activation disabled.",
+  "engines": { "node": ">=22.19.0" },
+  "packageManager": "pnpm@12.9.1",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "validate": "pnpm run typecheck && pnpm run build && pnpm run test"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "1.3.0",
+    "typebox": "1.3.27"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  }
+}
