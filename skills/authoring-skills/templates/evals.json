@@ -8,28 +8,28 @@
   ],
   "cases": [
     {
-      "id": "<skill-name>-<route-or-gap>",
-      "summary": "<what this case proves, one sentence>",
-      "setup": "<disposable workspace and fixtures; which skills are exposed; side effects blocked>",
-      "prompt": "<what a user types, with no slash command>",
+      "id": "<skill-name>-<main-workflow>",
+      "summary": "<observable task outcome; definitions are not executed results>",
+      "setup": "<temporary fixture outside active skills trees; exact skill revision/manifest and competing set; automatic or explicit invocation; approved tools/permissions/external containment; paired no-skill baseline for new skill or frozen previous revision for improvement>",
+      "prompt": "<realistic task prompt; no slash command when evaluating automatic discovery>",
       "expectedBehavior": [
-        "Fires from the description alone.",
-        "<an observable action: reads X, runs Y, writes Z>",
-        "<an observable property of the output>"
+        "<confirms intended target delivery and labels automatic versus explicit setup without conflating them>",
+        "<observable action and output property>",
+        "<comparison uses identical prompt/fixture/provider/model/thinking/tools/permissions/containment and nested allowance>"
       ],
       "forbiddenBehavior": [
-        "<an observable wrong action, e.g. edits before linting>",
-        "<an observable wrong output, e.g. invents results>"
+        "<observable wrong action/output>",
+        "Claims task success or automatic discovery from capture completion or explicit injection alone."
       ]
     },
     {
-      "id": "<skill-name>-<second-route-or-phrasing>",
-      "summary": "<what this case proves>",
-      "setup": "<fixture the case needs as input>",
-      "prompt": "<a second phrasing or a second route>",
+      "id": "<skill-name>-<second-workflow>",
+      "summary": "<independent execution workflow or paraphrase>",
+      "setup": "<controlled fixture and baseline; record exact configuration, budgets and primary evidence; unavailable metrics stay unavailable>",
+      "prompt": "<second realistic task>",
       "expectedBehavior": [
         "<observable action>",
-        "<observable property>"
+        "<verifiable output; human review for subjective quality>"
       ],
       "forbiddenBehavior": [
         "<observable wrong action>",
@@ -37,17 +37,17 @@
       ]
     },
     {
-      "id": "<skill-name>-<near-miss-or-adversarial>",
-      "summary": "<what this case proves>",
-      "setup": "<fixture for a narrow, near-miss, or adversarial ask>",
-      "prompt": "<a near-miss the skill should decline, or an adversarial ask it should still handle>",
+      "id": "<skill-name>-<safe-failure-or-boundary>",
+      "summary": "<execution failure path or in-scope adversarial request, not a negative non-trigger query>",
+      "setup": "<safe simulated dependency/error fixture; no live side effects or nested model runs without approval; discovery negatives belong to a separate labeled corpus>",
+      "prompt": "<in-scope request exercising safe failure or explicit boundary>",
       "expectedBehavior": [
-        "<observable action>",
-        "<observable property>"
+        "<reports the specific blocker with primary evidence>",
+        "<preserves safety boundary and marks missing assertions unqualified>"
       ],
       "forbiddenBehavior": [
-        "<what it must not do, e.g. opens no file in references/>",
-        "<an unapproved side effect, e.g. commits or calls a paid API>"
+        "<unapproved side effect, model call or scope expansion>",
+        "Counts a blocked run or negative non-trigger sample as a with-skill execution pass."
       ]
     }
   ]

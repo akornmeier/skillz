@@ -1,0 +1,12 @@
+{"type": "system", "subtype": "init", "cwd": "/tmp/eval-ws", "session_id": "fixture", "tools": ["Read", "Bash", "Grep", "Glob", "Skill"]}
+{"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": "Improving the target skill. Loading the authoring skill first."}, {"type": "tool_use", "id": "t1", "name": "Read", "input": {"file_path": "/Users/tk/.claude/skills/authoring-skills/SKILL.md"}}]}}
+{"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t1", "content": "---\nname: authoring-skills\n---\n# authoring-skills\n(router contents elided in fixture)"}]}}
+{"type": "assistant", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "t2", "name": "Read", "input": {"file_path": "/Users/tk/.claude/skills/authoring-skills/workflows/improve-skill.md"}}]}}
+{"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t2", "content": "# Improve Skill\n1. Locate ..."}]}}
+{"type": "assistant", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "t3", "name": "Bash", "input": {"command": "sed -n 1,40p /Users/tk/.claude/skills/authoring-skills/references/authoring-guidelines.md", "description": "Read the start of the guidelines"}}]}}
+{"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t3", "content": "# Skill authoring guidelines\n..."}]}}
+{"type": "assistant", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "t4", "name": "Read", "input": {"file_path": "/Users/tk/.claude/skills/authoring-skills/references/review-rubric.md"}}]}}
+{"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t4", "content": "# Skill review rubric\n..."}]}}
+{"type": "assistant", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "t5", "name": "Bash", "input": {"command": "python3 /Users/tk/.claude/skills/authoring-skills/scripts/lint_skill.py /tmp/eval-ws/skills/target", "description": "Lint the target"}}]}}
+{"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t5", "content": "target \u00b7 PASS \u00b7 0 fail, 0 warn"}]}}
+{"type": "result", "subtype": "success", "is_error": false, "num_turns": 6, "result": "Done."}

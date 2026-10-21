@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "skill": "authoring-skills",
+  "queries": [
+    {"id": "authoring-skills-train-01", "prompt": "Package our incident handoff procedure into a reusable Agent Skill.", "shouldTrigger": true, "split": "train"},
+    {"id": "authoring-skills-train-02", "prompt": "Review my import-audit skill's routing and report problems without editing it.", "shouldTrigger": true, "split": "train"},
+    {"id": "authoring-skills-train-03", "prompt": "My release-checks skill activates on unrelated requests. Tighten its intent boundary.", "shouldTrigger": true, "split": "train"},
+    {"id": "authoring-skills-train-04", "prompt": "Make this installed skill cheaper to load without losing its useful examples or safety checks.", "shouldTrigger": true, "split": "train"},
+    {"id": "authoring-skills-train-05", "prompt": "Audit this folder of agent skills for broken metadata and missing evaluation coverage.", "shouldTrigger": true, "split": "train"},
+    {"id": "authoring-skills-train-06", "prompt": "Improve the error handling and documented interface of the helper bundled in this Agent Skill.", "shouldTrigger": true, "split": "train"},
+    {"id": "authoring-skills-train-07", "prompt": "Help me learn the skill of giving constructive feedback to my team.", "shouldTrigger": false, "split": "train"},
+    {"id": "authoring-skills-train-08", "prompt": "Use the installed pdf skill to extract the invoice text; don't modify the skill.", "shouldTrigger": false, "split": "train"},
+    {"id": "authoring-skills-train-09", "prompt": "Improve the conversion copy on this upgrade paywall.", "shouldTrigger": false, "split": "train"},
+    {"id": "authoring-skills-train-10", "prompt": "Plan the implementation of a backend retry queue with bounded retries.", "shouldTrigger": false, "split": "train"},
+    {"id": "authoring-skills-train-11", "prompt": "Why does this Kubernetes YAML fail to parse?", "shouldTrigger": false, "split": "train"},
+    {"id": "authoring-skills-train-12", "prompt": "Compare embedding models for multilingual legal-document retrieval.", "shouldTrigger": false, "split": "train"},
+    {"id": "authoring-skills-validation-01", "prompt": "Our SKILL.md advertises the wrong jobs. Which scope boundaries should its description express?", "shouldTrigger": true, "split": "validation"},
+    {"id": "authoring-skills-validation-02", "prompt": "This agent instruction package reads irrelevant references every time. Review its routing and context cost.", "shouldTrigger": true, "split": "validation"},
+    {"id": "authoring-skills-validation-03", "prompt": "Scaffold a SKILL.md package for filing issues, including focused cases and safe failure behavior.", "shouldTrigger": true, "split": "validation"},
+    {"id": "authoring-skills-validation-04", "prompt": "Which of the skills under this directory need work before release qualification?", "shouldTrigger": true, "split": "validation"},
+    {"id": "authoring-skills-validation-05", "prompt": "Build an accessible Vue combobox with our existing shadcn-vue components.", "shouldTrigger": false, "split": "validation"},
+    {"id": "authoring-skills-validation-06", "prompt": "Run the bowser skill to capture screenshots of this page.", "shouldTrigger": false, "split": "validation"},
+    {"id": "authoring-skills-validation-07", "prompt": "Design a practice routine for improving my negotiation skills.", "shouldTrigger": false, "split": "validation"},
+    {"id": "authoring-skills-validation-08", "prompt": "Write product requirements for a team scheduling app.", "shouldTrigger": false, "split": "validation"},
+    {"id": "authoring-skills-fresh-01", "prompt": "The agent misses a critical branch in this SKILL.md workflow. Review where its gotcha belongs.", "shouldTrigger": true, "split": "fresh"},
+    {"id": "authoring-skills-fresh-02", "prompt": "Trim this existing Agent Skill's instruction bundle, but keep examples that help our smaller model.", "shouldTrigger": true, "split": "fresh"},
+    {"id": "authoring-skills-fresh-03", "prompt": "Author a skill for validating release notes, with a clear description and offline checks.", "shouldTrigger": true, "split": "fresh"},
+    {"id": "authoring-skills-fresh-04", "prompt": "Use the installed diagram-design skill to draw our request flow.", "shouldTrigger": false, "split": "fresh"},
+    {"id": "authoring-skills-fresh-05", "prompt": "Create an implementation plan for adding API request cancellation.", "shouldTrigger": false, "split": "fresh"},
+    {"id": "authoring-skills-fresh-06", "prompt": "Suggest guitar exercises for a beginner learning a new musical skill.", "shouldTrigger": false, "split": "fresh"}
+  ]
+}

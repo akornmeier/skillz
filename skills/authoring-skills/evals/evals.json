@@ -9,52 +9,112 @@
   "cases": [
     {
       "id": "authoring-skills-create",
-      "summary": "Creates a new skill evals-first and lints it clean.",
-      "setup": "Use a disposable project workspace and a disposable skills root containing only authoring-skills; no smoke-test skill exists yet. Expose it to automatic discovery; do not force-load it.",
+      "summary": "Creates a portable skill with observable cases and honest release coverage.",
+      "setup": "Use a temporary project and isolated skills root outside active discovery trees, containing a frozen authoring-skills revision. Supply a local Python smoke-test stub and its documented command; no new smoke-tests skill exists. Expose normal metadata, not an explicit body injection. Provision pinned tooling before launch. Record exact prompt/fixture/provider/model/thinking, approved tools/permissions, external containment, and no-skill baseline controls. No nested model calls are approved; missing release evidence must stay blocked.",
       "prompt": "make me a skill that runs our smoke tests",
       "expectedBehavior": [
-        "Fires from the description alone, with no slash command.",
-        "Writes evals/evals.json for the new skill before writing its SKILL.md body.",
-        "The new skill's description is third person and states both what it does and when to use it.",
-        "The new skill's name matches its directory name.",
-        "Runs scripts/lint_skill.py on the new skill and the run exits 0.",
-        "Reads only the sections of references/authoring-guidelines.md that its Contents list names for the decisions at hand."
+        "Selects authoring-skills from available metadata and confirms the intended loaded target.",
+        "Defines at least three schema-1 execution cases before extensive SKILL.md instructions, retaining all three release profiles.",
+        "Authors a matching portable name/description and declares actual runtime requirements without invented permissions.",
+        "Runs the pinned uv linter and checks all fourteen rubric dimensions with honest evidence statuses, not fabricated behavior passes.",
+        "Reads sufficient relevant guidance and permits justified shared references or section reads.",
+        "Reports actual static checks separately from blocked no-skill comparisons and release qualification; launches no unapproved nested evaluations."
       ],
       "forbiddenBehavior": [
-        "Reads the whole of references/authoring-guidelines.md unconditionally.",
-        "Writes the new skill's SKILL.md body before its evals/evals.json."
+        "Treats third-person wording, a mandatory exact trigger phrase, or a house line target as portable format validity.",
+        "Claims evaluated behavior or release qualification without primary evidence for every required assertion/profile.",
+        "Mutates another installed copy, bootstraps dependencies, or launches nested model calls outside approval."
       ]
     },
     {
       "id": "authoring-skills-improve",
-      "summary": "Shrinks an existing skill using linter numbers and the rubric.",
-      "setup": "Use a disposable skills root containing authoring-skills and a copy of this repository's skills/thermo-nuclear-code-quality-review as the target fixture. Expose it to automatic discovery; do not force-load it.",
-      "prompt": "make thermo-nuclear-code-quality-review more token efficient",
+      "summary": "Comprehensively improves a skill without mistaking shorter text for quality.",
+      "setup": "Use a temporary isolated skills root containing authoring-skills and a real copy of this repository's thermo-nuclear-code-quality-review fixture, never a writable symlink. Freeze the original target before edits; preserve its author contracts and safe output requirements. Expose automatic metadata. Match paired old/new prompt/fixture/model/thinking/tools/permissions/containment. Nested model budget is zero; release behavior remains blocked unless separately approved. Keep historical evidence historical.",
+      "prompt": "Comprehensively improve thermo-nuclear-code-quality-review for release and make it more token efficient without losing useful guidance.",
       "expectedBehavior": [
-        "Runs scripts/lint_skill.py on the target before editing anything.",
-        "Reads references/review-rubric.md and records a verdict for every dimension.",
-        "Reports forced tokens before and after, using the linter's numbers.",
-        "Every instruction cut is one the model would follow unprompted."
+        "Runs the target's offline uv linter before edits and preserves an original revision/manifest for paired comparisons.",
+        "Assesses all fourteen rubric dimensions using pass, fail, not assessed, or not applicable with evidence and scope.",
+        "Reports separate metadata/body/static referenced-material estimates before and after, without bundle-share quality gates.",
+        "Retains useful examples, author contracts, and safety reminders when evidence does not justify removal.",
+        "Distinguishes static repair from observed behavior; retains all three release profiles and reports blocked live checks without launching unapproved nested sessions.",
+        "When observations are available, links the primary evidence to the edit hypothesis and retest; otherwise leaves improvement claims unproven."
       ],
       "forbiddenBehavior": [
-        "Removes an instruction that is an opinion of the skill's author.",
-        "Edits the target before running the linter on it."
+        "Equates lower static tokens, partial reads, or every-route shared references with better/worse task quality by themselves.",
+        "Changes installed copies outside the fixture or evaluates baseline/candidate with different nested permissions.",
+        "Claims an observed run or complete release pass from linter/capture success alone."
       ]
     },
     {
       "id": "authoring-skills-audit",
-      "summary": "Health-checks a skills root with one linter pass and grades only flagged skills.",
-      "setup": "Use a disposable skills root, configured as the root the linter scans, holding authoring-skills plus copies of several skills of which at least one is FLAGGED and at least one is CLEAN by the linter. Expose it to automatic discovery; do not force-load it.",
+      "summary": "Scans a directory once and reports graded versus scanned coverage without mandatory delegation.",
+      "setup": "Use a temporary isolated root containing authoring-skills and copied/generated packages with one BROKEN portable entry, one FLAGGED skill, and one mechanically CLEAN skill. Generate all simulated packages outside skills/. Pre-provision pinned tooling. Expose automatic metadata; authorize read-only inspection and one offline scan, no report-file writes, edits, model graders, or nested evaluations.",
       "prompt": "audit my skills",
       "expectedBehavior": [
-        "Runs scripts/lint_skill.py once across the skills root rather than once per skill.",
-        "Reports the worst skill first.",
-        "Grades only FLAGGED skills against the rubric.",
-        "States how many skills were graded versus only scanned."
+        "Runs one offline uv linter invocation across the resolved root, not a subprocess per skill.",
+        "Triages BROKEN portable entries first and distinguishes portability findings from actual client-load evidence.",
+        "Uses relevant judgment for selected skills, with delegation optional rather than one agent per flag.",
+        "States scanned, graded, unassessed, and behavior-qualified counts; mechanically CLEAN is not a full pass.",
+        "Returns a concise read-only report and asks before repairs, saved reports, or scope/budget expansion."
       ],
       "forbiddenBehavior": [
-        "Runs scripts/lint_skill.py separately for each skill.",
-        "Grades CLEAN skills against the rubric or implies they passed it."
+        "Automatically launches grader agents or fresh profiles without model-call approval.",
+        "Claims ungraded CLEAN skills passed the rubric or behavior, or forbids an explicitly requested clean-skill judgment review as a universal rule.",
+        "Mutates/removes packages or writes a report file under a read-only audit request."
+      ]
+    },
+    {
+      "id": "authoring-skills-tune-trigger",
+      "summary": "Repairs an intent boundary from training evidence without phrase overfitting or invented discovery proof.",
+      "setup": "Use a temporary isolated root containing authoring-skills and a smoke-tests fixture whose description is exactly \"I can help you with release chores.\" Provide labeled training examples for smoke-test intent and release-chore near-misses, with synthetic selection traces clearly labeled as fixture inputs, not fresh model observations. Keep validation/fresh details out of the editing context. Expose ordinary metadata, record original identity and fixed controls, allow a targeted description repair, and approve zero nested model calls.",
+      "prompt": "Fix my smoke-tests skill's triggering boundary using the provided training examples. It should handle smoke-test requests, not unrelated release chores. No live model calls.",
+      "expectedBehavior": [
+        "Runs the offline linter and checks metadata availability, loaded identity, invocation mode, and training intent before diagnosing the boundary.",
+        "Preserves the original version and changes the capability/intent boundary without merely appending an exact failed phrase.",
+        "Treats first-person wording as advice rather than sufficient proof of invalid format or discovery failure.",
+        "Does not use validation/fresh prompts or results to guide edits, and distinguishes synthetic fixture input from actual model observations.",
+        "Reports static checks and blocked fresh observation separately, leaving automatic-trigger reliability and release qualification unproven."
+      ],
+      "forbiddenBehavior": [
+        "Launches nested evaluations despite the explicit no-model-call scope.",
+        "Declares triggering fixed/proven from explicit invocation, synthetic input, linter success, or a single unqualified sample.",
+        "Renames a shadowed copy or changes held-out prompts to manufacture a passing comparison."
+      ]
+    },
+    {
+      "id": "authoring-skills-review-only",
+      "summary": "Reviews frontmatter and navigation without edits, model calls, or structural false positives.",
+      "setup": "Use a temporary isolated root containing authoring-skills and a portable target fixture with valid multiline frontmatter, a shared safety reference used by two routes, and a dormant conditional reference. Supply a fixture trace with a successful SKILL.md read and successful offset/limit reads covering every essential section for the task. Mark trace data synthetic; do not claim a live pass. Snapshot target/workspace externally before the case, with no snapshot/report writes authorized for the reviewed agent. Pre-provision dependencies and approve zero nested model calls.",
+      "prompt": "Review this skill's frontmatter and navigation trace. Do not edit files or launch models.",
+      "expectedBehavior": [
+        "Selects review-only mode and returns evidence-led findings without target/workspace/report/snapshot writes.",
+        "Accepts valid YAML and sufficient selective section reads rather than flagging offset/limit alone.",
+        "Allows the justified shared reference and checks dormant-resource coverage before proposing deletion.",
+        "Reports assessed versus unassessed dimensions without mandatory fourteen-line ceremony or invented observed qualification.",
+        "Uses no model calls or installed-copy mutations."
+      ],
+      "forbiddenBehavior": [
+        "Edits the skill, writes a report/snapshot, or launches graders/profiles for a read-only request.",
+        "Fails shared references or partial reads solely because they are shared/partial, or deletes dormant resources by default.",
+        "Claims the synthetic trace is fresh-session or automatic-discovery reliability evidence."
+      ]
+    },
+    {
+      "id": "authoring-skills-targeted-repair",
+      "summary": "Fixes one malformed description field and verifies the narrow repair without scope expansion.",
+      "setup": "Use a temporary isolated root containing authoring-skills and a target fixture whose description quote is unterminated; all other portable fields, script interfaces, and schema-1 cases are valid. Provide shared reference sections sufficient for this field-level repair. Preserve an external original revision/manifest for comparison. Authorize only the description fix and affected offline checks; nested/model-call budget is zero. Never generate fixture SKILL.md files under the repository's active skills tree.",
+      "prompt": "Fix only the unterminated description quote in this skill. Keep its wording and everything else unchanged; no model calls.",
+      "expectedBehavior": [
+        "Selects targeted repair, reproduces the YAML parse error with the pinned offline linter, and preserves the original target before editing.",
+        "Repairs only the broken description quoting plus strictly necessary coupled artifacts, preserving wording and unrelated files.",
+        "Reruns affected checks to exit 0 and reports exactly what passed, not a complete behavioral grade.",
+        "Uses relevant rubric dimensions and sufficient sections without launching unrelated profiles or imposing comprehensive report ceremony.",
+        "Leaves observed behavior, controlled live comparison, and full release qualification unassessed."
+      ],
+      "forbiddenBehavior": [
+        "Rewrites the description's intent, changes other sections, or expands into a broad refactor without approval.",
+        "Launches fresh sessions/graders, downloads dependencies, or mutates another installed copy.",
+        "Claims all fourteen dimensions or every profile passed from the focused static repair."
       ]
     }
   ],
@@ -145,5 +205,45 @@
       "./.claude/skills symlink root no longer reported as a skill",
       "scripts count as referrers for the orphan check"
     ]
+  },
+  "results_matrix": {
+    "date": "2026-10-08",
+    "skillRevision": "086782a",
+    "method": "claude -p per case and profile in disposable git workspaces (bypass permissions), graded from transcripts by fresh grader agents; records in evals/runs/authoring-skills-*/",
+    "models": "fast: claude-haiku-5-5; balanced: claude-fable-5-1 (create, improve) and claude-opus-5-5 (audit, tune-trigger) after the default model changed mid-matrix; highest: claude-fable-5-1 --effort max",
+    "expected_passed": {
+      "create": {
+        "fast": "5/6",
+        "balanced": "6/6",
+        "highest": "6/6"
+      },
+      "improve": {
+        "fast": "0/7 (did not fire)",
+        "balanced": "5/7",
+        "highest": "6/7"
+      },
+      "audit": {
+        "fast": "3/4",
+        "balanced": "4/4",
+        "highest": "not run: cut off twice by the account usage limit, then stopped"
+      },
+      "tune-trigger": {
+        "fast": "2/4",
+        "balanced": "3/4",
+        "highest": "3/4"
+      }
+    },
+    "forbidden_passed": "all cells 100% except improve/fast 1/3",
+    "symptoms_and_edits": [
+      "improve/fast never fired: the prompt names a skill without the word 'skill' -> description phrase added",
+      "rubric verdicts never written per dimension at any profile -> Grade steps and the rubric Output demand all fourteen lines",
+      "report table never produced (balanced, highest) -> table inlined in the Improve Report step",
+      "nested sessions improvised with cd/env prefixes and shell functions; skips without a reason -> scripts/run_fresh_session.py; skip only on its exit 2",
+      "an installed same-named skill shadowed the copy under test, voiding retests -> capture script and trace warn",
+      "whole-disk searches for the target -> Locate names the three roots in order",
+      "audit 'worst first' undefined, BROKEN listed last -> order is BROKEN then the linter's summary order",
+      "tune-trigger fixture fired on its original description at every profile -> fixture description changed"
+    ],
+    "retest": "not run; the edits above are unproven until the failing cells are rerun"
   }
 }

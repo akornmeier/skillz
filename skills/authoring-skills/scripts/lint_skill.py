@@ -1,362 +1,392 @@
-#!/usr/bin/env python3
-"""Lint one or many Agent Skill directories for mechanically provable defects.
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.9"
+# dependencies = ["PyYAML==6.0.3"]
+# ///
+"""Validate skill format, then report local-policy checks and heuristic advice.
 
-usage: lint_skill.py [--json] [SKILL_DIR ...]
+usage: uv run --script lint_skill.py [--json] [--target portable|pi|claude-code] [SKILL_DIR ...]
 
-With no SKILL_DIR, scans every skill under ~/.agents/skills and ./.claude/skills.
-A SKILL_DIR may be a single skill (contains SKILL.md) or a directory of skills.
+Provision the pinned dependency once with approval; add --offline to subsequent uv
+runs. No implicit fallback parser. Directory arguments and --json remain supported.
+No arguments scans conventional local roots, not a client's complete discovery set.
+--target adds named client checks to portable validation; it is not a client emulator.
 
-Every finding is one line:  <skill> · <check> — FAIL|WARN: <what>. Fix: <edit>
-Then a summary block per skill with the bytes and approximate tokens (bytes / 4,
-an estimate) forced on every trigger, and the same per route. Exit 1 on any FAIL.
+FAIL: malformed portable fields, selected client contracts, broken bundled links,
+or malformed repository-local schema-1 eval definitions. WARN: compatibility gaps,
+missing local evals, wording, size, navigation, dates, or other heuristics. Findings
+carry authority=portable|platform|local|heuristic. Exit 1 on FAIL, 0 for advice only,
+2 for invalid CLI/no targets. Static checks prove neither task quality nor live use.
 
-Python 3 standard library only. Frontmatter is parsed by hand, so no PyYAML.
-Reference detection is heuristic: paths in backticks or markdown links whose first
-segment is a directory that exists in the skill. Prose mentions without either are
-missed; findings are evidence for a grader, not verdicts.
+Costs: UTF-8 bytes / 4 estimates, not model tokenization. Raw YAML metadata and body
+are separate. Route figures are static referenced-material scenarios, including
+conditional references, excluding executed scripts/evals; never measured loading.
 """
+import argparse
 import json
 import os
 import re
 import sys
 
-# --- limits ---------------------------------------------------------------
-NAME_MAX = 64            # spec: name is at most 64 characters
-DESC_MAX = 1024          # spec: description is at most 1,024 characters
-DESC_THIN = 80           # under ~80 chars a description rarely states both what and when
-BODY_FAIL = 500          # spec: keep SKILL.md under 500 lines
-BODY_WARN = 150          # above ~150 lines the router is carrying depth that belongs in references
-TOC_LINES = 100          # spec: reference files over 100 lines need a table of contents
-ROUTE_SHARE = 0.5        # a route paying for more than half the bundle is paying for other routes
-BYTES_PER_TOKEN = 4      # rough English-text ratio; stated as an estimate wherever printed
+import yaml
 
-NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
-RESERVED = ("anthropic", "claude")  # spec: reserved words the name cannot contain
-TAG_RE = re.compile(r"<[a-zA-Z/][^>]*>")  # XML tags are not allowed in name or description
+# Portable limits: https://agentskills.io/specification
+NAME_MAX = 64  # Portable name character limit.
+DESC_MAX = 1024  # Portable description character limit.
+COMPAT_MAX = 500  # Portable optional environment-description limit.
+# Recommendations/house heuristics, not format limits.
+BODY_RECOMMENDED = 500  # Agent Skills recommendation, not a body format restriction.
+BODY_HOUSE = 150  # Repository preference for a small router.
+TOC_LINES = 100  # Anthropic navigation recommendation.
+BYTES_PER_TOKEN = 4  # Rough English-text estimate; no tokenizer or runtime measurement.
+RESERVED = ("anthropic", "claude")  # Anthropic authoring restrictions, not portable format.
+TAG_RE = re.compile(r"<[a-zA-Z/][^>]*>")
 PERSON_RE = re.compile(r"^(i|i'm|i'll|i've|we|we'll|you|you'll|you're|your)\b", re.I)
-WHEN_ONLY_RE = re.compile(r"^use\s+(this\s+|it\s+)?when", re.I)
-TRIGGER_RE = re.compile(
-    r"use\s+(this\s+|it\s+)?when(ever)?|when(ever)?\s+(the\s+)?(user|prompt|working|you)"
-    r"|triggers?\s+on|for use when|use for", re.I)
-# Phrases the model follows unprompted; each costs tokens and adds nothing.
-UNPROMPTED_RE = re.compile(
-    r"required[ ]reading|read[ ]these[ ]files[ ]first|chmod \+x|git (add|commit|push)\b|ls -la|head -10"
-    r"|ultrathink|think (hard|step by step)|consider edge cases|where appropriate|be thorough",
-    re.I)
-DATE_RE = re.compile(
-    r"\b(before|after|until|as of|since|prior to|starting)\s+"
-    r"((jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+)?(19|20)\d\d\b", re.I)
+TRIGGER_RE = re.compile(r"use\s+(this\s+|it\s+)?when|when|triggers?\s+on|use for", re.I)
+DATE_RE = re.compile(r"\b(before|after|until|as of|since)\s+(?:[A-Za-z]+\s+)?(?:19|20)\d\d\b", re.I)
 BACKSLASH_PATH_RE = re.compile(r"\b[\w.-]+\\[\w.-]+\.[a-z0-9]+\b")
-# `path/in/backticks` or [text](path); a path needs a known file extension to count.
 EXT = r"(?:md|py|sh|js|ts|json|ya?ml|txt|html|csv|toml|cfg|ini)"
 TICK_RE = re.compile(r"`([^`\s]+?\." + EXT + r")`")
 LINK_RE = re.compile(r"\[[^\]]*\]\(([^)\s]+?\." + EXT + r")\)")
-INTENT_RE = re.compile(r"\b(run|runs|running|execute|executes|invoke|invokes|python3?|bash|node|sh|see|read|reads|reading)\b", re.I)
+INTENT_RE = re.compile(r"\b(run|execute|invoke|python3?|uv|bash|node|see|read|inspect)\b", re.I)
 SCRIPT_EXT = (".py", ".sh", ".js", ".ts")
-SKIP_ORPHAN = {"README.md", "LICENSE", ".DS_Store", "evals.md",  # human-facing or noise, never routed
-               "package.json", "package-lock.json", "requirements.txt", "pyproject.toml"}  # manifests scripts need
-SKIP_DIRS = {"evals", ".git", "node_modules", "__pycache__"}  # evals are unlinked by convention
-DEFAULT_ROOTS = ("~/.agents/skills", "./.claude/skills")
+CONSTANT_RE = re.compile(r"^[A-Z][A-Z0-9_]*\s*=\s*-?\d+(\.\d+)?\s*$")
+SKIP_ORPHAN = {"README.md", "LICENSE", ".DS_Store", "evals.md", "package.json",
+               "package-lock.json", "requirements.txt", "pyproject.toml"}
+SKIP_DIRS = {"evals", ".git", "node_modules", "__pycache__"}
+DEFAULT_ROOTS = ("~/.agents/skills", "~/.pi/agent/skills", "~/.claude/skills",
+                 "./.agents/skills", "./.pi/skills", "./.claude/skills")
+PROFILES = ["fast/economical", "balanced/default", "highest-reasoning"]
+PORTABLE_FIELDS = {"name", "description", "license", "compatibility", "metadata", "allowed-tools"}
+# Named, supported extensions only. Unknown fields are advice, never invented contracts.
+CLIENT_FIELDS = {"pi": {"disable-model-invocation"}, "claude-code": {
+    "disable-model-invocation", "user-invocable", "argument-hint", "arguments", "when_to_use",
+    "model", "effort", "context", "agent", "background", "hooks", "paths", "shell", "disallowed-tools"}}
+
+
+class UniqueSafeLoader(yaml.SafeLoader):
+    """Validate original keys before PyYAML flattens inline/aliased merge sources."""
+    def __init__(self, stream):
+        super().__init__(stream)
+        self.checked_mappings = set()
+
+    def flatten_mapping(self, node):
+        # Flattening mutates nodes; checking each original mapping once preserves
+        # legal merge overrides and aliases reused after their first flattening.
+        if node not in self.checked_mappings:
+            self.checked_mappings.add(node)
+            keys = set()
+            for key_node, _ in node.value:
+                if key_node.tag == "tag:yaml.org,2002:merge":
+                    continue
+                if key_node.tag == "tag:yaml.org,2002:value":
+                    key_node.tag = "tag:yaml.org,2002:str"
+                key = self.construct_object(key_node)
+                try:
+                    if key in keys:
+                        raise yaml.constructor.ConstructorError("mapping", node.start_mark,
+                                                                f"duplicate key {key!r}", key_node.start_mark)
+                    keys.add(key)
+                except TypeError:
+                    raise yaml.constructor.ConstructorError("mapping", node.start_mark,
+                                                            "mapping keys must be scalar", key_node.start_mark) from None
+        return super().flatten_mapping(node)
 
 
 class Finding:
-    def __init__(self, skill, check, level, what, fix):
-        self.skill, self.check, self.level, self.what, self.fix = skill, check, level, what, fix
+    def __init__(self, skill, check, level, what, fix, authority="heuristic"):
+        self.skill, self.check, self.level = skill, check, level
+        self.what, self.fix, self.authority = what, fix, authority
 
     def line(self):
-        return f"{self.skill} · {self.check} — {self.level}: {self.what}. Fix: {self.fix}"
+        return f"{self.skill} · {self.check} — {self.level} [{self.authority}]: {self.what}. Fix: {self.fix}"
 
     def as_dict(self):
-        return {"check": self.check, "level": self.level, "what": self.what, "fix": self.fix}
+        return {"check": self.check, "level": self.level, "what": self.what,
+                "fix": self.fix, "authority": self.authority}
 
 
 def read(path):
-    try:
-        with open(path, encoding="utf-8", errors="replace") as fh:
-            return fh.read()
-    except OSError:
-        return ""
+    with open(path, encoding="utf-8", newline="") as fh:
+        return fh.read()
 
 
 def parse_frontmatter(text):
-    """-> (front_dict, body) or (None, text) when the file has no frontmatter block."""
-    if not text.startswith("---\n"):
-        return None, text
-    end = text.find("\n---", 4)
-    if end < 0:
-        return None, text
-    front, body = text[4:end], text[end + 4:]
-    fields, key = {}, None
-    for line in front.split("\n"):
-        m = re.match(r"^([A-Za-z_][\w-]*):\s*(.*)$", line)
-        if m:
-            key = m.group(1)
-            fields[key] = m.group(2).strip().strip('"').strip("'")
-        elif key and line.startswith((" ", "\t")):
-            fields[key] = (fields[key] + " " + line.strip()).strip()
-    return fields, body
+    """Return (safe mapping, body, raw metadata); errors retain YAML location details."""
+    match = re.match(r"\A---\r?\n(.*?)\r?\n---[ \t]*(?:\r?\n|$)", text, re.S)
+    if not match:
+        raise ValueError("start line 1 with --- and close YAML with a separate --- line")
+    front = yaml.load(match.group(1), Loader=UniqueSafeLoader)
+    if not isinstance(front, dict) or not all(isinstance(k, str) for k in front):
+        raise ValueError("frontmatter must be a mapping with string field names")
+    return front, text[match.end():], match.group(0)
 
 
 def bundled_files(skill_dir):
     out = []
     for root, dirs, files in os.walk(skill_dir):
         dirs[:] = [d for d in dirs if d not in SKIP_DIRS and not d.startswith(".")]
-        for f in files:
-            if f in SKIP_ORPHAN or f.startswith("."):
-                continue
-            out.append(os.path.relpath(os.path.join(root, f), skill_dir))
+        out.extend(os.path.relpath(os.path.join(root, f), skill_dir) for f in files
+                   if f not in SKIP_ORPHAN and not f.startswith("."))
     return sorted(out)
 
 
 def references_in(text, from_rel, skill_dir, top_dirs):
-    """Paths this markdown text references, resolved relative to the skill root.
-    Returns a list of (raw_token, resolved_rel_or_None, line_text)."""
     refs = []
     for line in text.split("\n"):
-        for tok in TICK_RE.findall(line) + LINK_RE.findall(line):
-            if tok.startswith(("http", "~", "/", "$")) or "<" in tok or "*" in tok or "{" in tok:
+        for token in TICK_RE.findall(line) + LINK_RE.findall(line):
+            if token.startswith(("http", "~", "/", "$")) or any(c in token for c in "<*{"):
                 continue
-            clean = tok[2:] if tok.startswith("./") else tok
-            first = clean.split("/")[0]
-            if "/" in clean and first not in top_dirs:
-                continue  # a path outside this skill: not ours to resolve
+            clean = token.removeprefix("./")
+            if "/" in clean and clean.split("/")[0] not in top_dirs:
+                continue
             if "/" not in clean and clean != "SKILL.md":
-                continue  # bare filenames are usually about the user's project
+                continue
             candidates = [clean, os.path.normpath(os.path.join(os.path.dirname(from_rel), clean))]
             hit = next((c for c in candidates if os.path.isfile(os.path.join(skill_dir, c))), None)
-            refs.append((tok, hit, line))
+            refs.append((token, hit, line))
     return refs
 
 
-def lint_skill(skill_dir):
-    skill_dir = os.path.abspath(skill_dir.rstrip("/"))
-    name = os.path.basename(skill_dir)
-    F = []
-    add = lambda check, level, what, fix: F.append(Finding(name, check, level, what, fix))
-    summary = {"skill": name, "path": skill_dir}
-
-    md_path = os.path.join(skill_dir, "SKILL.md")
-    if os.path.islink(skill_dir) and not os.path.exists(skill_dir):
-        add("skill-loads", "FAIL", f"dangling symlink -> {os.readlink(skill_dir)}",
-            "point the symlink at an existing skill directory or delete it")
-        return F, summary
-    if not os.path.isfile(md_path):
-        add("skill-loads", "FAIL", "no SKILL.md in the directory",
-            "add a SKILL.md with name and description frontmatter, or remove the directory")
-        return F, summary
-
-    text = read(md_path)
-    front, body = parse_frontmatter(text)
-    lines = len(text.splitlines())
-    summary.update({"lines": lines, "bytes": len(text.encode()),
-                    "tokens_est": len(text.encode()) // BYTES_PER_TOKEN})
-
-    # --- frontmatter -----------------------------------------------------
-    if front is None:
-        add("frontmatter", "FAIL", "file does not begin with a --- frontmatter block",
-            "make line 1 exactly --- and close the block with --- before the body")
-        front = {}
-    declared = front.get("name", "")
-    desc = " ".join(front.get("description", "").split())
-    if not declared:
-        add("name-missing", "FAIL", "no name field", f"add `name: {name}` to the frontmatter")
-    else:
-        if not 1 <= len(declared) <= NAME_MAX:
-            add("name-length", "FAIL", f"name is {len(declared)} chars",
-                f"shorten to at most {NAME_MAX} characters")
-        if not NAME_RE.match(declared):
-            add("name-format", "FAIL", f"name '{declared}' is not lowercase-hyphen",
-                "use only a-z, 0-9 and single hyphens, e.g. "
-                + re.sub(r"-+", "-", re.sub(r"[^a-z0-9]+", "-", declared.lower())).strip("-"))
-        for word in RESERVED:
-            if word in declared.lower():
-                add("name-reserved", "FAIL", f"name contains reserved word '{word}'",
-                    "rename the skill and its directory without that word")
+def validate_fields(front, name, target, add):
+    for field, maximum in (("name", NAME_MAX), ("description", DESC_MAX), ("compatibility", COMPAT_MAX)):
+        if field not in front and field == "compatibility":
+            continue
+        value = front.get(field)
+        if not isinstance(value, str) or not value.strip():
+            add(f"{field}-type", "FAIL", f"{field} must be a non-empty string", f"quote or supply {field}", "portable")
+        elif len(value) > maximum:
+            add(f"{field}-length", "FAIL", f"{field} has {len(value)} characters; maximum {maximum}", f"shorten {field}", "portable")
+    declared, desc = front.get("name"), front.get("description")
+    if isinstance(declared, str) and declared:
+        valid = (declared == declared.lower() and not declared.startswith("-") and not declared.endswith("-")
+                 and "--" not in declared and all(c.isalnum() or c == "-" for c in declared))
+        if not valid:
+            add("name-format", "FAIL", "name must use lowercase alphanumerics and single hyphens", "use a lowercase hyphenated name", "portable")
         if declared != name:
-            add("name-dir", "FAIL", f"name '{declared}' != directory '{name}'",
-                f"set `name: {name}` or rename the directory to {declared}")
-    no_autofire = str(front.get("disable-model-invocation", "")).lower() == "true"
-    if not desc:
-        add("description-missing", "FAIL", "no description field",
-            "add a description stating what the skill does and when to use it")
-    else:
-        if len(desc) > DESC_MAX:
-            add("description-length", "FAIL", f"description is {len(desc)} chars",
-                f"cut to at most {DESC_MAX} characters")
+            add("name-dir", "FAIL", f"name {declared!r} differs from directory {name!r}", "match name and directory for portability", "portable")
+        if any(word in declared for word in RESERVED):
+            add("name-reserved", "FAIL" if target == "claude-code" else "WARN",
+                "Anthropic guidance reserves names containing anthropic or claude", "rename for Anthropic compatibility", "platform")
+    if "license" in front and not isinstance(front["license"], str):
+        add("license-type", "FAIL", "license must be a string", "use a license name or file reference", "portable")
+    if "metadata" in front:
+        value = front["metadata"]
+        if not isinstance(value, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in value.items()):
+            add("metadata-type", "FAIL", "metadata must map strings to strings", "quote numeric/boolean metadata values", "portable")
+    if "allowed-tools" in front:
+        value = front["allowed-tools"]
+        cc_list = target == "claude-code" and isinstance(value, list) and all(isinstance(v, str) and v.strip() for v in value)
+        if not isinstance(value, str) and not cc_list:
+            add("allowed-tools-type", "FAIL", "allowed-tools requires a portable space-separated string (Claude Code also accepts a string list)",
+                "use allowed-tools: Read Grep", "platform" if target == "claude-code" else "portable")
+    supported = CLIENT_FIELDS.get(target, set())
+    for field in front.keys() - PORTABLE_FIELDS:
+        if field not in supported:
+            add("field-compatibility", "WARN", f"{field!r} has no validated behavior for target {target}", "check named client support; do not rely on it for permission enforcement", "platform")
+            continue
+        value = front[field]
+        if field in {"disable-model-invocation", "user-invocable", "background"}:
+            cc_boolean = target == "claude-code" and (
+                (isinstance(value, str) and value.lower() in {"true", "false", "yes", "no", "on", "off", "1", "0"})
+                or (type(value) is int and value in (0, 1)))
+            valid = isinstance(value, bool) or cc_boolean
+            expected = "a YAML boolean (Claude Code also accepts documented boolean aliases)"
+        elif field in {"disallowed-tools", "arguments", "paths"}:
+            valid = isinstance(value, str) or (isinstance(value, list) and all(isinstance(v, str) for v in value))
+            expected = "a string or string list"
+        elif field == "hooks":
+            valid, expected = isinstance(value, dict), "a mapping (hook contents need client validation)"
+        else:
+            valid, expected = isinstance(value, str), "a string"
+        if not valid:
+            add("field-type", "FAIL", f"{target} extension {field!r} requires {expected}", "use the named client's documented type", "platform")
+    if isinstance(desc, str):
         if TAG_RE.search(desc):
-            add("description-tags", "FAIL", "description contains an XML tag",
-                "remove the angle-bracket tag; plain text only")
+            add("description-tags", "FAIL" if target == "claude-code" else "WARN", "Anthropic guidance disallows XML tags in descriptions", "use plain text for Anthropic compatibility", "platform")
         if PERSON_RE.match(desc):
-            add("description-person", "FAIL", f"description opens in first or second person: '{desc[:40]}'",
-                "rewrite in third person, e.g. 'Processes X and produces Y. Use when ...'")
-        if not no_autofire:
-            if not TRIGGER_RE.search(desc):
-                add("description-trigger", "FAIL", "description says what but not when to use it",
-                    "append 'Use when <situation>, or when the user says \"<phrase>\"'")
-            elif WHEN_ONLY_RE.match(desc):
-                add("description-what", "WARN", "description says when but not what the skill does",
-                    "open with what it does in third person, then the 'Use when' clause")
-            if len(desc) < DESC_THIN:
-                add("description-thin", "WARN", f"description is {len(desc)} chars",
-                    "add the phrases a user actually types so it competes with other skills")
-        if no_autofire:
-            add("description-autofire", "WARN", "disable-model-invocation is true; the description never triggers it",
-                "keep only if the skill is meant to be invoked by slash command alone")
+            add("description-person", "WARN", "description uses first/second person; third person is an authoring preference", "prefer capability, intent and boundaries; verify discovery behavior", "heuristic")
+        if not TRIGGER_RE.search(desc):
+            add("description-trigger", "WARN", "no conventional trigger clause found; alternate wording may be sufficient", "review intent coverage, not keyword presence", "heuristic")
 
-    # --- body ------------------------------------------------------------
-    if lines > BODY_FAIL:
-        add("body-length", "FAIL", f"SKILL.md is {lines} lines (limit {BODY_FAIL})",
-            "move depth into references/ or workflows/ files with a 'read it when' condition")
-    elif lines > BODY_WARN:
-        add("body-length", "WARN", f"SKILL.md is {lines} lines; every line is paid on every trigger",
-            f"keep the router under {BODY_WARN} lines and put the rest behind a condition")
-    top_dirs = {d for d in os.listdir(skill_dir) if os.path.isdir(os.path.join(skill_dir, d))}
+
+def validate_evals(path, name, add):
+    if not os.path.isfile(path):
+        add("evals-missing", "WARN", "no evals/evals.json (repository release policy)", "add at least three cases before release qualification", "local")
+        return
+    try:
+        suite = json.loads(read(path))
+        def require(condition, message):
+            if not condition:
+                raise ValueError(message)
+        def nonempty(value):
+            return isinstance(value, str) and bool(value.strip())
+        require(isinstance(suite, dict), "root must be an object")
+        require(type(suite.get("schema")) is int and suite["schema"] == 1, "schema must be 1")
+        require(suite.get("skill") == name, "skill must equal the package name")
+        require(suite.get("requiredProfiles") == PROFILES, "requiredProfiles must list all three repository profiles in order")
+        cases = suite.get("cases")
+        require(isinstance(cases, list) and len(cases) >= 3, "at least three cases are required")
+        seen = set()
+        for index, case in enumerate(cases):
+            label = f"cases[{index}]"
+            require(isinstance(case, dict), f"{label} must be an object")
+            case_id = case.get("id")
+            require(nonempty(case_id) and case_id.startswith(name + "-"), f"{label}.id must start with {name}-")
+            require(case_id not in seen, f"{label}.id is duplicated")
+            seen.add(case_id)
+            for field in ("summary", "setup", "prompt"):
+                require(nonempty(case.get(field)), f"{label}.{field} must be a non-empty string")
+            for field in ("expectedBehavior", "forbiddenBehavior"):
+                values = case.get(field)
+                require(isinstance(values, list) and len(values) >= 2 and all(nonempty(v) for v in values),
+                        f"{label}.{field} needs at least two non-empty strings")
+    except (OSError, ValueError) as exc:
+        add("evals-format", "FAIL", f"evals/evals.json: {exc}", "repair schema-1 definitions; validate definitions separately from executing them", "local")
+
+
+def lint_skill(skill_dir, target="portable"):
+    skill_dir = os.path.abspath(skill_dir)
+    name = os.path.basename(skill_dir)
+    findings = []
+    def add(check, level, what, fix, authority="heuristic"):
+        findings.append(Finding(name, check, level, what, fix, authority))
+    summary = {"skill": name, "path": skill_dir, "target": target}
+    try:
+        text = read(os.path.join(skill_dir, "SKILL.md"))
+    except (OSError, UnicodeError) as exc:
+        add("skill-loads", "FAIL", f"cannot read SKILL.md: {exc}", "provide a readable UTF-8 SKILL.md", "portable")
+        summary.update(fail=1, warn=0)
+        return findings, summary
+    try:
+        front, body, raw_metadata = parse_frontmatter(text)
+    except (ValueError, yaml.YAMLError) as exc:
+        add("frontmatter", "FAIL", f"invalid YAML frontmatter: {exc}", "repair the mapping and delimiter lines", "portable")
+        front, body, raw_metadata = {}, text, ""
+    validate_fields(front, name, target, add)
+    lines = len(text.split("\n")) - int(text.endswith("\n"))
+    summary.update(lines=lines, bytes=len(text.encode()), tokens_est=len(text.encode()) // BYTES_PER_TOKEN,
+                   metadata_bytes=len(raw_metadata.encode()), metadata_tokens_est=len(raw_metadata.encode()) // BYTES_PER_TOKEN,
+                   body_bytes=len(body.encode()), body_tokens_est=len(body.encode()) // BYTES_PER_TOKEN,
+                   estimate_basis="UTF-8 bytes/4; raw YAML metadata and instructions; client wrappers/advertised paths unknown; static, not observed")
+    if lines > BODY_HOUSE:
+        add("body-length", "WARN", f"SKILL.md has {lines} lines; {BODY_HOUSE} is a house heuristic, {BODY_RECOMMENDED}/about 5,000 tokens are recommendations",
+            "measure useful context before splitting; neither threshold is a format error")
+    top_dirs = {"scripts", "references", "assets", "workflows", "templates"} | {
+        d for d in os.listdir(skill_dir) if os.path.isdir(os.path.join(skill_dir, d))}
     files = bundled_files(skill_dir)
-    md_files = [f for f in files if f.endswith(".md")]
-    route_files = ["SKILL.md"] + [f for f in md_files if f.startswith("workflows/")]
-    texts = {f: read(os.path.join(skill_dir, f)) for f in md_files}
-    for f in route_files:
-        for m in BACKSLASH_PATH_RE.finditer(texts[f]):
-            add("body-paths", "FAIL", f"{f} uses a backslash path '{m.group(0)}'",
-                "use forward slashes: " + m.group(0).replace("\\", "/"))
-        for m in DATE_RE.finditer(texts[f]):
-            add("body-dates", "FAIL", f"{f} has a date-bound rule '{m.group(0)}'",
-                "state the current method, and move the old one under an 'Old patterns' details block")
-        hits = UNPROMPTED_RE.findall(texts[f])
-        if hits:
-            add("body-unprompted", "WARN", f"{f} has {len(hits)} instruction(s) the model follows unprompted",
-                "delete them; keep only rules the model cannot derive from the files")
-
-    # --- reference graph ---------------------------------------------------
-    refs = {f: references_in(texts[f], f, skill_dir, top_dirs) for f in md_files}
-    direct = {hit for _, hit, _ in refs["SKILL.md"] if hit}
-    for f in md_files:
-        for tok, hit, line in refs[f]:
-            if hit is None:
-                add("ref-missing", "FAIL", f"{f} references '{tok}' which does not exist",
-                    "create the file or fix the path")
-                continue
-            if hit.endswith(SCRIPT_EXT) and not INTENT_RE.search(line):
-                add("ref-intent", "WARN", f"{f} names '{tok}' without saying whether to run or read it",
-                    "write 'Run `<script>` to ...' or 'See `<script>` for ...'")
-    # Depth is checked markdown-to-markdown only: a doc that chains to another doc is what
-    # causes partial reads. Assets a doc points at (html, json, csv) are leaves.
-    for f in sorted(direct):
-        if f.endswith(".md") and f in refs:
-            for tok, hit, _ in refs[f]:
-                if hit and hit.endswith(".md") and hit != "SKILL.md" and hit not in direct and hit != f:
-                    add("ref-depth", "FAIL", f"{f} -> '{tok}' is two levels from SKILL.md",
-                        f"link {hit} directly from SKILL.md, or fold it into {f}")
-    # Scripts count as referrers too: a scaffold script that copies assets by name links them.
-    script_text = "\n".join(read(os.path.join(skill_dir, f)) for f in files if f.endswith(SCRIPT_EXT))
-    all_text = "\n".join(texts.values()) + "\n" + script_text
+    texts = {}
     for f in files:
-        if f == "SKILL.md":
-            continue
-        base, d = os.path.basename(f), os.path.dirname(f)
-        whole_dir = bool(d) and re.search(re.escape(d + "/") + r"(?=[`\s*)\]])", all_text)
-        mentioned = (f in all_text) or (base != "SKILL.md" and base in all_text) or bool(whole_dir)
-        if not mentioned:
-            add("ref-orphan", "FAIL", f"{f} is referenced by nothing",
-                "add it to the Files table with a 'read it when' condition, or delete it")
-    for f in md_files:
-        if f == "SKILL.md":
-            continue
-        n = len(texts[f].splitlines())
-        if n > TOC_LINES and not re.search(r"^#{1,6}\s*(table of )?contents\b", texts[f], re.I | re.M):
-            add("ref-toc", "FAIL", f"{f} is {n} lines with no Contents heading",
-                "add a '## Contents' section at the top listing every H2")
-
-    # --- token budget ------------------------------------------------------
-    size = lambda f: len(read(os.path.join(skill_dir, f)).encode())
-    bundle = sum(size(f) for f in files)
-    routes = {}
-    workflows = [f for f in direct if f.startswith("workflows/") and f.endswith(".md")]
-    if workflows:
-        for wf in sorted(workflows):
-            loaded = {"SKILL.md", wf} | {h for _, h, _ in refs.get(wf, []) if h and not h.endswith(SCRIPT_EXT)}
-            routes[wf] = sum(size(f) for f in loaded)
-    else:
-        loaded = {"SKILL.md"} | {h for h in direct if not h.endswith(SCRIPT_EXT)}
-        routes["(single route)"] = sum(size(f) for f in loaded)
-    summary["bundle_bytes"] = bundle
-    summary["routes"] = {r: {"bytes": b, "tokens_est": b // BYTES_PER_TOKEN,
-                             "share": round(b / bundle, 2) if bundle else 0} for r, b in routes.items()}
-    for r, b in routes.items():
-        # Only a multi-route skill can pay for another route's depth; a single route is the whole skill.
-        if len(routes) > 1 and bundle and b / bundle > ROUTE_SHARE:
-            add("budget-route", "WARN",
-                f"route {r} loads {b} of {bundle} bundled bytes ({b * 100 // bundle}%)",
-                "split what this route reads so no route pays for the others' depth")
-    evals_path = os.path.join(skill_dir, "evals", "evals.json")
-    if not os.path.isfile(evals_path):
-        add("evals-missing", "WARN", "no evals/evals.json",
-            "write three cases (prompt + expected and forbidden behaviours) before extending the body")
-    summary["fail"] = sum(1 for x in F if x.level == "FAIL")
-    summary["warn"] = sum(1 for x in F if x.level == "WARN")
-    return F, summary
+        if f.endswith(".md"):
+            try:
+                texts[f] = read(os.path.join(skill_dir, f))
+            except (OSError, UnicodeError) as exc:
+                add("ref-unreadable", "FAIL", f"{f}: {exc}", "provide a readable UTF-8 reference", "local")
+                texts[f] = ""
+    refs = {f: references_in(content, f, skill_dir, top_dirs) for f, content in texts.items()}
+    direct = {hit for _, hit, _ in refs.get("SKILL.md", []) if hit}
+    for f, content in texts.items():
+        if DATE_RE.search(content):
+            add("body-dates", "WARN", f"{f} contains date-bound wording", "check provenance/version; retain valid historical or compatibility context")
+        if BACKSLASH_PATH_RE.search(content):
+            add("body-paths", "WARN", f"{f} uses backslash paths", "prefer portable forward slashes")
+        if f != "SKILL.md" and len(content.split("\n")) > TOC_LINES and not re.search(r"^#{1,6}\s*(table of )?contents\b", content, re.I | re.M):
+            add("ref-toc", "WARN", f"{f} exceeds {TOC_LINES} lines without a Contents heading", "add section navigation when helpful")
+        for token, hit, line in refs[f]:
+            if hit is None:
+                add("ref-missing", "FAIL", f"{f} references missing {token!r}", "repair the bundled path or supply the file", "local")
+            elif hit.endswith(SCRIPT_EXT) and not INTENT_RE.search(line):
+                add("ref-intent", "WARN", f"{f} names {hit!r} without execute/read intent", "state how the script is used")
+            elif f in direct and hit.endswith(".md") and hit not in direct | {"SKILL.md", f}:
+                add("ref-depth", "WARN", f"{f} routes to {hit!r} indirectly", "prefer direct routing; keep necessary depth with explicit navigation")
+    script_texts = []
+    for f in files:
+        if f.endswith(SCRIPT_EXT):
+            try:
+                script = read(os.path.join(skill_dir, f))
+            except (OSError, UnicodeError):
+                continue
+            script_texts.append(script)
+            script_lines = script.split("\n")
+            for i, line in enumerate(script_lines):
+                if CONSTANT_RE.match(line) and not (i and script_lines[i - 1].lstrip().startswith("#")):
+                    add("script-constants", "WARN", f"{f}:{i + 1} numeric constant lacks rationale", "explain non-obvious configuration values")
+    all_text = "\n".join(list(texts.values()) + script_texts)
+    for f in files:
+        base, directory = os.path.basename(f), os.path.dirname(f)
+        whole_dir = bool(directory) and re.search(re.escape(directory + "/") + r"(?=[`\s*)\]])", all_text)
+        if f != "SKILL.md" and f not in all_text and not (base != "SKILL.md" and base in all_text) and not whole_dir:
+            add("ref-orphan", "WARN", f"{f} has no detected reference (heuristic)", "check conditional coverage before adding a route or deleting anything")
+    sizes = {}
+    for f in files:
+        try:
+            sizes[f] = os.path.getsize(os.path.join(skill_dir, f))
+        except OSError:
+            sizes[f] = 0
+            add("ref-unreadable", "FAIL", f"cannot stat bundled file {f!r}", "repair the broken file or link", "local")
+    summary["bundle_bytes"] = sum(sizes.values())
+    workflows = sorted(f for f in direct if f.startswith("workflows/") and f.endswith(".md"))
+    scenarios = {wf: {"SKILL.md", wf} | {h for _, h, _ in refs.get(wf, []) if h in files and not h.endswith(SCRIPT_EXT)} for wf in workflows}
+    if not scenarios:
+        scenarios = {"(single route)": {"SKILL.md"} | {h for h in direct if not h.endswith(SCRIPT_EXT)}}
+    summary["routes"] = {route: {"bytes": sum(sizes.get(f, 0) for f in material),
+                                 "tokens_est": sum(sizes.get(f, 0) for f in material) // BYTES_PER_TOKEN,
+                                 "files": sorted(material), "kind": "static referenced-material estimate"}
+                         for route, material in scenarios.items()}
+    validate_evals(os.path.join(skill_dir, "evals", "evals.json"), name, add)
+    summary.update(fail=sum(f.level == "FAIL" for f in findings), warn=sum(f.level == "WARN" for f in findings))
+    return findings, summary
 
 
 def expand_targets(args):
     roots = args or [os.path.expanduser(r) for r in DEFAULT_ROOTS if os.path.isdir(os.path.expanduser(r))]
     targets, seen = [], set()
-    for r in roots:
-        r = r.rstrip("/")
-        real = os.path.realpath(r)
+    for root in roots:
+        real = os.path.realpath(root)
         if real in seen:
-            continue  # ~/.claude/skills is often a symlink to ~/.agents/skills; scan it once
+            continue
         seen.add(real)
-        children = [os.path.join(r, d) for d in sorted(os.listdir(r))
-                    if not d.startswith(".") and os.path.isdir(os.path.join(r, d))] if os.path.isdir(r) else []
-        if os.path.isfile(os.path.join(r, "SKILL.md")) or (os.path.islink(r) and not os.path.exists(r)):
-            targets.append(r)  # a skill, or a dangling symlink reported as not loading
-        elif any(os.path.isfile(os.path.join(c, "SKILL.md")) for c in children):
-            targets += children  # a directory of skills
-        elif os.path.isdir(r):
-            targets.append(r)  # a skill directory with no SKILL.md: reported as not loading
+        if os.path.isfile(os.path.join(root, "SKILL.md")) or (os.path.islink(root) and not os.path.exists(root)):
+            targets.append(root)
+        elif os.path.isdir(root):
+            children = [os.path.join(root, d) for d in sorted(os.listdir(root))
+                        if not d.startswith(".") and os.path.isdir(os.path.join(root, d))]
+            targets.extend(children if any(os.path.isfile(os.path.join(c, "SKILL.md")) for c in children) else [root])
         else:
-            print(f"{r}: not a directory", file=sys.stderr)
+            targets.append(root)  # explicit missing input produces a format failure, not silent omission
     return targets
 
 
 def main(argv):
-    as_json = "--json" in argv
-    args = [a for a in argv if a != "--json"]
-    if any(a in ("-h", "--help") for a in args):
-        print(__doc__.strip())
-        return 0
-    targets = expand_targets(args)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--json", action="store_true")
+    parser.add_argument("--target", choices=("portable", "pi", "claude-code"), default="portable")
+    parser.add_argument("directories", nargs="*")
+    args = parser.parse_args(argv)
+    targets = expand_targets(args.directories)
     if not targets:
         print("no skill directories found", file=sys.stderr)
         return 2
-    results, any_fail = [], False
-    for t in targets:
-        findings, summary = lint_skill(t)
-        summary["findings"] = [f.as_dict() for f in findings]
-        results.append(summary)
-        any_fail |= any(f.level == "FAIL" for f in findings)
-        if as_json:
-            continue
-        for f in findings:
-            print(f.line())
-        state = "FAIL" if summary.get("fail") else "PASS"
-        if "lines" in summary:
-            print(f"{summary['skill']} · {state} · {summary['fail']} fail, {summary['warn']} warn · "
-                  f"SKILL.md {summary['lines']} lines, {summary['bytes']} bytes "
-                  f"(≈{summary['tokens_est']} tokens, estimate) forced on every trigger")
-            for r, v in summary["routes"].items():
-                print(f"    route {r}: {v['bytes']} bytes ≈{v['tokens_est']} tokens, "
-                      f"{int(v['share'] * 100)}% of {summary['bundle_bytes']} bundled")
-        else:
-            print(f"{summary['skill']} · FAIL · does not load")
-        print()
-    if as_json:
-        print(json.dumps({"skills": results, "exit": 1 if any_fail else 0}, indent=2))
+    results = []
+    for target in targets:
+        findings, summary = lint_skill(target, args.target)
+        results.append(dict(summary, findings=[f.as_dict() for f in findings]))
+        if not args.json:
+            for f in findings:
+                print(f.line())
+            print(f"{summary['skill']} · {'FAIL' if summary['fail'] else 'PASS'} · {summary['fail']} fail, {summary['warn']} advice/compatibility")
+            if "metadata_bytes" in summary:
+                print(f"    raw metadata: {summary['metadata_bytes']} bytes ≈{summary['metadata_tokens_est']} tokens; "
+                      f"body: {summary['body_bytes']} bytes ≈{summary['body_tokens_est']} tokens (static estimates)")
+                for route, scenario in summary["routes"].items():
+                    print(f"    {route}: {scenario['bytes']} bytes ≈{scenario['tokens_est']} tokens (static referenced-material estimate)")
+    code = int(any(s["fail"] for s in results))
+    if args.json:
+        print(json.dumps({"skills": results, "exit": code}, indent=2))
     else:
-        worst = sorted(results, key=lambda s: (-s.get("fail", 99), -s.get("warn", 0)))
-        print(f"{len(results)} skill(s) · {sum(1 for s in results if s.get('fail', 1))} with FAIL · worst first: "
-              + ", ".join(s["skill"] for s in worst[:5]))
-    return 1 if any_fail else 0
+        worst = sorted(results, key=lambda s: (-s["fail"], -s["warn"]))
+        print(f"{len(results)} skill(s) · {sum(bool(s['fail']) for s in results)} with FAIL · worst first: " + ", ".join(s["skill"] for s in worst[:5]))
+    return code
 
 
 if __name__ == "__main__":
