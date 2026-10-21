@@ -68,6 +68,8 @@ export const ModelIdentitySchema = Type.Object({
   returned: Type.Union([Type.Literal('anthropic/claude-haiku-5.5'), Type.Literal('anthropic/claude-haiku-5.5-20261007')]),
   endpoint: Type.Literal('https://openrouter.ai/api/v1'), upstream: Type.Union([text, Type.Null()]),
 }, { additionalProperties: false });
+// Preserve even rejected response identities in incomplete receipts.
+export const ModelObservationSchema = Type.Object({ provider: text, requested: text, returned: text, endpoint: text }, { additionalProperties: false });
 export const ReceiptIdentitySchema = Type.Object({
   snapshot: SnapshotIdentitySchema, model: ModelIdentitySchema,
   promptHash: digest, toolPolicyHash: digest, filterPolicyHash: digest,
@@ -96,6 +98,9 @@ const UsageSchema = Type.Union([
 ]);
 export const LensResultSchema = Type.Object({
   lens: LensSchema,
+  identities: Type.Optional(Type.Array(ModelIdentitySchema, { maxItems: 3 })),
+  observedModels: Type.Optional(Type.Array(ModelObservationSchema, { maxItems: 3 })),
+  contextGaps: Type.Optional(Type.Array(text, { maxItems: 100 })),
   status: Type.Union([Type.Literal('complete'), Type.Literal('incomplete'), Type.Literal('setup-error'), Type.Literal('aborted')]),
   findings: Type.Array(FindingSchema, { maxItems: 8 }), checkedPaths: Type.Array(PathSchema, { maxItems: 20_000, uniqueItems: true }),
   omissions: Type.Array(OmissionSchema, { maxItems: 20_000 }), reason: Type.Union([text, Type.Null()]),
@@ -105,6 +110,10 @@ export type LensResult = Static<typeof LensResultSchema>;
 export const ReviewReportBodySchema = Type.Object({
   schemaVersion: Type.Literal(1), reportId: id, attemptId: id, round: Type.Integer({ minimum: 1, maximum: 2 }),
   identity: ReceiptIdentitySchema,
+  execution: Type.Optional(Type.Object({
+    mode: Type.Literal('simulated'), goal: text, builderModel: text,
+    provenance: Type.Array(Type.Object({ canonicalId: id, findingIds: Type.Array(id, { minItems: 1, maxItems: 16 }) }, { additionalProperties: false }), { maxItems: 16 }),
+  }, { additionalProperties: false })),
   status: Type.Union([Type.Literal('complete'), Type.Literal('incomplete'), Type.Literal('setup-error')]),
   lenses: Type.Object({ correctness: LensResultSchema, 'contracts-risk': LensResultSchema }, { additionalProperties: false }),
   omissions: Type.Array(OmissionSchema, { maxItems: 20_000 }),
@@ -211,6 +220,7 @@ function validateBody(input: unknown): ReviewReportBody {
       || result.usage.requests > body.identity.policy.requestsPerLens) throw new ReviewError(20, 'Invalid lens identity or bounds');
     if (result.status !== 'complete' && !result.reason) throw new ReviewError(20, 'Missing incomplete reason');
     if (result.status === 'complete' && (result.usage.requests < 1 || result.checkedPaths.length === 0)) throw new ReviewError(20, 'Complete lens requires observed requests and checked paths');
+    if (body.execution && body.status === 'complete' && (result.identities?.length !== result.usage.requests || result.contextGaps?.length)) throw new ReviewError(20, 'Missing runtime identity or context');
     if (body.status === 'complete' && (result.status !== 'complete' || result.usage.state === 'uncertain'
       || (result.usage.state === 'unavailable' && result.usage.requests > 0)
       || result.omissions.some(item => item.changed && item.semantic))) throw new ReviewError(20, 'Partial report cannot be complete');
@@ -261,7 +271,7 @@ export function reusableReport(input: unknown, identity: ReceiptIdentity): boole
 
 // State contains minimized schema-owned data, never arbitrary source/transcript fields.
 export function defaultStateRoot(): string { return join(homedir(), '.local', 'state', 'file-pr-review'); }
-async function privateRoot(root: string): Promise<string> {
+export async function privateRoot(root: string): Promise<string> {
   const absolute = resolve(root);
   if (absolute === parse(absolute).root || absolute === resolve(homedir())) throw new ReviewError(30, 'State requires a dedicated private directory');
   // Reject symlink components, including parent components; do not chmod shared parents.
@@ -299,7 +309,14 @@ export async function atomicPrivateWrite(root: string, name: string, content: st
 export async function saveReport(root: string, input: unknown): Promise<{ json: string; markdown: string }> {
   const report = validateReport(input);
   const json = await atomicPrivateWrite(root, `${report.body.reportId}.json`, canonicalJson(report));
-  const markdown = await atomicPrivateWrite(root, `${report.body.reportId}.md`, `# Local review: ${report.body.status}\n\nReport: ${report.body.reportId}\nHead: ${report.body.identity.snapshot.head}\nIdentity: ${report.receipt.identityDigest}\n\n${Object.values(report.body.lenses).map(lens => `${lens.lens}: ${lens.status}; ${lens.findings.length} candidates; usage ${lens.usage.state}`).join('\n')}\n\nNot push authorization.\n`);
+  const markdown = await atomicPrivateWrite(root, `${report.body.reportId}.md`, `# Local review: ${report.body.status}${report.body.execution?.mode === 'simulated' ? ' (SIMULATED, not real review)' : ''}\n\nReport: ${report.body.reportId}\nHead: ${report.body.identity.snapshot.head}\nIdentity: ${report.receipt.identityDigest}\n\n${Object.values(report.body.lenses).map(lens => [
+    `## ${lens.lens}: ${lens.status}`,
+    `Usage: ${JSON.stringify(lens.usage)}`,
+    `Observed models: ${JSON.stringify(lens.observedModels ?? lens.identities ?? [])}`,
+    `Context gaps: ${JSON.stringify(lens.contextGaps ?? [])}; omissions: ${JSON.stringify(lens.omissions)}`,
+    ...(lens.reason ? [`Reason: ${JSON.stringify(lens.reason)}`] : []),
+    ...lens.findings.map(finding => `${finding.id} ${finding.severity} ${JSON.stringify(finding.path)}:${finding.start}-${finding.end} (${finding.revision})\nCause: ${JSON.stringify(finding.cause)}\nTrigger: ${JSON.stringify(finding.trigger)}\nImpact: ${JSON.stringify(finding.impact)}\nQuote: ${JSON.stringify(finding.quote)}`),
+  ].join('\n\n')).join('\n\n')}\n\nNot push authorization.\n`);
   return { json, markdown };
 }
 export function validateAttempt(input: unknown): AttemptState {
