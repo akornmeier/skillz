@@ -189,6 +189,30 @@ describe('same exclusions across initial context, reads, searches and evidence',
     await expect(captureSnapshot(request(path))).rejects.toMatchObject({ omissions: expect.arrayContaining([expect.objectContaining({ path: 'nested', reason: 'submodule or unsupported mode' })]) });
   });
 
+  it('rejects root lockfile without its own manifest despite nested manifest coverage', async () => {
+    const { repo: path } = await repo({ 'a/package.json': '{}\n', 'a/pnpm-lock.yaml': 'old\n', 'yarn.lock': 'old\n' });
+    await put(path, 'a/pnpm-lock.yaml', 'new\n');
+    await put(path, 'yarn.lock', 'new\n');
+    await commit(path);
+    await expect(captureSnapshot(request(path))).rejects.toThrow('manifest context');
+  });
+
+  it('requires ecosystem-matching manifest rather than unrelated package metadata', async () => {
+    const { repo: path } = await repo({ 'package.json': '{}\n', 'Cargo.lock': 'old\n' });
+    await put(path, 'Cargo.lock', 'new\n');
+    await commit(path);
+    await expect(captureSnapshot(request(path))).rejects.toThrow('manifest context');
+  });
+
+  it('includes distinct matching manifest context for each changed lockfile', async () => {
+    const { repo: path } = await repo({ 'package.json': '{}\n', 'yarn.lock': 'old\n', 'a/Cargo.toml': '[package]\n', 'a/Cargo.lock': 'old\n' });
+    await put(path, 'yarn.lock', 'new\n');
+    await put(path, 'a/Cargo.lock', 'new\n');
+    await commit(path);
+    const captured = await captureSnapshot(request(path));
+    expect(captured.snapshot.payload.context.map(item => item.path)).toEqual(expect.arrayContaining(['package.json', 'a/Cargo.toml']));
+  });
+
   it('keeps changed lock summaries and manifest context, never lock payload', async () => {
     const { repo: path } = await repo({ 'package.json': '{"name":"synthetic"}\n', 'pnpm-lock.yaml': 'old-lock-payload\n' });
     await put(path, 'pnpm-lock.yaml', 'new-lock-payload\n'); await commit(path);

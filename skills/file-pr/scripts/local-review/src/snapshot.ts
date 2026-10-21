@@ -69,8 +69,15 @@ function objectId(value: string): string {
   return value;
 }
 function bytes(value: unknown): number { return Buffer.byteLength(JSON.stringify(value), 'utf8'); }
-const lockNames = new Set(['pnpm-lock.yaml', 'package-lock.json', 'npm-shrinkwrap.json', 'yarn.lock', 'bun.lock', 'bun.lockb', 'Cargo.lock', 'Gemfile.lock', 'poetry.lock', 'uv.lock', 'composer.lock', 'go.sum']);
-function lockfile(path: string): boolean { return lockNames.has(path.split('/').at(-1) ?? ''); }
+const lockManifests = new Map([
+  ['pnpm-lock.yaml', 'package.json'], ['package-lock.json', 'package.json'],
+  ['npm-shrinkwrap.json', 'package.json'], ['yarn.lock', 'package.json'],
+  ['bun.lock', 'package.json'], ['bun.lockb', 'package.json'],
+  ['Cargo.lock', 'Cargo.toml'], ['Gemfile.lock', 'Gemfile'],
+  ['poetry.lock', 'pyproject.toml'], ['uv.lock', 'pyproject.toml'],
+  ['composer.lock', 'composer.json'], ['go.sum', 'go.mod'],
+]);
+function lockfile(path: string): boolean { return lockManifests.has(path.split('/').at(-1) ?? ''); }
 function pathExclusion(path: string): string | null {
   if (!safePath(path)) return 'unsafe path';
   if (containsSecret(path)) return 'sensitive path';
@@ -256,11 +263,10 @@ export async function captureSnapshot(input: unknown) {
     const manifests = new Set<string>();
     for (const path of paths.filter(lockfile)) {
       const directory = path.includes('/') ? path.slice(0, path.lastIndexOf('/') + 1) : '';
-      for (const name of ['package.json', 'Cargo.toml', 'Gemfile', 'pyproject.toml', 'composer.json', 'go.mod']) {
-        const candidate = directory + name;
-        if (trees.head.has(candidate) || trees.base.has(candidate)) manifests.add(candidate);
-      }
-      if (![...manifests].some(candidate => candidate.startsWith(directory))) throw new SnapshotError('Changed lockfile has no manifest context');
+      const name = lockManifests.get(path.split('/').at(-1) ?? '');
+      const candidate = directory + name;
+      if (!name || (!trees.head.has(candidate) && !trees.base.has(candidate))) throw new SnapshotError('Changed lockfile has no matching manifest context');
+      manifests.add(candidate);
     }
     for (const path of manifests) {
       const revision = trees.head.has(path) ? 'head' : 'base';
