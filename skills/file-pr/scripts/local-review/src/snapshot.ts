@@ -277,12 +277,8 @@ export async function captureSnapshot(input: unknown, absoluteDeadline?: number)
       payload.context.push({ path, revision, text: source });
     }
     if (bytes(payload) > policy.payloadBytes) throw new SnapshotError('Full diff and required context exceed request payload limit');
-    // Whole small relevant tests/contracts are optional context; no silent slicing.
-    for (const [path, source] of [...sources.head.entries()].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) {
-      if (changedPaths.has(path) || manifests.has(path) || !/(?:^|\/)(?:[^/]*\.)?(?:test|spec|schema|contract)s?(?:\.|\/)|(?:^|\/)package\.json$/i.test(path)) continue;
-      const context = { path, revision: 'head' as const, text: source };
-      if (source.split('\n').length <= policy.readLines && bytes(context) <= policy.readBytes && bytes({ ...payload, context: [...payload.context, context] }) <= policy.payloadBytes) payload.context.push(context);
-    }
+    // Optional unchanged files stay available through bounded tools. Eager JSON embedding
+    // can exceed the final HTTP bound through escaping alone, despite fitting the raw payload.
     const snapshot: Snapshot = deepFreeze(validate(SnapshotSchema, { identity: { repo, gitCommonDir: commonDir, objectFormat, intendedBaseRef: request.baseRef, intendedHeadRef: request.headRef, base, head, mergeBase, baseTree, headTree, mergeBaseTree, surfaceDigest: hash(payload) }, payload, omissions, payloadBytes: bytes(payload) }));
     const readSource = (revision: Revision, path: string): string => {
       if (!safePath(path) || !trees[revision].has(path) || !sources[revision].has(path)) throw new SnapshotError('Path is not readable filtered pinned text', omissions.filter(item => item.revision === revision && item.path === path));

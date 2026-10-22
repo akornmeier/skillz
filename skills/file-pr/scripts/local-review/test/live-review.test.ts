@@ -74,6 +74,20 @@ describe('live HTTP through actual isolated SDK children, no real credentials or
     await put(env.request.repo, 'dirty.ts', 'uncommitted');
     await expect(verify(result.report, triage(result.report), env.current, env.approvalPath)).rejects.toMatchObject({ code: 21 });
   });
+  it('optional unchanged context cannot crowd required source out of the HTTP request', async () => {
+    const env = await setup('filing');
+    const text = `export const text = ${JSON.stringify('"'.repeat(750))};\n`;
+    for (let index = 0; index < 9; index++) await put(env.request.repo, `src/context-${index}.test.ts`, text);
+    const base = await commit(env.request.repo); await fixtureGit(env.request.repo, 'branch', '--force', 'base', base);
+    await put(env.request.repo, 'src/a.ts', 'export const enabled = true;\n'); const head = await commit(env.request.repo);
+    env.approval.scopes[0]!.heads = [head]; await writeFile(env.approvalPath, JSON.stringify(env.approval));
+    const captured = await captureSnapshot(env.request);
+    expect(captured.snapshot.payload.diff[0]?.patch).toContain('-export const enabled = false;\n+export const enabled = true;');
+    expect(captured.tools.read_git('head', 'src/context-0.test.ts', 1, 2).text).toBe(text);
+    const http = intercept(); const result = await reviewLive(env.request, env.stateRoot, env.approvalPath);
+    expect(result.exit, JSON.stringify(result.report.body.lenses)).toBe(0); expect(http.posts).toBe(2);
+    expect(http.bodies.every(body => Buffer.byteLength(body) <= env.request.policy.payloadBytes)).toBe(true);
+  });
   it('ordinary review rejects approval replaced with calibration authority after purpose check', async () => {
     const env = await setup('filing'); const http = intercept(); const load = approvals.loadApproval; let reads = 0;
     vi.spyOn(contracts, 'defaultStateRoot').mockReturnValue(env.stateRoot);

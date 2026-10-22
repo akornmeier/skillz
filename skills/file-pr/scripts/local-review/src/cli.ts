@@ -1,4 +1,3 @@
-import { pathToFileURL } from 'node:url';
 import { DEFAULT_POLICY, ReviewError, defaultStateRoot, hash, validateRequest } from './contracts.js';
 import { captureSnapshot } from './snapshot.js';
 import { calibrationCli } from './calibration-cli.js';
@@ -61,7 +60,7 @@ export async function cli(args: string[]): Promise<{ exit: number; output: unkno
     return { exit, output: { error: true, exit, authorization: false }, diagnostic };
   }
 }
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (import.meta.main) {
   const result = await cli(process.argv.slice(2));
   process.stdout.write(`${JSON.stringify(result.output)}\n`);
   if (result.diagnostic) process.stderr.write(`${result.diagnostic}\n`);

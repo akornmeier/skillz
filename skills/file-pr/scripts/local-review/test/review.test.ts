@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { access, mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { access, mkdtemp, readFile, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DEFAULT_POLICY, ReviewError, hash, sealReport, validateAttempt, validateReport, type Finding, type ReviewReport } from '../src/contracts.js';
@@ -38,6 +40,15 @@ async function code(promise: Promise<unknown>, expected: number, message?: strin
   try { await promise; throw new Error('Expected rejection'); } catch (error) { expect(error).toBeInstanceOf(ReviewError); expect((error as ReviewError).code).toBe(expected); if (message) expect((error as Error).message).toContain(message); }
 }
 describe('offline parallel review, attempt ledger and current-source receipt', () => {
+  it.each([['--help', 0], ['verify', 30]] as const)('installed-skill symlink executes compiled CLI %s', async (command, exit) => {
+    const root = await mkdtemp(join(await realpath(tmpdir()), 'file-pr-entry-')); roots.push(root);
+    const installed = join(root, 'file-pr'); await symlink(fileURLToPath(new URL('../../../', import.meta.url)), installed);
+    const result = spawnSync(process.execPath, [join(installed, 'scripts/local-review/dist/cli.js'), command], { encoding: 'utf8', timeout: 10000 });
+    expect(result.error).toBeUndefined(); expect(result.status).toBe(exit); expect(result.stdout.trim()).not.toBe('');
+    const output: unknown = JSON.parse(result.stdout);
+    if (command === '--help') expect(output).toHaveProperty('usage');
+    else expect(output).toMatchObject({ error: true, exit: 30, authorization: false });
+  });
   it('lockfile-only dependency changes invalidate runtime qualification identity', async () => {
     const initial = await implementationIdentity();
     const original = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises');

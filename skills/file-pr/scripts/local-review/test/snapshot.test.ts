@@ -41,7 +41,7 @@ describe('real synthetic Git snapshot and pinned evidence', () => {
     expect(snapshot.identity.surfaceDigest).toBe(hash(snapshot.payload));
     expect(snapshot.payloadBytes).toBe(Buffer.byteLength(JSON.stringify(snapshot.payload)));
     expect(snapshot.payload.diff[0]?.patch).toContain('-export const enabled = true;\n+export const enabled = false;');
-    expect(snapshot.payload.context).toContainEqual({ path: 'src/a.test.ts', revision: 'head', text: 'export const test = "valid behavior";\n' });
+    expect(tools.read_git('head', 'src/a.test.ts', 1, 2).text).toBe('export const test = "valid behavior";\n');
     expect(Object.keys(tools)).toEqual(['read_git', 'search_git']);
     expect(tools.read_git('base', 'src/a.ts', 1, 1).text).toBe('export const enabled = true;');
     expect(tools.search_git('head', 'false', 'src').hits).toEqual([{ path: 'src/a.ts', line: 1, text: 'export const enabled = false;' }]);
