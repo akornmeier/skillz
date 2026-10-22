@@ -6,3 +6,5 @@
 **/.venv/
 .playwright-cli/
 skills/synced/
+/skills/file-pr/scripts/local-review/dist/
+/evals/runs/

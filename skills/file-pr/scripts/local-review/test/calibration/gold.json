@@ -1,0 +1,110 @@
+[
+  {
+    "id": "caller-schema-mismatch",
+    "actionable": true,
+    "severity": "P1",
+    "path": "api.ts",
+    "trigger": "Call greeting() after API field rename.",
+    "impact": "Caller reads the missing name field; calling toUpperCase throws.",
+    "required": true
+  },
+  {
+    "id": "error-path-regression",
+    "actionable": true,
+    "severity": "P1",
+    "path": "save.ts",
+    "trigger": "write rejects.",
+    "impact": "save falsely reports successful persistence.",
+    "required": true
+  },
+  {
+    "id": "off-by-one",
+    "actionable": true,
+    "severity": "P2",
+    "path": "page.ts",
+    "trigger": "Request size 3 with at least 3 items.",
+    "impact": "Returns 2 items rather than 3.",
+    "required": false
+  },
+  {
+    "id": "owner-authorization",
+    "actionable": true,
+    "severity": "P1",
+    "path": "access.ts",
+    "trigger": "Non-admin actor differs from resource owner.",
+    "impact": "Unauthorized editing granted and legitimate owner denied.",
+    "required": false
+  },
+  {
+    "id": "zero-value-default",
+    "actionable": true,
+    "severity": "P2",
+    "path": "price.ts",
+    "trigger": "Override is 0.",
+    "impact": "Free price becomes 10.",
+    "required": false
+  },
+  {
+    "id": "caller-array-mutation",
+    "actionable": true,
+    "severity": "P2",
+    "path": "sort.ts",
+    "trigger": "firstEntered([3,1,2]).",
+    "impact": "Caller-owned input is mutated; first entered item changes from 3 to 1.",
+    "required": false
+  },
+  {
+    "id": "async-success-before-write",
+    "actionable": true,
+    "severity": "P1",
+    "path": "update.ts",
+    "trigger": "Write remains pending or later rejects.",
+    "impact": "Success resolves before persistence; rejection is detached.",
+    "required": false
+  },
+  {
+    "id": "query-parameter-loss",
+    "actionable": true,
+    "severity": "P1",
+    "path": "query.ts",
+    "trigger": "Untrusted name includes a quote and SQL expression.",
+    "impact": "User input changes SQL instead of remaining a bound value.",
+    "required": false
+  },
+  {
+    "id": "clean-local-rename",
+    "actionable": false,
+    "severity": null,
+    "path": "sum.ts",
+    "trigger": "Declared typed inputs on Node >=22.19.",
+    "impact": "Behavior preserved; no seeded introduced defect.",
+    "required": false
+  },
+  {
+    "id": "clean-nullish-expansion",
+    "actionable": false,
+    "severity": null,
+    "path": "limit.ts",
+    "trigger": "Declared typed inputs on Node >=22.19.",
+    "impact": "Behavior preserved; no seeded introduced defect.",
+    "required": false
+  },
+  {
+    "id": "clean-error-preservation",
+    "actionable": false,
+    "severity": null,
+    "path": "work.ts",
+    "trigger": "Declared typed inputs on Node >=22.19.",
+    "impact": "Behavior preserved; no seeded introduced defect.",
+    "required": false
+  },
+  {
+    "id": "clean-immutable-sort",
+    "actionable": false,
+    "severity": null,
+    "path": "sort.ts",
+    "trigger": "Declared typed inputs on Node >=22.19.",
+    "impact": "Behavior preserved; no seeded introduced defect.",
+    "required": false
+  }
+]
