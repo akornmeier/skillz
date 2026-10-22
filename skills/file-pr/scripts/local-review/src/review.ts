@@ -69,7 +69,7 @@ export async function ownAttempt(root: string, attemptId: string, policy: Policy
     state.owner = owner; await saveAttempt(directory, state);
   } catch (error) { await ownership.close(); throw error; }
   // Both lenses serialize durable reservations before any HTTP/fixture effect.
-  let writes = Promise.resolve(); let persistenceFailed = false;
+  let writes = Promise.resolve(); let persistenceFailed = false; let admissionClosed = false;
   function mutate<T>(fn: () => T): Promise<T> {
     const operation = writes.then(async () => {
       if (persistenceFailed) throw new ReviewError(20, 'Attempt persistence failed; dispatch disabled');
@@ -82,8 +82,8 @@ export async function ownAttempt(root: string, attemptId: string, policy: Policy
   let round = 0;
   const budget: AttemptBudget = {
     reserve: (lens, usd = 0) => mutate(() => {
-      if (state.reservations.some(item => item.state === 'uncertain') || !Number.isFinite(usd) || usd < 0 || (policy.live && usd <= 0)
-        || state.reservations.reduce((sum, item) => sum + (item.state === 'settled' ? item.observation?.costUsd ?? item.reservedUsd : item.reservedUsd), 0) + usd > policy.schedulingCapUsd + Number.EPSILON) throw new ReviewError(20, 'Scheduling cap or uncertain billing blocks dispatch');
+      if (admissionClosed || state.reservations.some(item => item.state === 'uncertain') || !Number.isFinite(usd) || usd < 0 || (policy.live && usd <= 0)
+        || state.reservations.reduce((sum, item) => sum + (item.state === 'settled' ? item.observation?.costUsd ?? item.reservedUsd : item.reservedUsd), 0) + usd > policy.schedulingCapUsd + Number.EPSILON) throw new ReviewError(20, 'Scheduling cap, stopped admission or uncertain billing blocks dispatch');
       if (!round || state.reservations.length >= policy.attemptRequests || state.reservations.filter(item => item.round === round && item.lens === lens).length >= policy.requestsPerLens) throw new ReviewError(20, 'Attempt reservation budget exhausted');
       const id = randomUUID();
       state.reservations.push({ id, round, lens, state: 'reserved', reservedUsd: usd }); return id;
@@ -98,7 +98,7 @@ export async function ownAttempt(root: string, attemptId: string, policy: Policy
     uncertain: (id, evidence) => mutate(() => { const item = state.reservations.find(item => item.id === id); if (!item) throw new ReviewError(20, 'Unknown reservation'); item.state = 'uncertain'; if (evidence) item.rejectedEvidence = evidence; }),
   };
   return {
-    directory, budget, get state() { return structuredClone(state); },
+    directory, budget, stopAdmission() { admissionClosed = true; }, get state() { return structuredClone(state); },
     async begin(identityDigest: string) { return mutate(() => {
       if (state.rounds.length >= policy.maxRounds) throw new ReviewError(20, 'Two-round attempt limit exhausted');
       if (state.rounds.some(item => item.identityDigest === identityDigest)) throw new ReviewError(20, 'Same incomplete identity cannot automatically rerun');
@@ -166,20 +166,22 @@ async function reviewInternal(input: unknown, root: string, fixtures?: Record<Le
     }
     const remainingMs = request.policy.roundDeadlineMs - (Date.now() - startedAt);
     if (remainingMs <= 0) throw new ReviewError(20, 'Round deadline exhausted before dispatch');
-    const controller = new AbortController(); const deadline = setTimeout(() => controller.abort(), remainingMs);
+    const controller = new AbortController();
+    const stopDispatch = () => { attempt.stopAdmission(); controller.abort(); };
+    const deadline = setTimeout(stopDispatch, remainingMs);
     let correctness: LensResult; let risk: LensResult;
     try {
       const run = async (lens: Lens) => {
         try {
-          const result = lensResult(await runLens(source, lens, controller.signal, attempt.budget, live ?? fixtures?.[lens], request.policy), lens);
-          if (result.status !== 'complete') controller.abort(); return result;
-        } catch (error) { controller.abort(); throw error; }
+          const result = lensResult(await runLens(source, lens, controller.signal, attempt.budget, live ?? fixtures?.[lens], request.policy, stopDispatch), lens);
+          if (result.status !== 'complete') stopDispatch(); return result;
+        } catch (error) { stopDispatch(); throw error; }
       };
       // Ownership outlives every worker, including failures while persisting uncertainty.
       const [first, second] = await Promise.allSettled([run('correctness'), run('contracts-risk')]);
       if (first.status === 'rejected' || second.status === 'rejected') throw new ReviewError(20, 'Worker or review persistence failed; inspect uncertain attempt before retry');
       correctness = first.value; risk = second.value;
-    } finally { controller.abort(); clearTimeout(deadline); }
+    } finally { stopDispatch(); clearTimeout(deadline); }
     const lenses = { correctness, 'contracts-risk': risk };
     // IDs from independent lenses may collide. Namespace them while retaining lens provenance.
     for (const [lens, result] of Object.entries(lenses)) for (const finding of result.findings) finding.id = `${lens === 'correctness' ? 'c' : 'r'}-${hash({ id: finding.id, finding }).slice(0, 24)}`;

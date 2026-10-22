@@ -10,7 +10,7 @@ Review uses a dedicated OpenRouter API key, not Claude Code subscription or Pi a
 
 **Opt-in, not automatically qualified.** Approval must cover exact source repository/base/attempt/head(s), model, full upstream tag and expected reported provider, ZDR/privacy/account-logging consent, key-file read, expiry and limits. Draft templates do not authorize effects. Operator approval is a trusted record, not cryptographic proof that a human consented; do not invent or fill approval on the user's behalf. For production filing require explicit user rollout signoff after paid calibration and both-harness qualification. Simulated/calibration reports cannot authorize upload.
 
-The approved scheduling ceiling is **$1.02 per filing attempt**, not expected cost or an invoice guarantee. At observed high-tier rates, full 1M context plus 3,000 output tokens reserves $0.5075/request. Actual reported usage settles holds and releases unused funds. 32 KiB is an export bound, not certified native tokens. Unknown charges stop further dispatch; cancellation does not prove billing stopped. Calibration needs a separate explicit aggregate budget.
+The approved scheduling ceiling is **$1.02 per filing attempt**, not expected cost or an invoice guarantee. At observed high-tier rates, full 1M context plus 3,000 output tokens reserves $0.5075/request. Actual reported usage settles holds and releases unused funds. 32 KiB is an export bound, not certified native tokens. Fatal failures synchronously close shared admission before persistence or worker-exit waits. Unknown charges stop further dispatch; cancellation does not prove billing stopped. Calibration needs a separate explicit aggregate budget.
 
 ## Prepare the candidate
 

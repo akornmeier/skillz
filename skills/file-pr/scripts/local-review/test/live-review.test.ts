@@ -15,8 +15,28 @@ import * as approvals from '../src/approval.js';
 import * as contracts from '../src/contracts.js';
 import { commit, fixtureGit, gitFixture, put } from './git-fixture.js';
 
+const dispatchRace = vi.hoisted(() => ({ delayExit: false, failedPid: undefined as number | undefined, failureObserved: false, pids: [] as number[] }));
+vi.mock('node:child_process', async importOriginal => {
+  const original = await importOriginal<typeof import('node:child_process')>();
+  return { ...original, fork(...args: Parameters<typeof original.fork>) {
+    const child = original.fork(...args); if (!dispatchRace.delayExit) return child;
+    if (child.pid) dispatchRace.pids.push(child.pid);
+    const kill = child.kill.bind(child); let held = false;
+    child.on('message', (message: unknown) => {
+      if (message && typeof message === 'object' && 'kind' in message && message.kind === 'request' && JSON.stringify(message).includes('Lens: correctness')) dispatchRace.failedPid = child.pid;
+    });
+    child.kill = signal => {
+      if (child.pid === dispatchRace.failedPid) {
+        if (!held) { held = true; dispatchRace.failureObserved = true; setTimeout(() => kill(signal), 180); }
+        return true;
+      }
+      return kill(signal);
+    };
+    return child;
+  } };
+});
 const roots: string[] = [];
-afterEach(async () => { vi.restoreAllMocks(); vi.unstubAllGlobals(); await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });
+afterEach(async () => { dispatchRace.delayExit = false; dispatchRace.failedPid = undefined; dispatchRace.failureObserved = false; dispatchRace.pids = []; vi.restoreAllMocks(); vi.unstubAllGlobals(); await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });
 async function setup(purpose: Approval['purpose'] = 'calibration', overrides: Partial<typeof DEFAULT_POLICY> = {}) {
   const { repo } = await gitFixture(); roots.push(repo); await put(repo, 'src/a.ts', 'export const enabled = false;\n'); const head = await commit(repo);
   const root = await mkdtemp(join(await realpath(tmpdir()), 'file-pr-live-')); roots.push(root);
@@ -73,6 +93,30 @@ describe('live HTTP through actual isolated SDK children, no real credentials or
     await expect(verify(sealReport(stale), triage(sealReport(stale)), env.current, env.approvalPath, env.stateRoot)).rejects.toThrow('Stale');
     await put(env.request.repo, 'dirty.ts', 'uncommitted');
     await expect(verify(result.report, triage(result.report), env.current, env.approvalPath, env.stateRoot)).rejects.toMatchObject({ code: 21 });
+  });
+  it('transport failure closes sibling dispatch before delayed worker exit', async () => {
+    const env = await setup('filing'); dispatchRace.delayExit = true; let riskRequests = 0; let postsAfterFailure = 0;
+    const wait = async (ready: () => boolean | Promise<boolean>) => {
+      for (let index = 0; index < 1000; index++) { if (await ready()) return; await new Promise(resolve => setTimeout(resolve, 1)); }
+      throw new Error('Synthetic ordering barrier timed out');
+    };
+    intercept(async (id, init) => {
+      if (String(init.body).includes('Lens: correctness')) {
+        await wait(async () => (await ledger(env)).reservations.some(item => item.lens === 'contracts-risk' && item.state === 'settled'));
+        return new Response('{}', { status: 503 });
+      }
+      riskRequests++;
+      if (dispatchRace.failureObserved) postsAfterFailure++;
+      if (riskRequests === 2) await wait(() => dispatchRace.failureObserved);
+      if (riskRequests < 3) return Response.json({ ...reply(id), choices: [{ index: 0, finish_reason: 'tool_calls', message: { role: 'assistant', content: null,
+        tool_calls: [{ id: 'read-' + id, type: 'function', function: { name: 'read_git', arguments: JSON.stringify({ revision: 'head', path: 'src/a.ts', start: 1, end: 1 }) } }] } }] });
+      return Response.json(reply(id));
+    });
+    const result = await reviewLive(env.request, env.stateRoot, env.approvalPath);
+    expect(result.exit).toBe(20); expect(dispatchRace.failureObserved).toBe(true); expect(postsAfterFailure).toBe(0);
+    expect((await ledger(env)).reservations.some(item => item.state === 'uncertain')).toBe(true);
+    expect(dispatchRace.pids).toHaveLength(2); for (const pid of dispatchRace.pids) expect(() => process.kill(pid, 0)).toThrow();
+    await expect(verify(result.report, triage(result.report), env.current, env.approvalPath, env.stateRoot)).rejects.toMatchObject({ code: 20 });
   });
   it.each(['missing', 'reserved', 'active-lock', 'observation'] as const)('verification rejects %s authoritative attempt state', async kind => {
     const env = await setup('filing'); intercept(); const result = await reviewLive(env.request, env.stateRoot, env.approvalPath);
@@ -306,10 +350,14 @@ describe('live HTTP through actual isolated SDK children, no real credentials or
     const observed: CallObservation = { generationId: 'gen-budget', requestedUpstream: 'google-vertex/global', reportedProvider: 'Google', reportedModel: env.approval.model, inputTokens: 10, outputTokens: 10, cacheTokens: 0, costUsd: .001, routeDigest: 'a'.repeat(64) };
     try {
       await attempt.begin(hash('budget'));
-      const [a] = await Promise.all([attempt.budget.reserve('correctness', .5075), attempt.budget.reserve('contracts-risk', .5075)]);
+      const [a, b] = await Promise.all([attempt.budget.reserve('correctness', .5075), attempt.budget.reserve('contracts-risk', .5075)]);
       await expect(attempt.budget.reserve('correctness', .5075)).rejects.toThrow('cap');
       await attempt.budget.settle(a!, observed);
       await expect(attempt.budget.reserve('correctness', .5075)).resolves.toBeTypeOf('string');
+      const queued = attempt.budget.reserve('correctness', .000001); attempt.stopAdmission();
+      await expect(queued).rejects.toThrow('stopped admission');
+      await attempt.budget.settle(b!, { ...observed, generationId: 'gen-budget-second' });
+      expect(attempt.state.reservations.find(item => item.id === b)?.state).toBe('settled');
     } finally { await attempt.close(); }
   });
   it('help, draft, dry-run and explicit preflight never read dedicated key or dispatch', async () => {

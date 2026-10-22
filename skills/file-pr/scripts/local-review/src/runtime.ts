@@ -31,7 +31,7 @@ const ToolPacketSchema = Type.Object({ name: Type.String(), args: Type.Unknown()
 const DoneSchema = Type.Object({ settled: Type.Boolean(), text: Type.String(), stopReason: Type.String(), activeTools: Type.Array(Type.String()), pid: Type.Integer() }, { additionalProperties: false });
 
 /** Real SDK session in owned child; host alone owns any network effects and credentials. */
-export async function runLens(source: Awaited<ReturnType<typeof captureSnapshot>>, lens: Lens, signal: AbortSignal, budget: AttemptBudget, fixture?: FixtureTransport | LiveTransport, policy: Policy = { ...DEFAULT_POLICY }): Promise<LensResult & { simulated: boolean; identities: Static<typeof ModelIdentitySchema>[] }> {
+export async function runLens(source: Awaited<ReturnType<typeof captureSnapshot>>, lens: Lens, signal: AbortSignal, budget: AttemptBudget, fixture?: FixtureTransport | LiveTransport, policy: Policy = { ...DEFAULT_POLICY }, onFailure?: () => void): Promise<LensResult & { simulated: boolean; identities: Static<typeof ModelIdentitySchema>[] }> {
   validate(LensSchema, lens); policy = structuredClone(validate(PolicySchema, policy));
   const startedAt = Date.now();
   const base = { lens, findings: [], checkedPaths: [] as string[], omissions: [] as LensResult['omissions'], contextGaps: [] as string[], observedModels: [] as Static<typeof ModelObservationSchema>[], startedAt, calls: [] as CallObservation[], rejectedCalls: [] as CallEvidence[], simulated: fixture?.kind !== 'live' };
@@ -52,7 +52,11 @@ export async function runLens(source: Awaited<ReturnType<typeof captureSnapshot>
   const usage = { state: 'known' as const, requests: 0, inputTokens: 0, outputTokens: 0, cacheTokens: 0, costUsd: 0 };
   let uncertain = false; let unavailable = false; let finished = false;
   let queue = Promise.resolve();
-  const fail = (reason: string) => { failure ??= reason; finished = true; child.kill('SIGKILL'); };
+  const fail = (reason: string) => {
+    if (failure) return;
+    failure = reason; finished = true;
+    try { onFailure?.(); } finally { child.kill('SIGKILL'); }
+  };
   const abort = () => fail('Round aborted or timed out; remote billing may be unknown');
   const timer = setTimeout(abort, policy.roundDeadlineMs);
   signal.addEventListener('abort', abort, { once: true });
@@ -71,7 +75,9 @@ export async function runLens(source: Awaited<ReturnType<typeof captureSnapshot>
         if (requests >= policy.requestsPerLens) throw new ReviewError(20, 'Lens request budget exhausted');
         signal.throwIfAborted();
         active = await budget.reserve(lens, fixture.kind === 'live' ? fixture.reservationUsd : 0); requests++; usage.requests = requests;
+        signal.throwIfAborted();
         await emit('request', requests, packet.data);
+        signal.throwIfAborted();
         if (fixture.kind === 'live') {
           try {
             const response = await fixture.dispatch(body, signal);
@@ -79,9 +85,12 @@ export async function runLens(source: Awaited<ReturnType<typeof captureSnapshot>
             await budget.settle(active, response.observation); active = undefined;
             send(packet.id, { message: response.message });
           } catch (error) {
-            if (error instanceof ProviderProtocolError && active) {
-              base.rejectedCalls.push(error.evidence); uncertain = true;
-              await budget.uncertain(active, error.evidence); active = undefined;
+            // Close shared admission before persistence or delayed worker cleanup can yield.
+            fail(error instanceof ReviewError ? error.message : 'Transport or settlement failed');
+            if (active) {
+              uncertain = true;
+              if (error instanceof ProviderProtocolError) base.rejectedCalls.push(error.evidence);
+              await budget.uncertain(active, error instanceof ProviderProtocolError ? error.evidence : undefined); active = undefined;
             }
             throw error;
           }
@@ -100,8 +109,8 @@ export async function runLens(source: Awaited<ReturnType<typeof captureSnapshot>
         if (message.usage.output > policy.maxOutputTokens || Buffer.byteLength(JSON.stringify(message.content)) > policy.maxOutputTokens * 32) throw new ReviewError(20, 'Output cap violated');
         if (fixture.kind === 'fixture' && !active) throw new ReviewError(20, 'Unreserved response');
         if (fixture.kind === 'fixture' && response.missingUsage && active) {
-          await budget.uncertain(active); active = undefined; unavailable = true; uncertain = true;
-          fail('Provider usage unavailable; billing must be reconciled'); return;
+          unavailable = true; uncertain = true; fail('Provider usage unavailable; billing must be reconciled');
+          await budget.uncertain(active); active = undefined; return;
         }
         if (active) { await budget.settle(active); active = undefined; }
         usage.inputTokens += message.usage.input; usage.outputTokens += message.usage.output;
@@ -128,13 +137,16 @@ export async function runLens(source: Awaited<ReturnType<typeof captureSnapshot>
     }).catch(error => fail(error instanceof ReviewError ? error.message : 'Runtime boundary failed'));
   });
   try {
-    const exited = new Promise<void>(resolve => { child.once('exit', () => resolve()); child.once('error', () => { fail('SDK worker could not start'); resolve(); }); });
+    const exited = new Promise<void>(resolve => {
+      child.once('exit', () => { if (!finished) fail('SDK worker crashed before settlement'); resolve(); });
+      child.once('error', () => { fail('SDK worker could not start'); resolve(); });
+    });
     child.send({ kind: 'start', mode: fixture.kind === 'live' ? 'live' : 'simulated', directory, model: fixture.kind === 'fixture' ? fixture.requestedRoute ?? MODEL : MODEL, prompt: `${PROMPT}\nLens: ${lens}. ${LENS_PROMPTS[lens]}`, payload: JSON.stringify(source.snapshot.payload), schemas: SOURCE_TOOL_SCHEMAS, maxOutputTokens: policy.maxOutputTokens } satisfies WorkerInput);
     if (signal.aborted) abort();
     await exited; await queue;
     if (active) { uncertain = true; await budget.uncertain(active); }
     await emit('exit', requests, { directory });
-    if (!completed && !failure) failure = 'SDK worker crashed before settlement';
+    if (!completed && !failure) fail('SDK worker crashed before settlement');
     if (unavailable) failure ??= 'Provider usage unavailable';
     if (!failure && completed) {
       try {
@@ -147,7 +159,7 @@ export async function runLens(source: Awaited<ReturnType<typeof captureSnapshot>
         const findings = output.findings.map(finding => { if (finding.lens !== lens) throw new ReviewError(20, 'Wrong finding lens'); return source.validateFinding(finding); });
         if (findings.some(finding => finding.classification === 'uncertain') || findings.length > policy.maxCandidates) throw new ReviewError(20, 'Uncertain or excessive candidates');
         return { ...base, findings, identities, status: 'complete', reason: null, endedAt: Date.now(), usage };
-      } catch { failure = 'Invalid candidate JSON, quote, changed-line evidence or required context'; }
+      } catch { fail('Invalid candidate JSON, quote, changed-line evidence or required context'); }
     }
     return { ...base, identities, status: 'incomplete', reason: failure ?? 'Runtime incomplete', endedAt: Date.now(), usage: uncertain || unavailable ? { state: uncertain ? 'uncertain' : 'unavailable', requests, reason: 'Missing settlement or authoritative usage; never assume zero spend' } : usage };
   } finally {

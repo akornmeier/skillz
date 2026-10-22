@@ -19,7 +19,7 @@ vi.mock('node:child_process', async importOriginal => {
 
 import { DEFAULT_POLICY, ReviewError } from '../src/contracts.js';
 import { review } from '../src/review.js';
-import { MODEL, PROMPT, type FixtureTransport, type Lens, type WorkerInput } from '../src/runtime.js';
+import { MODEL, PROMPT, type FixtureTransport, type WorkerInput } from '../src/runtime.js';
 import { SOURCE_TOOL_SCHEMAS } from '../src/snapshot.js';
 import { commit, gitFixture, put } from './git-fixture.js';
 
@@ -42,14 +42,15 @@ it('caps initial and in-flight Git capture by remaining whole-round deadline', a
 it('aborts and awaits sibling before releasing ownership when uncertainty persistence fails', async () => {
   const { root, request } = await setup(); const pids: number[] = [];
   let release!: () => void; const barrier = new Promise<void>(resolve => { release = resolve; });
-  const fixture = (lens: Lens): FixtureTransport => ({ kind: 'fixture', steps: [lens === 'correctness' ? { crash: true } : { hang: true }], async onEvent(event) {
+  const fixture = (): FixtureTransport => ({ kind: 'fixture', steps: [{ hang: true }], async onEvent(event) {
     if (event.kind !== 'effect') return;
     pids.push(event.pid);
-    if (pids.length === 2) { const ledger = join(root, `${request.attemptId}.attempt.json`); await rm(ledger); await mkdir(ledger); release(); }
+    // Crash only after both effects; immediate cancellation must not deadlock this barrier.
+    if (pids.length === 2) { const ledger = join(root, `${request.attemptId}.attempt.json`); await rm(ledger); await mkdir(ledger); process.kill(pids[0]!, 'SIGKILL'); release(); }
     await barrier;
   } });
   try {
-    await expect(review(request, root, { correctness: fixture('correctness'), 'contracts-risk': fixture('contracts-risk') })).rejects.toMatchObject({ code: 20 });
+    await expect(review(request, root, { correctness: fixture(), 'contracts-risk': fixture() })).rejects.toMatchObject({ code: 20 });
     expect(pids).toHaveLength(2);
     for (const pid of pids) expect(() => process.kill(pid, 0)).toThrow();
     await expect(review(request, root)).rejects.toBeInstanceOf(ReviewError);
