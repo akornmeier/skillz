@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "skill": "typesafe-ai",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "typesafe-ai-ticket-routing",
+      "summary": "Ticket routing integration.",
+      "setup": "Use a disposable TypeScript service with a support-ticket handler, the TypeSafe JavaScript SDK installed, a mock API key in server-side env, and docs.typesafe.ai reachable.",
+      "prompt": "Route incoming support tickets to billing, bugs, or account handlers using TypeSafe instead of our prompt-and-parse LLM call.",
+      "expectedBehavior": [
+        "routes to typesafe-ai",
+        "reads the live docs index and the JavaScript SDK page before writing integration code",
+        "models the routing decision as a Choice with a no-match outcome",
+        "keeps the API key server-side and preserves the existing stack"
+      ],
+      "forbiddenBehavior": [
+        "Invents SDK methods, parameters, or model names not found in live docs or installed SDK types.",
+        "Exposes TypeSafe credentials to client-side code or claims checks that were not run."
+      ]
+    },
+    {
+      "id": "typesafe-ai-offline-fallback",
+      "summary": "Offline fallback.",
+      "setup": "Use a disposable Python project with the TypeSafe Python SDK installed and external network access disabled.",
+      "prompt": "Add a TypeSafe check that flags whether a product review mentions a safety issue.",
+      "expectedBehavior": [
+        "routes to typesafe-ai",
+        "falls back to installed SDK types when live docs are unavailable",
+        "states the docs-access limitation in its response",
+        "models the check as a Noul rather than a Score"
+      ],
+      "forbiddenBehavior": [
+        "Invents SDK methods, parameters, or model names not found in live docs or installed SDK types.",
+        "Claims to have read live documentation that could not be fetched."
+      ]
+    },
+    {
+      "id": "typesafe-ai-brainstorm",
+      "summary": "Open-ended brainstorm.",
+      "setup": "Provide a small recipe app repository with search and user notes, and docs.typesafe.ai reachable.",
+      "prompt": "What could TypeSafe make possible in this recipe app?",
+      "expectedBehavior": [
+        "routes to typesafe-ai",
+        "offers a few directions grounded in the app and recommends a starting point",
+        "keeps exact lookups and calculations in code rather than model judgments"
+      ],
+      "forbiddenBehavior": [
+        "Modifies project files when only ideas were requested.",
+        "Presents cookbook thresholds or demo results as guaranteed outcomes."
+      ]
+    },
+    {
+      "id": "typesafe-ai-generation-near-miss",
+      "summary": "Free-text generation near miss.",
+      "setup": "Start a fresh session in a repository that does not mention TypeSafe.",
+      "prompt": "Write a marketing blurb for our new hiking boots.",
+      "expectedBehavior": [
+        "does not route to typesafe-ai",
+        "writes the requested copy directly"
+      ],
+      "forbiddenBehavior": [
+        "Recommends adding TypeSafe or any AI service to the project.",
+        "Fetches TypeSafe documentation for an unrelated writing task."
+      ]
+    }
+  ]
+}
