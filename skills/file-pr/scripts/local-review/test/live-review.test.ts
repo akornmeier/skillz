@@ -11,6 +11,8 @@ import { implementationIdentity, ownAttempt, reviewLive, verify } from '../src/r
 import { cli } from '../src/cli.js';
 import { captureSnapshot } from '../src/snapshot.js';
 import * as snapshots from '../src/snapshot.js';
+import * as approvals from '../src/approval.js';
+import * as contracts from '../src/contracts.js';
 import { commit, fixtureGit, gitFixture, put } from './git-fixture.js';
 
 const roots: string[] = [];
@@ -71,6 +73,19 @@ describe('live HTTP through actual isolated SDK children, no real credentials or
     await expect(verify(sealReport(stale), triage(sealReport(stale)), env.current, env.approvalPath)).rejects.toThrow('Stale');
     await put(env.request.repo, 'dirty.ts', 'uncommitted');
     await expect(verify(result.report, triage(result.report), env.current, env.approvalPath)).rejects.toMatchObject({ code: 21 });
+  });
+  it('ordinary review rejects approval replaced with calibration authority after purpose check', async () => {
+    const env = await setup('filing'); const http = intercept(); const load = approvals.loadApproval; let reads = 0;
+    vi.spyOn(contracts, 'defaultStateRoot').mockReturnValue(env.stateRoot);
+    vi.spyOn(approvals, 'loadApproval').mockImplementation(async path => {
+      const approved = await load(path);
+      if (++reads === 1) await writeFile(path, JSON.stringify({ ...env.approval, purpose: 'calibration', rollout: null,
+        calibrationBudget: { by: 'user', preparedHash: hash('synthetic-prepared'), expiresAt: Date.now() + 50000, maxCostUsd: 1.02, maxRequests: 6, maxDurationMs: 120000 } }));
+      return approved;
+    });
+    const result = await cli(['review', '--repo', env.request.repo, '--base', 'base', '--head', 'HEAD', '--goal', env.request.goal,
+      '--builder-model', env.request.builderModel, '--attempt', env.request.attemptId, '--approval', env.approvalPath]);
+    expect(result.exit).toBe(30); expect(reads).toBe(2); expect(http.fetcher).not.toHaveBeenCalled();
   });
   it('approval revoked during final source capture cannot authorize upload', async () => {
     const env = await setup('filing'); intercept();

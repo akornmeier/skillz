@@ -165,7 +165,7 @@ export async function captureSnapshot(input: unknown, absoluteDeadline?: number)
   const index = await original(['rev-parse', '--path-format=absolute', '--git-path', 'index']);
   const objectFormat = await original(['rev-parse', '--show-object-format']);
   if (objectFormat !== 'sha1' && objectFormat !== 'sha256') throw new SnapshotError('Unsupported object format');
-  // Resolve user refs once, with end-of-options. Object operations below never consume refs.
+  // Pin user refs with end-of-options. Revalidate originals after immutable object scanning.
   const base = objectId(await original(['rev-parse', '--verify', '--end-of-options', `${request.baseRef}^{commit}`]));
   const head = objectId(await original(['rev-parse', '--verify', '--end-of-options', `${request.headRef}^{commit}`]));
   const checkoutHead = objectId(await original(['rev-parse', '--verify', 'HEAD^{commit}']));
@@ -321,7 +321,7 @@ export async function captureSnapshot(input: unknown, absoluteDeadline?: number)
       const candidate = validate(FindingSchema, inputFinding);
       return validateFindingEvidence(candidate, readSource(candidate.revision, candidate.path), spans[candidate.revision].get(candidate.path) ?? []);
     };
-    // Recheck source/index against original pinned HEAD after capture, not moving refs.
+    // Recheck source/index against pinned HEAD, then verify the original refs still match.
     const currentIndex = await readFile(index);
     if (!currentIndex.equals(await readFile(join(isolated, 'index')))) {
       // status may refresh copied stat info; compare semantic stages instead of raw bytes.
@@ -332,6 +332,10 @@ export async function captureSnapshot(input: unknown, absoluteDeadline?: number)
       if (!before.equals(after) || currentFlags.some(entry => !entry.startsWith('H '))) throw new SnapshotError('Index changed during capture', [], 21);
     }
     if ((await run(['status', '--porcelain=v1', '-z', '--untracked-files=all', '--ignore-submodules=all'])).length) throw new SnapshotError('Source changed during capture', [], 21);
+    let currentRefs: string;
+    try { currentRefs = await original(['rev-parse', '--revs-only', '--end-of-options', `${request.baseRef}^{commit}`, `${request.headRef}^{commit}`, 'HEAD^{commit}']); }
+    catch { checkDeadline(); throw new SnapshotError('Cannot revalidate intended refs after capture', [], 21); }
+    if (currentRefs !== [base, head, checkoutHead].join('\n')) throw new SnapshotError('Intended refs or checkout HEAD changed during capture', [], 21);
     checkDeadline();
     return { snapshot, tools, validateFinding };
   } finally { await rm(isolated, { recursive: true, force: true }); }

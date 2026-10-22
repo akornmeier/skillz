@@ -1,5 +1,5 @@
 import { pathToFileURL } from 'node:url';
-import { DEFAULT_POLICY, ReviewError, defaultStateRoot, validateRequest } from './contracts.js';
+import { DEFAULT_POLICY, ReviewError, defaultStateRoot, hash, validateRequest } from './contracts.js';
 import { captureSnapshot } from './snapshot.js';
 import { calibrationCli } from './calibration-cli.js';
 import { draftApproval, loadApproval, validateAuthority } from './approval.js';
@@ -50,8 +50,9 @@ export async function cli(args: string[]): Promise<{ exit: number; output: unkno
       validateAuthority(approval, liveRequest, source.snapshot.identity, (await implementationIdentity()).runtimeHash);
       return { exit: 0, output: { preflight: await preflight(approval, liveRequest.policy, AbortSignal.timeout(request.policy.roundDeadlineMs)), authorization: false, keyRead: false } };
     }
-    if (values.has('approval') && (await loadApproval(required('approval'))).purpose === 'calibration') throw new ReviewError(30, 'Use calibrate run to enforce aggregate calibration authority');
-    const result = values.has('approval') ? await reviewLive(request, defaultStateRoot(), required('approval')) : await review(request, defaultStateRoot());
+    const approval = values.has('approval') ? await loadApproval(required('approval')) : undefined;
+    if (approval?.purpose === 'calibration') throw new ReviewError(30, 'Use calibrate run to enforce aggregate calibration authority');
+    const result = approval ? await reviewLive(request, defaultStateRoot(), required('approval'), hash(approval)) : await review(request, defaultStateRoot());
     return { exit: result.exit, output: result };
   } catch (error) {
     const exit = error instanceof ReviewError ? error.code : 30;

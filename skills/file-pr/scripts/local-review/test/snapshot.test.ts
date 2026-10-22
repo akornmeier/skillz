@@ -1,3 +1,4 @@
+import { type ExecFileException, type ExecFileOptions } from 'node:child_process';
 import { chmod, lstat, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { deflateSync } from 'node:zlib';
@@ -7,6 +8,19 @@ import { captureSnapshot, containsSecret, SnapshotError } from '../src/snapshot.
 import { body, finding, request } from './fixtures.js';
 import { commit, fixtureGit, gitFixture, put } from './git-fixture.js';
 
+const control = vi.hoisted(() => ({ afterBlob: undefined as undefined | (() => Promise<void>) }));
+vi.mock('node:child_process', async importOriginal => {
+  const original = await importOriginal<typeof import('node:child_process')>();
+  return { ...original, execFile(file: string, args: string[], options: ExecFileOptions, callback: (error: ExecFileException | null, stdout: string | Buffer, stderr: string | Buffer) => void) {
+    return original.execFile(file, args, options, (error, stdout, stderr) => {
+      const effect = !error && file === '/usr/bin/git' && args.includes('cat-file') ? control.afterBlob : undefined;
+      if (!effect) { callback(error, stdout, stderr); return; }
+      control.afterBlob = undefined;
+      void effect().then(() => callback(error, stdout, stderr), failure => callback(failure instanceof Error ? failure : new Error('Synthetic ref movement failed'), stdout, stderr));
+    });
+  } };
+});
+
 const roots: string[] = [];
 async function repo(files?: Record<string, string>) { const fixture = await gitFixture(files); roots.push(fixture.repo); return fixture; }
 async function changed(files?: Record<string, string>) {
@@ -15,7 +29,7 @@ async function changed(files?: Record<string, string>) {
   const head = await commit(fixture.repo);
   return { ...fixture, head };
 }
-afterEach(async () => { vi.unstubAllEnvs(); await Promise.all(roots.splice(0).map(path => rm(path, { recursive: true, force: true }))); });
+afterEach(async () => { control.afterBlob = undefined; vi.unstubAllEnvs(); await Promise.all(roots.splice(0).map(path => rm(path, { recursive: true, force: true }))); });
 
 describe('real synthetic Git snapshot and pinned evidence', () => {
   it('captures exact identity, complete patch/surroundings, relevant tests and exactly two bounded tools', async () => {
@@ -34,6 +48,18 @@ describe('real synthetic Git snapshot and pinned evidence', () => {
     expect(Object.isFrozen(snapshot.identity)).toBe(true);
   });
 
+  it.each(['base', 'HEAD', 'pinned-head'] as const)('rejects %s movement during immutable source scanning', async kind => {
+    const { repo: path, base, head } = await changed(); let moves = 0;
+    const baseRef = kind === 'base' ? 'refs/remotes/origin/main' : 'base';
+    if (kind === 'base') await fixtureGit(path, 'update-ref', baseRef, base);
+    control.afterBlob = async () => {
+      moves++;
+      if (kind === 'base') await fixtureGit(path, 'update-ref', baseRef, head);
+      else await fixtureGit(path, 'commit', '--quiet', '--allow-empty', '-m', 'Same tree, new HEAD');
+    };
+    await expect(captureSnapshot({ ...request(path), baseRef, headRef: kind === 'pinned-head' ? head : 'HEAD' })).rejects.toMatchObject({ code: 21 });
+    expect(moves).toBe(1);
+  });
   it('integrates real source evidence, P2 report, omissions and exact receipt freshness', async () => {
     const { repo: path, base } = await changed({ 'src/a.ts': 'export const enabled = true;\n', '.env': 'private source, never exported\n' });
     const captured = await captureSnapshot(request(path));
