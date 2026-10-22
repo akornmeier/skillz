@@ -18,7 +18,7 @@ node "$RUNNER" calibrate prepare --root "$PRIVATE_RUN" --id unique-calibration-i
 node "$RUNNER" calibrate draft --root "$PRIVATE_RUN"
 ```
 
-Preparation creates 12 opaque Git repositories with neutral before/after commits, a base ref and only frozen source maps. Private `prepared.json` records exact repo/head/attempt scope, corpus/gold/runtime/skill hashes. Source inventory and Git object IDs are checked again before collection, not merely trusted from labels. Existing/partial preparations aren't overwritten or auto-recovered. No network or key reads.
+`--id` must start with an alphanumeric character, followed by up to 39 alphanumerics, underscores or hyphens. Preparation creates 12 opaque Git repositories with neutral before/after commits, a base ref and only frozen source maps. Private `prepared.json` records exact repo/head/attempt scope, corpus/gold/runtime/skill hashes. Source inventory and Git object IDs are checked again before collection, not merely trusted from labels. Existing/partial preparations aren't overwritten or auto-recovered. No network or key reads.
 
 Draft output fills those exact scopes and proposes aggregate budget. It stays `DRAFT`, with key/export/privacy permission false. User must choose/approve exact OpenRouter model/upstream/privacy/key-file access and scope. No automatic authority from a config flag or template. Operator records are trusted instructions, not cryptographic proof of consent.
 

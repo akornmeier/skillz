@@ -1,12 +1,17 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { access, mkdtemp, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DEFAULT_POLICY, ReviewError, hash, sealReport, validateAttempt, validateReport, type Finding, type ReviewReport } from '../src/contracts.js';
 import { MODEL, type FixtureTransport, type Lens, type RuntimeEvent } from '../src/runtime.js';
-import { ownAttempt, review, verify } from '../src/review.js';
+import { implementationIdentity, ownAttempt, review, verify } from '../src/review.js';
 import { cli } from '../src/cli.js';
 import { commit, fixtureGit, gitFixture, put } from './git-fixture.js';
+
+vi.mock('node:fs/promises', async importOriginal => {
+  const original = await importOriginal<typeof import('node:fs/promises')>();
+  return { ...original, readFile: vi.fn(original.readFile) };
+});
 
 const roots: string[] = [];
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });
@@ -33,6 +38,17 @@ async function code(promise: Promise<unknown>, expected: number, message?: strin
   try { await promise; throw new Error('Expected rejection'); } catch (error) { expect(error).toBeInstanceOf(ReviewError); expect((error as ReviewError).code).toBe(expected); if (message) expect((error as Error).message).toContain(message); }
 }
 describe('offline parallel review, attempt ledger and current-source receipt', () => {
+  it('lockfile-only dependency changes invalidate runtime qualification identity', async () => {
+    const initial = await implementationIdentity();
+    const original = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises');
+    vi.mocked(readFile).mockImplementation(async (...args) => String(args[0]).endsWith('/pnpm-lock.yaml')
+      ? Buffer.from('synthetic changed dependency graph') : original.readFile(...args));
+    try {
+      const changed = await implementationIdentity();
+      expect(changed.lockHash).not.toBe(initial.lockHash);
+      expect(changed.runtimeHash).not.toBe(initial.runtimeHash);
+    } finally { vi.mocked(readFile).mockImplementation(original.readFile); }
+  });
   it('barrier proves lenses overlap, independent fresh context, no extra judge calls', async () => {
     const { root, request } = await setup(); const events: RuntimeEvent[] = []; let release!: () => void;
     const barrier = new Promise<void>(resolve => { release = resolve; }); let arrived = 0;

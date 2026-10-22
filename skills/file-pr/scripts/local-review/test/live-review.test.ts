@@ -10,10 +10,11 @@ import { DEFAULT_POLICY, hash, sealReport, validateAttempt, type CallObservation
 import { implementationIdentity, ownAttempt, reviewLive, verify } from '../src/review.js';
 import { cli } from '../src/cli.js';
 import { captureSnapshot } from '../src/snapshot.js';
+import * as snapshots from '../src/snapshot.js';
 import { commit, fixtureGit, gitFixture, put } from './git-fixture.js';
 
 const roots: string[] = [];
-afterEach(async () => { vi.unstubAllGlobals(); await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });
+afterEach(async () => { vi.restoreAllMocks(); vi.unstubAllGlobals(); await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))); });
 async function setup(purpose: Approval['purpose'] = 'calibration', overrides: Partial<typeof DEFAULT_POLICY> = {}) {
   const { repo } = await gitFixture(); roots.push(repo); await put(repo, 'src/a.ts', 'export const enabled = false;\n'); const head = await commit(repo);
   const root = await mkdtemp(join(await realpath(tmpdir()), 'file-pr-live-')); roots.push(root);
@@ -70,6 +71,18 @@ describe('live HTTP through actual isolated SDK children, no real credentials or
     await expect(verify(sealReport(stale), triage(sealReport(stale)), env.current, env.approvalPath)).rejects.toThrow('Stale');
     await put(env.request.repo, 'dirty.ts', 'uncommitted');
     await expect(verify(result.report, triage(result.report), env.current, env.approvalPath)).rejects.toMatchObject({ code: 21 });
+  });
+  it('approval revoked during final source capture cannot authorize upload', async () => {
+    const env = await setup('filing'); intercept();
+    const result = await reviewLive(env.request, env.stateRoot, env.approvalPath);
+    let captures = 0; const capture = snapshots.captureSnapshot;
+    vi.spyOn(snapshots, 'captureSnapshot').mockImplementation(async (...args) => {
+      const source = await capture(...args);
+      if (++captures === 2) await writeFile(env.approvalPath, JSON.stringify({ ...env.approval, sourceExport: false }));
+      return source;
+    });
+    await expect(verify(result.report, triage(result.report), env.current, env.approvalPath)).rejects.toMatchObject({ code: 30 });
+    expect(captures).toBe(2);
   });
   it('calibration may run, but never verifies for upload; expired/changed approval never verifies', async () => {
     const env = await setup(); const http = intercept(); const result = await reviewLive(env.request, env.stateRoot, env.approvalPath);

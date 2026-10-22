@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { Type } from 'typebox';
-import { mkdtemp, readFile, realpath, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, realpath, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DEFAULT_POLICY, atomicPrivateWrite, hash, sealReport, validate, validateReport, type Finding } from '../src/contracts.js';
@@ -60,6 +60,11 @@ describe('calibration preparation and bounded execution, no provider calls', () 
     expect(prepared.cases.every(item => !item.repo.includes(item.id))).toBe(true);
     expect(await readFile(join(prepared.cases[0]!.repo, 'api.ts'), 'utf8')).toContain('displayName');
     await expect(prepareCalibration(root, 'unit-cohort', runtimeHash, skillHash)).rejects.toMatchObject({ code: 'EEXIST' });
+  });
+  it.each(['_trial', '-trial'])('rejects unrunnable calibration ID %s before creating repositories', async id => {
+    const destination = join(root, `invalid${id}`);
+    await expect(prepareCalibration(destination, id, runtimeHash, skillHash)).rejects.toMatchObject({ code: 20 });
+    await expect(stat(join(destination, 'repos'))).rejects.toMatchObject({ code: 'ENOENT' });
   });
   it('rejects drifted implementation before review callback', async () => {
     let calls = 0; await expect(collectCalibration(root, { ...limits(), runtimeHash: hash('changed') }, async () => { calls++; throw new Error('no call'); })).rejects.toMatchObject({ code: 21 });

@@ -15,7 +15,7 @@ const CaseSchema = Type.Object({ id: text, before: Type.Record(Type.String(), Ty
 const GoldSchema = Type.Object({ id: text, actionable: Type.Boolean(), severity: Type.Union([text, Type.Null()]), path: text, trigger: text, impact: text, required: Type.Boolean() }, { additionalProperties: false });
 export const CORPUS_HASH = 'da451dcf22472bb2c543fa43f49bc23ebc8d9be80237071181ee629f9f21931b';
 export const GOLD_HASH = 'aa330352b3f8fc098d1512e1311d318cde482767ed573af307cb7261c7bc55da';
-const PreparedSchema = Type.Object({ schema: Type.Literal(1), id: Type.String({ pattern: '^[a-zA-Z0-9_-]{1,40}$' }), createdAt: Type.Number(), runtimeHash: digest, skillHash: digest, corpusHash: Type.Literal(CORPUS_HASH), goldHash: Type.Literal(GOLD_HASH),
+const PreparedSchema = Type.Object({ schema: Type.Literal(1), id: Type.String({ pattern: '^[a-zA-Z0-9][a-zA-Z0-9_-]{0,39}$' }), createdAt: Type.Number(), runtimeHash: digest, skillHash: digest, corpusHash: Type.Literal(CORPUS_HASH), goldHash: Type.Literal(GOLD_HASH),
   cases: Type.Array(Type.Object({ id: text, repo: text, base: sha, head: sha, attemptId: text }, { additionalProperties: false }), { minItems: 12, maxItems: 12 }) }, { additionalProperties: false });
 const CollectionSchema = Type.Object({ schema: Type.Literal(1), preparedHash: digest, status: Type.Union([Type.Literal('running'), Type.Literal('complete'), Type.Literal('blocked')]), startedAt: Type.Number(), maxCostUsd: Type.Number(), maxRequests: Type.Integer(), deadlineAt: Type.Number(),
   activeCase: Type.Union([text, Type.Null()]), reservedUsd: Type.Number(), reason: Type.Union([text, Type.Null()]),

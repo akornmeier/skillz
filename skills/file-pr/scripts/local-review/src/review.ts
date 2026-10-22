@@ -26,8 +26,9 @@ export async function implementationIdentity() {
   if (sdkManifest.version !== '1.3.0') throw new ReviewError(30, 'Installed SDK identity mismatch');
   const manifest = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8')) as { version?: unknown; dependencies?: Record<string, unknown> };
   if (manifest.version !== '0.1.0' || manifest.dependencies?.['@earendil-works/pi-coding-agent'] !== '1.3.0') throw new ReviewError(30, 'Unsupported runtime package');
+  const lockHash = hashBytes(await readFile(join(packageRoot, 'pnpm-lock.yaml')));
   return { packageVersion: '0.1.0' as const, sdkVersion: '1.3.0' as const, nodeVersion: process.version,
-    lockHash: hashBytes(await readFile(join(packageRoot, 'pnpm-lock.yaml'))), runtimeHash: hash({ sources, manifest, sdkManifestHash: hashBytes(sdkManifestBytes) }),
+    lockHash, runtimeHash: hash({ sources, manifest, lockHash, sdkManifestHash: hashBytes(sdkManifestBytes) }),
     promptHash: hash({ PROMPT, LENS_PROMPTS }), toolPolicyHash: hash({ TOOL_VERSION, SOURCE_TOOL_SCHEMAS }), filterPolicyHash: hash(FILTER_VERSION) };
 }
 export async function receiptIdentity(source: Awaited<ReturnType<typeof captureSnapshot>>, request: ReviewRequest, authority?: ReceiptIdentity['authority']): Promise<ReceiptIdentity> {
@@ -230,9 +231,9 @@ export async function verify(input: unknown, triageInput: unknown, current: { re
   }
   // Metadata fetch must not open a freshness window for changed source/runtime/authority.
   if (!approvalPath) throw new ReviewError(30, 'Current approval required');
-  const finalApproval = await loadApproval(approvalPath);
   const finalSource = await captureSnapshot(request);
   const finalIdentity = await receiptIdentity(finalSource, request, identity.authority);
+  const finalApproval = await loadApproval(approvalPath);
   validateAuthority(finalApproval, request, finalSource.snapshot.identity, finalIdentity.runtimeHash);
   if (hash(finalApproval) !== identity.authority.approvalDigest) throw new ReviewError(21, 'Approval changed during verification');
   validateReport(report, finalIdentity);
