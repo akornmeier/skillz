@@ -44,7 +44,7 @@ node "$RUNNER" verify --approval "$APPROVAL_JSON" \
   --repo "$REPO" --base "$BASE" --head HEAD
 ```
 
-Preflight checks fresh public model/route/pricing metadata, not key access or paid generation. Live review reads only approved key; host owns HTTP, workers never receive it. Production verifier checks current authority and metadata without reading key. Only live filing verification can authorize normal review gating; calibration and simulation always reject for upload. Parent triage/fixes and publishing procedure: [local-review workflow](../../workflows/local-review.md).
+Preflight checks fresh public model/route/pricing metadata, not key access or paid generation. Live review reads only approved key; host owns HTTP, workers never receive it. Production verifier checks current authority and metadata without reading key. Only live filing verification can authorize normal review gating; calibration and simulation always reject for upload. Verification holds the attempt lock and requires its latest settled round, stored report and matching native settlements. CLI uses its configured default state store, not the report directory. Node clients using a custom `reviewLive` state root must pass that same root as the fifth argument to `verify`/`verifyFiles`; missing or uncertain state never authorizes upload. Parent triage/fixes and publishing procedure: [local-review workflow](../../workflows/local-review.md).
 
 | Exit | Meaning |
 | --- | --- |
@@ -60,7 +60,7 @@ Preflight checks fresh public model/route/pricing metadata, not key access or pa
 - 3,000 output tokens, 60 changed files, 128 KiB diff, 200 lines/8 KiB read, 50 hits/8 KiB search and **32 KiB final HTTP JSON**, including history/tools/route controls. Never slice required coverage. Byte bounds are not certified native token counts.
 - Approved scheduling ceiling **$1.02/attempt**. At observed highest tier $0.50/M input, $2.50/M output, reserve full advertised 1M context plus capped output: **$0.5075/request**. Two concurrent holds fit. This is deliberately pessimistic reservation, not expected price. Example 20k input + 3k output at low tier is $0.0035 before other applicable charges; not measured usage.
 - Serialized ledger reservations precede HTTP. Known actual usage/cost replaces hold and releases unused amount. Missing/invalid usage, failed HTTP, timeout/cancellation, over-reservation cost or failed persistence retains uncertainty, aborts sibling and blocks new dispatch/retry. Scheduling guard is not a provider invoice guarantee.
-- Exact model and full upstream pinned; no fallback or redirect/retry. Fresh metadata validates all price tiers/capabilities and refuses unbounded charges/caching. Unit-price routing is not total-request budget. Requested regional tag and actual reported provider are recorded separately; metadata isn't independent data-residency proof.
+- Exact model and full upstream pinned; no fallback or redirect/retry. Fresh metadata validates all price tiers/capabilities and refuses unbounded charges/caching. Positive returned cached-token counts are rejected, preserved as evidence and retain billing uncertainty. Unit-price routing is not total-request budget. Requested regional tag and actual reported provider are recorded separately; metadata isn't independent data-residency proof.
 
 ## Source and state
 

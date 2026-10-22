@@ -35,7 +35,7 @@ const ReplySchema = Type.Object({
     is_byok: Type.Optional(Type.Literal(false)),
     completion_tokens_details: Type.Optional(Type.Object({ reasoning_tokens: Type.Optional(Type.Union([Type.Literal(0), Type.Null()])) }, object)),
     server_tool_use_details: Type.Optional(Type.Object({ tool_calls_executed: Type.Literal(0), tool_calls_requested: Type.Literal(0) }, object)),
-    prompt_tokens_details: Type.Object({ cached_tokens: integer, cache_write_tokens: Type.Optional(Type.Literal(0)), audio_tokens: Type.Optional(Type.Literal(0)), video_tokens: Type.Optional(Type.Literal(0)) }, object),
+    prompt_tokens_details: Type.Object({ cached_tokens: Type.Literal(0), cache_write_tokens: Type.Optional(Type.Literal(0)), audio_tokens: Type.Optional(Type.Literal(0)), video_tokens: Type.Optional(Type.Literal(0)) }, object),
   }, object),
   openrouter_metadata: Type.Object({ requested: text, is_byok: Type.Optional(Type.Literal(false)), strategy: Type.Union([Type.Literal('direct'), Type.Literal('alias')]), attempt: Type.Literal(1),
     endpoints: Type.Object({ total: Type.Integer({ minimum: 1 }), available: Type.Array(Type.Object({ provider: text, model: text, selected: Type.Boolean() }, object), { minItems: 1 }) }, object),

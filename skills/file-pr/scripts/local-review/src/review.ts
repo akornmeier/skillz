@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  DEFAULT_POLICY, ReviewError, actionable, hash, hashBytes, loadReport,
+  DEFAULT_POLICY, ReviewError, actionable, defaultStateRoot, hash, hashBytes, loadReport,
   privateRoot, reportExit, reusableReport, saveAttempt, saveReport, sealReport, validateAttempt,
   validateReport, validateRequest, validateTriage,
   type AttemptState, type LensResult, type Policy, type ReceiptIdentity, type ReviewRequest, type ReviewReport,
@@ -46,8 +46,8 @@ async function readPrivateJson(path: string): Promise<unknown> {
 }
 function missing(error: unknown): boolean { return error instanceof Error && 'code' in error && error.code === 'ENOENT'; }
 
-/** Exclusive ownership is never auto-reclaimed. A crash needs explicit budget reconciliation. */
-export async function ownAttempt(root: string, attemptId: string, policy: Policy = { ...DEFAULT_POLICY }) {
+/** Shared by review and verification; never reclaim a crashed owner's lock automatically. */
+async function lockAttempt(root: string, attemptId: string) {
   if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/.test(attemptId)) throw new ReviewError(30, 'Unsafe attempt ID');
   const directory = await privateRoot(root); const lockPath = join(directory, `${attemptId}.lock`);
   let lock;
@@ -56,13 +56,18 @@ export async function ownAttempt(root: string, attemptId: string, policy: Policy
   const owner = randomUUID();
   try { await lock.writeFile(owner); await lock.sync(); }
   catch (error) { await lock.close(); await rm(lockPath, { force: true }); throw error; }
+  return { directory, owner, async close() { await lock.close(); await rm(lockPath, { force: true }); } };
+}
+/** Exclusive ownership is never auto-reclaimed. A crash needs explicit budget reconciliation. */
+export async function ownAttempt(root: string, attemptId: string, policy: Policy = { ...DEFAULT_POLICY }) {
+  const ownership = await lockAttempt(root, attemptId); const { directory, owner } = ownership;
   let state: AttemptState;
   try {
     try { state = validateAttempt(await readPrivateJson(join(directory, `${attemptId}.attempt.json`))); }
     catch (error) { if (!missing(error)) throw error; state = { schemaVersion: 1, attemptId, owner, rounds: [], reservations: [] }; }
     if (state.attemptId !== attemptId || state.rounds.some(round => round.status !== 'settled') || state.reservations.some(item => item.state !== 'settled')) throw new ReviewError(20, 'Interrupted/uncertain attempt; reconcile before explicit new attempt');
     state.owner = owner; await saveAttempt(directory, state);
-  } catch (error) { await lock.close(); await rm(lockPath, { force: true }); throw error; }
+  } catch (error) { await ownership.close(); throw error; }
   // Both lenses serialize durable reservations before any HTTP/fixture effect.
   let writes = Promise.resolve(); let persistenceFailed = false;
   function mutate<T>(fn: () => T): Promise<T> {
@@ -103,7 +108,7 @@ export async function ownAttempt(root: string, attemptId: string, policy: Policy
       const item = state.rounds.find(item => item.round === round); if (!item) throw new ReviewError(20, 'Missing round');
       item.status = state.reservations.some(entry => entry.state !== 'settled') ? 'uncertain' : 'settled'; item.reportId = report.body.reportId;
     }); },
-    async close() { await writes; await lock.close(); await rm(lockPath, { force: true }); },
+    async close() { await writes; await ownership.close(); },
   };
 }
 function lensResult(result: Awaited<ReturnType<typeof runLens>>, lens: Lens): LensResult {
@@ -187,9 +192,35 @@ async function reviewInternal(input: unknown, root: string, fixtures?: Record<Le
   } finally { await attempt.close(); }
 }
 
-/** Re-capture actual source and implementation. Pinned OIDs never replace current intended refs. */
-export async function verify(input: unknown, triageInput: unknown, current: { repo: string; baseRef: string; headRef: string }, approvalPath?: string) {
+type CurrentSource = Pick<ReviewRequest, 'repo' | 'baseRef' | 'headRef'>;
+/** Hold attempt ownership throughout verification against the authoritative store, never the report's directory. */
+export async function verify(input: unknown, triageInput: unknown, current: CurrentSource, approvalPath?: string, stateRoot = defaultStateRoot()) {
   const report = validateReport(input);
+  if (report.body.execution?.mode !== 'live') return verifyReport(report, triageInput, current, approvalPath);
+  if (!approvalPath) throw new ReviewError(30, 'Current approval required for live verification');
+  const ownership = await lockAttempt(stateRoot, report.body.attemptId);
+  try {
+    let state: AttemptState;
+    try { state = validateAttempt(await readPrivateJson(join(ownership.directory, `${report.body.attemptId}.attempt.json`))); }
+    catch { throw new ReviewError(20, 'Missing or invalid authoritative attempt state'); }
+    const round = state.rounds.at(-1);
+    if (state.attemptId !== report.body.attemptId || !round || state.rounds.some(item => item.status !== 'settled')
+      || state.reservations.some(item => item.state !== 'settled')) throw new ReviewError(20, 'Active or uncertain attempt cannot authorize upload');
+    if (round.round !== report.body.round || round.reportId !== report.body.reportId || round.identityDigest !== report.receipt.identityDigest) throw new ReviewError(21, 'Stale report: not the current settled round');
+    const saved = validateReport(await readPrivateJson(join(ownership.directory, `${report.body.reportId}.json`)));
+    if (saved.receipt.reportDigest !== report.receipt.reportDigest) throw new ReviewError(20, 'Report differs from authoritative stored evidence');
+    for (const [lens, result] of Object.entries(report.body.lenses)) {
+      const reservations = state.reservations.filter(item => item.round === round.round && item.lens === lens);
+      const calls = result.calls ?? [];
+      if (reservations.length !== calls.length || reservations.some((item, index) => !item.observation || hash(item.observation) !== hash(calls[index]))) throw new ReviewError(20, 'Report billing differs from authoritative settlement');
+    }
+    // Finish source/runtime/authority freshness last, after all durable evidence reads.
+    await verifyReport(report, triageInput, current, approvalPath);
+    return 0;
+  } finally { await ownership.close(); }
+}
+/** Re-capture actual source and implementation. Pinned OIDs never replace current intended refs. */
+async function verifyReport(report: ReviewReport, triageInput: unknown, current: CurrentSource, approvalPath?: string) {
   if (!report.body.execution) throw new ReviewError(30, 'Missing runtime provenance');
   const request = validateRequest({ ...current, goal: report.body.execution.goal, builderModel: report.body.execution.builderModel, attemptId: report.body.attemptId, policy: report.body.execution.mode === 'live' ? report.body.identity.policy : { ...DEFAULT_POLICY } });
   let source: Awaited<ReturnType<typeof captureSnapshot>>;
@@ -220,6 +251,7 @@ export async function verify(input: unknown, triageInput: unknown, current: { re
   const generations = new Set<string>();
   for (const lens of Object.values(report.body.lenses)) {
     if (lens.usage.state !== 'known' || lens.calls?.length !== lens.usage.requests || lens.rejectedCalls?.length) throw new ReviewError(20, 'Missing authoritative live billing evidence');
+    if (lens.calls.some(call => call.cacheTokens !== 0)) throw new ReviewError(20, 'Unexpected cached-token usage');
     if (lens.calls.reduce((sum, call) => sum + call.costUsd, 0) !== lens.usage.costUsd
       || lens.calls.reduce((sum, call) => sum + call.inputTokens, 0) !== lens.usage.inputTokens
       || lens.calls.reduce((sum, call) => sum + call.outputTokens, 0) !== lens.usage.outputTokens
@@ -239,6 +271,6 @@ export async function verify(input: unknown, triageInput: unknown, current: { re
   validateReport(report, finalIdentity);
   return 0;
 }
-export async function verifyFiles(reportPath: string, triagePath: string, current: { repo: string; baseRef: string; headRef: string }, approvalPath?: string) {
-  return verify(await readPrivateJson(reportPath), await readPrivateJson(triagePath), current, approvalPath);
+export async function verifyFiles(reportPath: string, triagePath: string, current: CurrentSource, approvalPath?: string, stateRoot?: string) {
+  return verify(await readPrivateJson(reportPath), await readPrivateJson(triagePath), current, approvalPath, stateRoot);
 }

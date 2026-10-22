@@ -68,7 +68,7 @@ describe('host-owned OpenRouter protocol (intercepted HTTP only)', () => {
     const transport = createLiveTransport({ ...approval, expiresAt: Date.now() + 60000 }, policy, { reservationUsd: .5075, admissionDigest: 'a'.repeat(64) }, 'synthetic-key-000000000', fetcher);
     await expect(transport.dispatch('{}', signal())).rejects.toThrow(); expect(fetcher).toHaveBeenCalledTimes(1);
   });
-  it.each(['retry', 'pipeline', 'provider', 'length', 'cost', 'cached', 'cache-write', 'reasoning', 'server-tools', 'byok', 'reflection'])('rejects %s drift, never returns reflected key to worker', async change => {
+  it.each(['retry', 'pipeline', 'provider', 'length', 'cost', 'cached', 'implicit-cache', 'cache-write', 'reasoning', 'server-tools', 'byok', 'reflection'])('rejects %s drift, never returns reflected key to worker', async change => {
     const raw = reply();
     if (change === 'retry') raw.openrouter_metadata.attempt = 2;
     if (change === 'pipeline') Object.assign(raw.openrouter_metadata, { pipeline: [{ type: 'server_tools' }] });
@@ -76,6 +76,7 @@ describe('host-owned OpenRouter protocol (intercepted HTTP only)', () => {
     if (change === 'length') raw.choices[0]!.finish_reason = 'length';
     if (change === 'cost') Object.assign(raw.usage, { cost: null });
     if (change === 'cached') raw.usage.prompt_tokens_details.cached_tokens = 101;
+    if (change === 'implicit-cache') raw.usage.prompt_tokens_details.cached_tokens = 50;
     if (change === 'cache-write') Object.assign(raw.usage.prompt_tokens_details, { cache_write_tokens: 1 });
     if (change === 'reasoning') Object.assign(raw.usage, { completion_tokens_details: { reasoning_tokens: 1 } });
     if (change === 'server-tools') Object.assign(raw.usage, { server_tool_use_details: { tool_calls_executed: 1, tool_calls_requested: 1 } });

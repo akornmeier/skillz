@@ -80,7 +80,7 @@ node "$RUNNER" verify --approval "$APPROVAL_JSON" \
   --repo "$REPO" --base "$BASE" --head HEAD
 ```
 
-Only successful live **filing** verification satisfies review gate. It recomputes source/runtime/prompt/tool/filter/lock/settings and current authority/admission identity, checks all triage and billing observations, and rejects simulation/calibration/expired/mismatched evidence. Source/base/policy drift needs full review within remaining limits. Review exit 0 alone, help and dry-run are not upload authority. Exit 10 needs triage; 20 incomplete/uncertain/limit; 21 stale/dirty; 30 setup/identity/authority failure.
+Only successful live **filing** verification satisfies review gate. Verification holds exclusive attempt ownership and checks the latest settled round, stored report and native observations in the configured state store; copied report directories cannot select an older ledger. It recomputes source/runtime/prompt/tool/filter/lock/settings and current authority/admission identity, checks all triage and billing observations, and rejects simulation/calibration/expired/mismatched evidence. Source/base/policy drift needs full review within remaining limits. Review exit 0 alone, help and dry-run are not upload authority. Exit 10 needs triage; 20 incomplete/uncertain/limit; 21 stale/dirty; 30 setup/identity/authority failure.
 
 After valid gate push authorized branch, create/update one real PR and verify URL, base/head SHA/branch, title, status and rendered body. Preserve repository conventions, supported quantified claims, problem-first description, actual checks, actual model/harness attribution and ready-for-review default. Requested monitoring hands off to `babysit-pr` after verification.
 

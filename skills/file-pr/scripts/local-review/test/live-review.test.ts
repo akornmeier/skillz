@@ -67,12 +67,68 @@ describe('live HTTP through actual isolated SDK children, no real credentials or
     expect(Object.values(result.report.body.lenses).every(lens => lens.calls?.[0]?.requestedUpstream === 'google-vertex/global')).toBe(true);
     const state = await ledger(env); expect(state.reservations.every(item => item.state === 'settled' && item.observation?.costUsd === .00001)).toBe(true);
     expect(JSON.stringify(result)).not.toContain('synthetic-key-not-real');
-    expect(await verify(result.report, triage(result.report), env.current, env.approvalPath)).toBe(0);
+    expect(await verify(result.report, triage(result.report), env.current, env.approvalPath, env.stateRoot)).toBe(0);
     await expect(verify(result.report, triage(result.report), env.current)).rejects.toThrow('approval');
     const stale = structuredClone(result.report.body); stale.identity.runtimeHash = 'b'.repeat(64);
-    await expect(verify(sealReport(stale), triage(sealReport(stale)), env.current, env.approvalPath)).rejects.toThrow('Stale');
+    await expect(verify(sealReport(stale), triage(sealReport(stale)), env.current, env.approvalPath, env.stateRoot)).rejects.toThrow('Stale');
     await put(env.request.repo, 'dirty.ts', 'uncommitted');
-    await expect(verify(result.report, triage(result.report), env.current, env.approvalPath)).rejects.toMatchObject({ code: 21 });
+    await expect(verify(result.report, triage(result.report), env.current, env.approvalPath, env.stateRoot)).rejects.toMatchObject({ code: 21 });
+  });
+  it.each(['missing', 'reserved', 'active-lock', 'observation'] as const)('verification rejects %s authoritative attempt state', async kind => {
+    const env = await setup('filing'); intercept(); const result = await reviewLive(env.request, env.stateRoot, env.approvalPath);
+    const state = await ledger(env); const path = join(env.stateRoot, env.request.attemptId + '.attempt.json');
+    if (kind === 'missing') await rm(path);
+    else if (kind === 'active-lock') await writeFile(join(env.stateRoot, env.request.attemptId + '.lock'), state.owner, { mode: 0o600 });
+    else {
+      if (kind === 'reserved') { state.rounds[0]!.status = 'reserved'; state.rounds[0]!.reportId = null; }
+      else state.reservations[0]!.observation!.costUsd = .00002;
+      await writeFile(path, JSON.stringify(state));
+    }
+    await expect(verify(result.report, triage(result.report), env.current, env.approvalPath, env.stateRoot)).rejects.toMatchObject({ code: 20 });
+  });
+  it('older clean report cannot authorize after a newer round has uncertain billing', async () => {
+    const env = await setup('filing'); let fail = false;
+    intercept(async id => fail ? new Response('{}', { status: 503 }) : Response.json(reply(id)));
+    const first = await reviewLive(env.request, env.stateRoot, env.approvalPath); expect(first.exit).toBe(0); fail = true;
+    const second = await reviewLive({ ...env.request, goal: 'Second goal' }, env.stateRoot, env.approvalPath);
+    expect(second.exit).toBe(20); expect((await ledger(env)).rounds.at(-1)?.status).toBe('uncertain');
+    await expect(verify(first.report, triage(first.report), env.current, env.approvalPath, env.stateRoot)).rejects.toMatchObject({ code: 20 });
+  });
+  it('only the latest settled round can authorize even when both rounds are clean', async () => {
+    const env = await setup('filing'); intercept();
+    const first = await reviewLive(env.request, env.stateRoot, env.approvalPath);
+    const second = await reviewLive({ ...env.request, goal: 'Second goal' }, env.stateRoot, env.approvalPath); expect(second.exit).toBe(0);
+    expect(await verify(second.report, triage(second.report), env.current, env.approvalPath, env.stateRoot)).toBe(0);
+    await expect(verify(first.report, triage(first.report), env.current, env.approvalPath, env.stateRoot)).rejects.toMatchObject({ code: 21 });
+  });
+  it('verification excludes concurrent attempt owners throughout source capture', async () => {
+    const env = await setup('filing'); intercept(); const result = await reviewLive(env.request, env.stateRoot, env.approvalPath);
+    const capture = snapshots.captureSnapshot;
+    vi.spyOn(snapshots, 'captureSnapshot').mockImplementationOnce(async (...args) => {
+      const source = await capture(...args);
+      const competingOwner = await ownAttempt(env.stateRoot, env.request.attemptId, env.request.policy).then(async owner => { await owner.close(); return true; }, () => false);
+      expect(competingOwner).toBe(false); return source;
+    });
+    expect(await verify(result.report, triage(result.report), env.current, env.approvalPath, env.stateRoot)).toBe(0);
+  });
+  it('CLI verification uses its authoritative store, not a copied report directory', async () => {
+    const env = await setup('filing'); intercept(); const result = await reviewLive(env.request, env.stateRoot, env.approvalPath);
+    const backup = await mkdtemp(join(env.root, 'backup-')); const reportPath = join(backup, result.report.body.reportId + '.json'); const triagePath = join(backup, 'triage.json');
+    const ledgerPath = join(env.stateRoot, env.request.attemptId + '.attempt.json');
+    await writeFile(reportPath, JSON.stringify(result.report), { mode: 0o600 }); await writeFile(triagePath, JSON.stringify(triage(result.report)), { mode: 0o600 });
+    await writeFile(join(backup, env.request.attemptId + '.attempt.json'), await readFile(ledgerPath), { mode: 0o600 });
+    vi.spyOn(contracts, 'defaultStateRoot').mockReturnValue(env.stateRoot);
+    const args = ['verify', '--report', reportPath, '--triage', triagePath, '--repo', env.request.repo, '--base', 'base', '--head', 'HEAD', '--approval', env.approvalPath];
+    expect((await cli(args)).exit).toBe(0); await rm(ledgerPath); expect((await cli(args)).exit).toBe(20);
+  });
+  it('implicit cached tokens retain uncertainty and cannot authorize upload', async () => {
+    const env = await setup('filing');
+    intercept(async id => { const response = reply(id); response.usage.prompt_tokens_details.cached_tokens = 50; return Response.json(response); });
+    const result = await reviewLive(env.request, env.stateRoot, env.approvalPath);
+    expect(result.exit).toBe(20);
+    expect((await ledger(env)).reservations.some(item => item.state === 'uncertain')).toBe(true);
+    expect(Object.values(result.report.body.lenses).some(lens => lens.rejectedCalls?.some(call => call.cacheTokens === 50))).toBe(true);
+    await expect(verify(result.report, triage(result.report), env.current, env.approvalPath, env.stateRoot)).rejects.toMatchObject({ code: 20 });
   });
   it('optional unchanged context cannot crowd required source out of the HTTP request', async () => {
     const env = await setup('filing');
@@ -110,15 +166,15 @@ describe('live HTTP through actual isolated SDK children, no real credentials or
       if (++captures === 2) await writeFile(env.approvalPath, JSON.stringify({ ...env.approval, sourceExport: false }));
       return source;
     });
-    await expect(verify(result.report, triage(result.report), env.current, env.approvalPath)).rejects.toMatchObject({ code: 30 });
+    await expect(verify(result.report, triage(result.report), env.current, env.approvalPath, env.stateRoot)).rejects.toMatchObject({ code: 30 });
     expect(captures).toBe(2);
   });
   it('calibration may run, but never verifies for upload; expired/changed approval never verifies', async () => {
     const env = await setup(); const http = intercept(); const result = await reviewLive(env.request, env.stateRoot, env.approvalPath);
     expect(result.exit, JSON.stringify(result.report.body.lenses)).toBe(0);
-    await expect(verify(result.report, triage(result.report), env.current, env.approvalPath)).rejects.toThrow('Calibration');
+    await expect(verify(result.report, triage(result.report), env.current, env.approvalPath, env.stateRoot)).rejects.toThrow('Calibration');
     await writeFile(env.approvalPath, JSON.stringify({ ...env.approval, expiresAt: 1 }));
-    await expect(verify(result.report, triage(result.report), env.current, env.approvalPath)).rejects.toThrow('expiry');
+    await expect(verify(result.report, triage(result.report), env.current, env.approvalPath, env.stateRoot)).rejects.toThrow('expiry');
     expect(http.posts).toBe(2);
   });
   it('approval expiring or being revoked during verification metadata fetch cannot verify0', async () => {
@@ -128,7 +184,7 @@ describe('live HTTP through actual isolated SDK children, no real credentials or
       await writeFile(env.approvalPath, JSON.stringify({ ...env.approval, expiresAt: 1 }));
       return Response.json({ data: [{ id: env.approval.model, canonical_slug: env.approval.canonicalModel, context_length: 1000000 }] });
     });
-    await expect(verify(result.report, triage(result.report), env.current, env.approvalPath)).rejects.toThrow('expiry');
+    await expect(verify(result.report, triage(result.report), env.current, env.approvalPath, env.stateRoot)).rejects.toThrow('expiry');
   });
   it.each(['expiry', 'cost'] as const)('aggregate %s revocation between cases blocks the next paid effect', async change => {
     const env = await setup(); const runtime = await implementationIdentity();
@@ -240,10 +296,10 @@ describe('live HTTP through actual isolated SDK children, no real credentials or
     const result = await reviewLive(env.request, env.stateRoot, env.approvalPath); expect(result.exit).toBe(10);
     const base = triage(result.report);
     const dispositions = Object.values(result.report.body.lenses).flatMap(lens => lens.findings.map(finding => ({ findingId: finding.id, status: 'dismissed' as const, evidence: [{ kind: 'source' as const, reference: 'src/a.ts:1', observation: 'Disabled is approved behavior in synthetic goal' }] })));
-    await expect(verify(result.report, base, env.current, env.approvalPath)).rejects.toThrow('dispositions');
-    expect(await verify(result.report, { ...base, dispositions }, env.current, env.approvalPath)).toBe(0);
-    await expect(verify(result.report, { ...base, dispositions: dispositions.map(item => ({ ...item, status: 'unresolved', reason: 'still broken' })) }, env.current, env.approvalPath)).rejects.toThrow('Unresolved');
-    await expect(verify(result.report, { ...base, dispositions: dispositions.map(item => ({ ...item, status: 'fixed', commit: 'a'.repeat(40) })) }, env.current, env.approvalPath)).rejects.toThrow('new full-diff');
+    await expect(verify(result.report, base, env.current, env.approvalPath, env.stateRoot)).rejects.toThrow('dispositions');
+    expect(await verify(result.report, { ...base, dispositions }, env.current, env.approvalPath, env.stateRoot)).toBe(0);
+    await expect(verify(result.report, { ...base, dispositions: dispositions.map(item => ({ ...item, status: 'unresolved', reason: 'still broken' })) }, env.current, env.approvalPath, env.stateRoot)).rejects.toThrow('Unresolved');
+    await expect(verify(result.report, { ...base, dispositions: dispositions.map(item => ({ ...item, status: 'fixed', commit: 'a'.repeat(40) })) }, env.current, env.approvalPath, env.stateRoot)).rejects.toThrow('new full-diff');
   });
   it('atomic cap serializes holds, releases unused funds only on authoritative settlement', async () => {
     const env = await setup(); const attempt = await ownAttempt(env.stateRoot, 'budget-check', env.request.policy);
