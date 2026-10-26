@@ -64,6 +64,7 @@ function intercept(onPost?: (id: number, init: RequestInit) => Promise<Response>
     if (path.endsWith('/chat/completions')) { posts++; bodies.push(String(init?.body)); return onPost ? onPost(posts, init!) : Response.json(reply(posts)); }
     expect(init?.headers).toBeUndefined();
     if (path.endsWith('/endpoints')) return Response.json({ data: { id: 'anthropic/claude-haiku-5.5', endpoints: [{ tag: 'google-vertex/global', provider_name: 'Google', model_id: 'anthropic/claude-haiku-5.5', status: 0, context_length: 1000000, max_completion_tokens: 128000, supports_implicit_caching: false, supported_parameters: ['tools', 'tool_choice', 'max_tokens', 'reasoning', 'include_reasoning'], pricing: { prompt: '0.0000001', completion: '0.0000005', overrides: [{ min_prompt_tokens: 100000, prompt: '0.0000005', completion: '0.0000025' }] } }] } });
+    if (path.endsWith('/endpoints/zdr')) return Response.json({ data: [{ model_id: 'anthropic/claude-haiku-5.5', tag: 'google-vertex/global', provider_name: 'Google' }] });
     if (path.endsWith('/models')) return Response.json({ data: [{ id: 'anthropic/claude-haiku-5.5', canonical_slug: 'anthropic/claude-haiku-5.5-20261007', context_length: 1000000 }] });
     throw new Error('Unexpected network');
   });

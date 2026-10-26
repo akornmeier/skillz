@@ -32,7 +32,7 @@ node "$RUNNER" review --repo "$REPO" --base "$BASE" --head HEAD \
 Help/template/dry-run are not reviews. Dry-run reports current runtime hash for operator signoff. Only operator-approved records may switch template from `DRAFT` to `approved`. Filing authority includes current runtime hash and rollout evidence. Scope binds exact head(s); after an authorized fix, obtain approval for the new SHA before the second review. Keep attempt ID unchanged so budgets cannot reset.
 
 ```sh
-# Public model/route/price checks only; no key read or generation:
+# Public model/route/price/ZDR-list checks only; no key read or generation:
 node "$RUNNER" preflight --approval "$APPROVAL_JSON" \
   --repo "$REPO" --base "$BASE" --head HEAD --goal "$GOAL" \
   --builder-model "$BUILDER_MODEL" --attempt "$ATTEMPT_ID"

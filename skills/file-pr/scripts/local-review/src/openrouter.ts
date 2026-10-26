@@ -16,6 +16,7 @@ const EndpointSchema = Type.Object({
 }, object);
 const ModelsSchema = Type.Object({ data: Type.Array(Type.Object({ id: text, canonical_slug: text, context_length: Type.Integer({ minimum: 1 }) }, object)) }, object);
 const EndpointsSchema = Type.Object({ data: Type.Object({ id: text, endpoints: Type.Array(Type.Unknown()) }, object) }, object);
+const ZdrSchema = Type.Object({ data: Type.Array(Type.Unknown()) }, object);
 const SystemSchema = Type.Object({ role: Type.Literal('system'), content: Type.Union([text, Type.Array(Type.Object({ type: Type.Literal('text'), text }, { additionalProperties: false }))]),
   sections: Type.Optional(Type.Record(Type.String(), text)), toolsAdded: Type.Array(Type.Unknown()), timestamp: number,
 }, { additionalProperties: false });
@@ -74,12 +75,23 @@ async function abortable<T>(operation: Promise<T>, signal?: AbortSignal | null):
   try { return await Promise.race([operation, cancelled]); }
   finally { signal.removeEventListener('abort', abort); }
 }
+/** Provider error text is untrusted: printable ASCII only, token-like runs redacted, bounded for reports. */
+function errorDetail(body: string): string {
+  try {
+    const parsed: unknown = JSON.parse(body);
+    const error = parsed !== null && typeof parsed === 'object' && 'error' in parsed ? parsed.error : undefined;
+    const message = error !== null && typeof error === 'object' && 'message' in error && typeof error.message === 'string' ? error.message : '';
+    return message.replace(/[^\x20-\x7e]/g, ' ').replace(/[A-Za-z0-9_-]{24,}/g, '[redacted]').replace(/\s+/g, ' ').trim().slice(0, 160);
+  } catch { return ''; }
+}
 export async function boundedJson(fetcher: typeof fetch, url: string, init: RequestInit, limit = 262144): Promise<unknown> {
   let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+  let status: number | undefined; let detail = '';
   try {
     init.signal?.throwIfAborted();
     const response = await abortable(fetcher(url, { ...init, redirect: 'error' }), init.signal);
-    if (!response.ok || response.redirected || !response.body) throw new Error();
+    if (!response.ok) status = response.status;
+    if (response.redirected || !response.body) throw new Error();
     reader = response.body.getReader();
     const parts: Uint8Array[] = []; let size = 0;
     while (true) {
@@ -87,8 +99,14 @@ export async function boundedJson(fetcher: typeof fetch, url: string, init: Requ
       const chunk = await abortable(reader.read(), init.signal); if (chunk.done) break;
       size += chunk.value.byteLength; if (size > limit) throw new Error(); parts.push(chunk.value);
     }
-    return JSON.parse(Buffer.concat(parts).toString('utf8')) as unknown;
-  } catch { throw new ReviewError(20, 'OpenRouter HTTP, response bound or protocol failure; billing may be unknown'); }
+    const body = Buffer.concat(parts).toString('utf8');
+    if (status !== undefined) { detail = errorDetail(body); throw new Error(); }
+    return JSON.parse(body) as unknown;
+  } catch {
+    // Status and provider message are diagnostics only; an HTTP error still leaves billing uncertain.
+    if (status !== undefined) throw new ReviewError(20, `OpenRouter HTTP ${status}${detail ? `: ${detail}` : ''}; billing may be unknown`);
+    throw new ReviewError(20, 'OpenRouter HTTP, response bound or protocol failure; billing may be unknown');
+  }
   finally { if (reader) { void reader.cancel().catch(() => {}); try { reader.releaseLock(); } catch { /* Pending read cancelled by signal. */ } } }
 }
 function price(value: unknown): number {
@@ -106,6 +124,11 @@ export async function preflight(approval: Approval, policy: Policy, signal: Abor
   const endpoint = validate(EndpointSchema, matches[0]);
   if (endpoint.provider_name !== approval.reportedProvider || endpoint.model_id !== approval.model || endpoint.context_length !== model.context_length
     || !['max_tokens', 'tools', 'tool_choice', 'reasoning', 'include_reasoning'].every(parameter => endpoint.supported_parameters.includes(parameter))) throw new ReviewError(30, 'Endpoint capability drift');
+  // Dispatch always sends zdr:true without fallback, so an unlisted upstream could only fail after reservation.
+  const zdr = validate(ZdrSchema, await boundedJson(fetcher, `${ORIGIN}/endpoints/zdr`, { signal }, 4194304));
+  const zdrListed = zdr.data.filter(item => item !== null && typeof item === 'object' && 'model_id' in item && item.model_id === approval.model
+    && 'tag' in item && item.tag === approval.requestedUpstream && 'provider_name' in item && item.provider_name === approval.reportedProvider);
+  if (zdrListed.length !== 1) throw new ReviewError(30, 'Approved upstream not on zero data retention list');
   // Reject unknown charges. Cache prices and web search are inapplicable: no explicit/implicit caching or server tools.
   const allowed = new Set(['prompt', 'completion', 'request', 'web_search', 'input_cache_read', 'input_cache_write', 'input_cache_write_1h', 'discount', 'overrides']);
   if (Object.keys(endpoint.pricing).some(key => !allowed.has(key)) || (endpoint.pricing.request !== undefined && price(endpoint.pricing.request) !== 0)
