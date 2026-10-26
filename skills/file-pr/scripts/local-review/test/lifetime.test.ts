@@ -60,7 +60,7 @@ it('aborts and awaits sibling before releasing ownership when uncertainty persis
 it('terminates abort-ignoring SDK worker on IPC disconnect', async () => {
   const directory = await mkdtemp(join(await realpath(tmpdir()), 'file-pr-sdk-lifetime-')); roots.push(directory);
   const child = fork(new URL('../src/runtime-child.ts', import.meta.url), [], { cwd: directory,
-    execArgv: ['--experimental-transform-types', '--disable-warning=ExperimentalWarning'],
+    execArgv: ['--disable-warning=ExperimentalWarning'],
     env: { HOME: directory, XDG_CONFIG_HOME: directory, PATH: '/usr/bin:/bin' }, stdio: ['ignore', 'ignore', 'ignore', 'ipc'] });
   let deadlineKilled = false;
   const exited = new Promise<void>(resolve => child.once('exit', () => resolve()));
