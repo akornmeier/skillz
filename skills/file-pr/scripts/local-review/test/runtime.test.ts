@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { access, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { DEFAULT_POLICY, validateRequest } from '../src/contracts.js';
+import { DEFAULT_POLICY, FindingSchema, OmissionSchema, validateRequest } from '../src/contracts.js';
 import { captureSnapshot } from '../src/snapshot.js';
-import { memoryBudget, runLens, MODEL, type FixtureStep, type RuntimeEvent } from '../src/runtime.js';
+import { CandidateOutputSchema, memoryBudget, PROMPT, runLens, MODEL, type FixtureStep, type RuntimeEvent } from '../src/runtime.js';
 import { commit, gitFixture, put } from './git-fixture.js';
 
 const roots: string[] = [];
@@ -116,6 +116,31 @@ describe('actual isolated SDK sessions, fixture dispatch only', () => {
     const { result } = await run([{ returnedModel: 'anthropic/other', text: cleanText }]);
     expect(result.observedModels).toEqual([{ provider: MODEL.provider, requested: MODEL.requested, returned: 'anthropic/other', endpoint: MODEL.endpoint }]);
     expect(result.status).toBe('incomplete');
+  });
+  it('accepts one Markdown fence around the whole answer', async () => {
+    const { result } = await run([{ text: `\`\`\`json\n${cleanText}\n\`\`\`` }]);
+    expect(result.status).toBe('complete'); expect(result.checkedPaths).toEqual(['src/a.ts']);
+  });
+  const clean = JSON.parse(cleanText) as Record<string, unknown>;
+  it.each([
+    ['Here is my review: {}', 'Candidate rejected: Candidate output is not JSON'],
+    [`${cleanText}\nDone.`, 'Candidate rejected: Candidate output is not JSON'],
+    [JSON.stringify({ ...clean, summary: 'SECRET_VALUE' }), 'Candidate rejected: Candidate output schema: / unexpected key summary'],
+    [JSON.stringify({ ...clean, 'export const enabled = false;': 1 }), 'Candidate rejected: Candidate output schema: / unexpected key [key]'],
+    [JSON.stringify({ ...clean, omissions: ['SECRET_VALUE'] }), 'Candidate rejected: Candidate output schema: /omissions/0 must be object'],
+    [JSON.stringify({ ...clean, checkedPaths: [] }), 'Candidate rejected: Candidate output schema: /checkedPaths must not have fewer than 1 items'],
+    [JSON.stringify({ ...clean, findings: [{ id: 'x', lens: 'correctness', severity: 'P2', path: 'src/a.ts', revision: 'head', start: 1, end: 1, quote: 'SECRET_VALUE', cause: 'c', trigger: 't', impact: 'i', classification: 'introduced' }] }), 'Candidate rejected: Candidate output schema: /findings/0 must have required properties uncertainty'],
+    [JSON.stringify({ ...clean, checkedPaths: ['src/other.ts'] }), 'Candidate rejected: Path is not readable filtered pinned text'],
+    [JSON.stringify({ ...clean, requiredUnavailable: ['Caller excluded'] }), 'Candidate rejected: Required context unavailable'],
+    [JSON.stringify({ ...clean, findings: [{ id: 'x', lens: 'correctness', severity: 'P2', path: 'src/a.ts', revision: 'head', start: 1, end: 1, quote: 'SECRET_VALUE', cause: 'c', trigger: 't', impact: 'i', classification: 'introduced', uncertainty: null }] }), 'Candidate rejected: Unsupported finding evidence'],
+  ])('names the failed candidate check without echoing model text: %s', async (text, reason) => {
+    const { result } = await run([{ text }]);
+    expect(result.status).toBe('incomplete'); expect(result.reason).toBe(reason); expect(result.reason).not.toContain('SECRET_VALUE');
+  });
+  it('prompt spells out every key the candidate schema accepts', () => {
+    const keys = [CandidateOutputSchema, FindingSchema, OmissionSchema].flatMap(schema => Object.keys(schema.properties));
+    for (const key of keys) expect(PROMPT).toContain(`"${key}"`);
+    for (const value of ['P0|P1|P2|P3', 'base|head', 'introduced|pre-existing|uncertain']) expect(PROMPT).toContain(value);
   });
   it('disabled live mode never dispatches and builder identity must be independent', async () => {
     const { source, repo } = await setup();

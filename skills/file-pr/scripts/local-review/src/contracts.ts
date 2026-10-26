@@ -183,6 +183,17 @@ export function parseJson<T extends TSchema>(schema: T, json: string): Static<T>
   try { input = JSON.parse(json); } catch { throw new ReviewError(20, 'Malformed JSON'); }
   return validate(schema, input);
 }
+// Model-chosen keys appear only when they look like identifiers; values never do.
+const keyName = (key: string) => /^(?:\d+|[A-Za-z_][A-Za-z0-9_-]{0,40})$/.test(key) ? key : '[key]';
+export function schemaLocation(schema: TSchema, input: unknown): string {
+  // Skip per-branch union errors and the false-schema twin of each additionalProperties error.
+  const error = Value.Errors(schema, input).find(item => item.keyword !== 'boolean' && !/\/anyOf\/\d+/.test(item.schemaPath));
+  if (!error) return 'invalid';
+  const path = error.instancePath.split('/').slice(1).map(segment => keyName(segment.replace(/~1/g, '/').replace(/~0/g, '~')));
+  const extra = (error.params as { additionalProperties?: unknown }).additionalProperties;
+  const detail = error.keyword === 'additionalProperties' && Array.isArray(extra) ? `unexpected key ${extra.slice(0, 3).map(key => keyName(String(key))).join(', ')}` : error.message;
+  return `/${path.join('/')} ${detail}`;
+}
 export function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
   if (value !== null && typeof value === 'object') {
