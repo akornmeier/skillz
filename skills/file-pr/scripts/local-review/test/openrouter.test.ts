@@ -118,6 +118,16 @@ describe('host-owned OpenRouter protocol (intercepted HTTP only)', () => {
     await expect(post(new Response('<html>bad gateway</html>', { status: 502 }))).rejects.toThrow(/^OpenRouter HTTP 502; billing may be unknown$/);
     await expect(post(new Response('x'.repeat(300000), { status: 500 }))).rejects.toThrow(/^OpenRouter HTTP 500; billing may be unknown$/);
   });
+  it('an admitted request paused in authority validation never posts after admission closes', async () => {
+    let release!: () => void; const paused = new Promise<void>(resolve => { release = resolve; });
+    let closed = false; const admission = { close: () => { closed = true; }, closed: () => closed };
+    const fetcher = vi.fn<typeof fetch>(async () => json(reply()));
+    const transport = createLiveTransport({ ...approval, expiresAt: Date.now() + 60000 }, policy, { reservationUsd: .5075, admissionDigest: 'a'.repeat(64) }, 'synthetic-key-000000000', fetcher, () => paused);
+    const pending = transport.dispatch('{}', signal(), admission);
+    admission.close(); release();
+    await expect(pending).rejects.toThrow('Stopped admission blocks dispatch'); expect(fetcher).not.toHaveBeenCalled();
+    await transport.dispatch('{}', signal(), { close: () => {}, closed: () => false }); expect(fetcher).toHaveBeenCalledTimes(1);
+  });
   it('signals an HTTP error at the headers, before a stalled error body', async () => {
     const onHttpError = vi.fn(); const controller = new AbortController();
     const pending = boundedJson(async () => new Response(new ReadableStream({ start() {} }), { status: 503 }), 'https://openrouter.ai/api/v1/chat/completions', { signal: controller.signal }, undefined, onHttpError);

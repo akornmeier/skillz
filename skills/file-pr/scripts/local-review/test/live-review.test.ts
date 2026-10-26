@@ -134,7 +134,8 @@ describe('live HTTP through actual isolated SDK children, no real credentials or
       return Response.json(reply(id));
     });
     const started = Date.now(); const result = await reviewLive(env.request, env.stateRoot, env.approvalPath);
-    expect(result.exit).toBe(20); expect(errorSent).toBe(true); expect(riskRequests).toBe(2);
+    // The admitted second request may be stopped before posting; no third request may follow the error headers.
+    expect(result.exit).toBe(20); expect(errorSent).toBe(true); expect(riskRequests).toBeLessThanOrEqual(2);
     expect(Date.now() - started).toBeLessThan(env.request.policy.roundDeadlineMs);
     expect((await ledger(env)).reservations.some(item => item.state === 'uncertain')).toBe(true);
   });

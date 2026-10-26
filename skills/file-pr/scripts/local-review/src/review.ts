@@ -97,6 +97,7 @@ export async function ownAttempt(root: string, attemptId: string, policy: Policy
     }),
     uncertain: (id, evidence) => mutate(() => { const item = state.reservations.find(item => item.id === id); if (!item) throw new ReviewError(20, 'Unknown reservation'); item.state = 'uncertain'; if (evidence) item.rejectedEvidence = evidence; }),
     close: () => { admissionClosed = true; },
+    closed: () => admissionClosed,
   };
   return {
     directory, budget, stopAdmission() { admissionClosed = true; }, get state() { return structuredClone(state); },

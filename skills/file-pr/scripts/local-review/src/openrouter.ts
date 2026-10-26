@@ -63,7 +63,7 @@ export type AssistantMessage = Awaited<ReturnType<ModelRuntime['completeSimple']
 export type LiveTransport = {
   kind: 'live'; reservationUsd: number; admissionDigest: string;
   serialize(context: unknown): string;
-  dispatch(body: string, signal: AbortSignal, onHttpError?: () => void): Promise<{ message: AssistantMessage; observation: CallObservation }>;
+  dispatch(body: string, signal: AbortSignal, admission?: { close(): void; closed(): boolean }): Promise<{ message: AssistantMessage; observation: CallObservation }>;
 };
 
 /** Bound streamed bytes before JSON parsing. Redirects, error responses and cancellation never retry. */
@@ -187,10 +187,12 @@ export function serializeContext(contextInput: unknown, approval: Approval, poli
 export function createLiveTransport(approval: Approval, policy: Policy, admission: Awaited<ReturnType<typeof preflight>>, key: string, fetcher: typeof fetch = fetch, confirmAuthority?: () => Promise<void>): LiveTransport {
   const generations = new Set<string>();
   return { kind: 'live', ...admission, serialize: context => serializeContext(context, approval, policy),
-    async dispatch(body, signal, onHttpError) {
+    async dispatch(body, signal, admission) {
       await confirmAuthority?.();
       if (approval.expiresAt <= Date.now()) throw new ReviewError(30, 'Approval expired before dispatch');
-      const raw = await boundedJson(fetcher, `${ORIGIN}/chat/completions`, { method: 'POST', signal, headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'X-OpenRouter-Metadata': 'enabled' }, body }, undefined, onHttpError);
+      // A sibling's HTTP error may close admission while this reservation awaited persistence or authority; nothing awaits between here and fetch.
+      if (admission?.closed()) throw new ReviewError(20, 'Stopped admission blocks dispatch');
+      const raw = await boundedJson(fetcher, `${ORIGIN}/chat/completions`, { method: 'POST', signal, headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'X-OpenRouter-Metadata': 'enabled' }, body }, undefined, admission?.close);
       signal.throwIfAborted();
       if (JSON.stringify(raw).includes(key)) throw new ReviewError(20, 'Credential reflection rejected');
       const evidence = observedEvidence(raw, approval.requestedUpstream);
