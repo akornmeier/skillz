@@ -127,6 +127,7 @@ describe('actual isolated SDK sessions, fixture dispatch only', () => {
     [`${cleanText}\nDone.`, 'Candidate rejected: Candidate output is not JSON'],
     [JSON.stringify({ ...clean, summary: 'SECRET_VALUE' }), 'Candidate rejected: Candidate output schema: / unexpected key summary'],
     [JSON.stringify({ ...clean, 'export const enabled = false;': 1 }), 'Candidate rejected: Candidate output schema: / unexpected key [key]'],
+    [JSON.stringify({ ...clean, ['9'.repeat(5000)]: 1 }), 'Candidate rejected: Candidate output schema: / unexpected key [key]'],
     [JSON.stringify({ ...clean, omissions: ['SECRET_VALUE'] }), 'Candidate rejected: Candidate output schema: /omissions/0 must be object'],
     [JSON.stringify({ ...clean, checkedPaths: [] }), 'Candidate rejected: Candidate output schema: /checkedPaths must not have fewer than 1 items'],
     [JSON.stringify({ ...clean, findings: [{ id: 'x', lens: 'correctness', severity: 'P2', path: 'src/a.ts', revision: 'head', start: 1, end: 1, quote: 'SECRET_VALUE', cause: 'c', trigger: 't', impact: 'i', classification: 'introduced' }] }), 'Candidate rejected: Candidate output schema: /findings/0 must have required properties uncertainty'],

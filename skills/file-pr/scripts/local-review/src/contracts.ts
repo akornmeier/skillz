@@ -183,8 +183,8 @@ export function parseJson<T extends TSchema>(schema: T, json: string): Static<T>
   try { input = JSON.parse(json); } catch { throw new ReviewError(20, 'Malformed JSON'); }
   return validate(schema, input);
 }
-// Model-chosen keys appear only when they look like identifiers; values never do.
-const keyName = (key: string) => /^(?:\d+|[A-Za-z_][A-Za-z0-9_-]{0,40})$/.test(key) ? key : '[key]';
+// Model-chosen keys appear only when they look like short identifiers or indexes; values never do.
+const keyName = (key: string) => /^(?:\d{1,6}|[A-Za-z_][A-Za-z0-9_-]{0,40})$/.test(key) ? key : '[key]';
 export function schemaLocation(schema: TSchema, input: unknown): string {
   // Skip per-branch union errors and the false-schema twin of each additionalProperties error.
   const error = Value.Errors(schema, input).find(item => item.keyword !== 'boolean' && !/\/anyOf\/\d+/.test(item.schemaPath));
