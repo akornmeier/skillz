@@ -112,7 +112,17 @@ describe('host-owned OpenRouter protocol (intercepted HTTP only)', () => {
       .rejects.toThrow('OpenRouter HTTP 404: No endpoints found matching your data policy (Zero data retention).; billing may be unknown');
     const reflected = await post(new Response(JSON.stringify({ error: { message: `Bad key ${key}\n\u0007${' word'.repeat(80)}` } }), { status: 401 })).then(() => '', (error: Error) => error.message);
     expect(reflected).toContain('OpenRouter HTTP 401: Bad key [redacted]'); expect(reflected).not.toContain(key); expect(reflected.length).toBeLessThan(220);
+    const shortKey = 'sk-or-0123456789'; expect(shortKey).toMatch(/^[A-Za-z0-9_-]{16}$/);
+    const short = await post(new Response(JSON.stringify({ error: { message: `Bad key ${shortKey}` } }), { status: 401 })).then(() => '', (error: Error) => error.message);
+    expect(short).toBe('OpenRouter HTTP 401: Bad key [redacted]; billing may be unknown');
     await expect(post(new Response('<html>bad gateway</html>', { status: 502 }))).rejects.toThrow(/^OpenRouter HTTP 502; billing may be unknown$/);
     await expect(post(new Response('x'.repeat(300000), { status: 500 }))).rejects.toThrow(/^OpenRouter HTTP 500; billing may be unknown$/);
+  });
+  it('signals an HTTP error at the headers, before a stalled error body', async () => {
+    const onHttpError = vi.fn(); const controller = new AbortController();
+    const pending = boundedJson(async () => new Response(new ReadableStream({ start() {} }), { status: 503 }), 'https://openrouter.ai/api/v1/chat/completions', { signal: controller.signal }, undefined, onHttpError);
+    await vi.waitFor(() => expect(onHttpError).toHaveBeenCalledTimes(1));
+    controller.abort(); await expect(pending).rejects.toThrow(/^OpenRouter HTTP 503; billing may be unknown$/);
+    const ok = vi.fn(); await boundedJson(async () => json({}), 'https://openrouter.ai/api/v1/models', { signal: signal() }, undefined, ok); expect(ok).not.toHaveBeenCalled();
   });
 });

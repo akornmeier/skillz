@@ -63,7 +63,7 @@ export type AssistantMessage = Awaited<ReturnType<ModelRuntime['completeSimple']
 export type LiveTransport = {
   kind: 'live'; reservationUsd: number; admissionDigest: string;
   serialize(context: unknown): string;
-  dispatch(body: string, signal: AbortSignal): Promise<{ message: AssistantMessage; observation: CallObservation }>;
+  dispatch(body: string, signal: AbortSignal, onHttpError?: () => void): Promise<{ message: AssistantMessage; observation: CallObservation }>;
 };
 
 /** Bound streamed bytes before JSON parsing. Redirects, error responses and cancellation never retry. */
@@ -81,16 +81,18 @@ function errorDetail(body: string): string {
     const parsed: unknown = JSON.parse(body);
     const error = parsed !== null && typeof parsed === 'object' && 'error' in parsed ? parsed.error : undefined;
     const message = error !== null && typeof error === 'object' && 'message' in error && typeof error.message === 'string' ? error.message : '';
-    return message.replace(/[^\x20-\x7e]/g, ' ').replace(/[A-Za-z0-9_-]{24,}/g, '[redacted]').replace(/\s+/g, ' ').trim().slice(0, 160);
+    // 16 matches the shortest key readApprovedKey accepts.
+    return message.replace(/[^\x20-\x7e]/g, ' ').replace(/[A-Za-z0-9_-]{16,}/g, '[redacted]').replace(/\s+/g, ' ').trim().slice(0, 160);
   } catch { return ''; }
 }
-export async function boundedJson(fetcher: typeof fetch, url: string, init: RequestInit, limit = 262144): Promise<unknown> {
+export async function boundedJson(fetcher: typeof fetch, url: string, init: RequestInit, limit = 262144, onHttpError?: () => void): Promise<unknown> {
   let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
   let status: number | undefined; let detail = '';
   try {
     init.signal?.throwIfAborted();
     const response = await abortable(fetcher(url, { ...init, redirect: 'error' }), init.signal);
-    if (!response.ok) status = response.status;
+    // Failure is known at the headers; stop further paid dispatch before awaiting a possibly stalled diagnostic body.
+    if (!response.ok) { status = response.status; onHttpError?.(); }
     if (response.redirected || !response.body) throw new Error();
     reader = response.body.getReader();
     const parts: Uint8Array[] = []; let size = 0;
@@ -185,10 +187,10 @@ export function serializeContext(contextInput: unknown, approval: Approval, poli
 export function createLiveTransport(approval: Approval, policy: Policy, admission: Awaited<ReturnType<typeof preflight>>, key: string, fetcher: typeof fetch = fetch, confirmAuthority?: () => Promise<void>): LiveTransport {
   const generations = new Set<string>();
   return { kind: 'live', ...admission, serialize: context => serializeContext(context, approval, policy),
-    async dispatch(body, signal) {
+    async dispatch(body, signal, onHttpError) {
       await confirmAuthority?.();
       if (approval.expiresAt <= Date.now()) throw new ReviewError(30, 'Approval expired before dispatch');
-      const raw = await boundedJson(fetcher, `${ORIGIN}/chat/completions`, { method: 'POST', signal, headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'X-OpenRouter-Metadata': 'enabled' }, body });
+      const raw = await boundedJson(fetcher, `${ORIGIN}/chat/completions`, { method: 'POST', signal, headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'X-OpenRouter-Metadata': 'enabled' }, body }, undefined, onHttpError);
       signal.throwIfAborted();
       if (JSON.stringify(raw).includes(key)) throw new ReviewError(20, 'Credential reflection rejected');
       const evidence = observedEvidence(raw, approval.requestedUpstream);

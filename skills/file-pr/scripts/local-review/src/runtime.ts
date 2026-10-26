@@ -19,10 +19,11 @@ export type FixtureTransport = { kind: 'fixture'; requestedRoute?: RequestedRout
 export type RuntimeEvent = { kind: 'request' | 'effect' | 'tool' | 'exit'; lens: Lens; pid: number; count: number; data?: unknown };
 export type WorkerInput = { mode?: 'simulated' | 'live'; kind: 'start'; directory: string; model: RequestedRoute; prompt: string; payload: string; schemas: typeof SOURCE_TOOL_SCHEMAS; maxOutputTokens: number };
 export type WorkerReply = { id: number; ok: boolean; data?: unknown };
-export type AttemptBudget = { reserve(lens: Lens, usd?: number): Promise<string>; settle(id: string, observation?: CallObservation): Promise<void>; uncertain(id: string, evidence?: CallEvidence): Promise<void> };
+/** close() synchronously refuses new reservations; requests already in flight continue. */
+export type AttemptBudget = { reserve(lens: Lens, usd?: number): Promise<string>; settle(id: string, observation?: CallObservation): Promise<void>; uncertain(id: string, evidence?: CallEvidence): Promise<void>; close(): void };
 export function memoryBudget(policy: Policy = { ...DEFAULT_POLICY }): AttemptBudget {
-  let count = 0;
-  return { async reserve() { if (++count > policy.attemptRequests) throw new ReviewError(20, 'Attempt request budget exhausted'); return `request-${count}`; }, async settle() {}, async uncertain() {} };
+  let count = 0; let closed = false;
+  return { async reserve() { if (closed) throw new ReviewError(20, 'Stopped admission blocks dispatch'); if (++count > policy.attemptRequests) throw new ReviewError(20, 'Attempt request budget exhausted'); return `request-${count}`; }, async settle() {}, async uncertain() {}, close() { closed = true; } };
 }
 const PacketSchema = Type.Object({ kind: Type.String(), id: Type.Optional(Type.Integer()), data: Type.Optional(Type.Unknown()) }, { additionalProperties: false });
 const RequestSchema = Type.Object({ model: Type.Object({ id: Type.String(), provider: Type.String(), baseUrl: Type.String() }, { additionalProperties: true }), context: Type.Unknown(), maxOutputTokens: Type.Integer() }, { additionalProperties: false });
@@ -80,7 +81,7 @@ export async function runLens(source: Awaited<ReturnType<typeof captureSnapshot>
         signal.throwIfAborted();
         if (fixture.kind === 'live') {
           try {
-            const response = await fixture.dispatch(body, signal);
+            const response = await fixture.dispatch(body, signal, budget.close);
             base.calls.push(response.observation);
             await budget.settle(active, response.observation); active = undefined;
             send(packet.id, { message: response.message });

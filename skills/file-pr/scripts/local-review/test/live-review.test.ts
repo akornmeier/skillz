@@ -70,6 +70,10 @@ function intercept(onPost?: (id: number, init: RequestInit) => Promise<Response>
   });
   vi.stubGlobal('fetch', fetcher); return { fetcher, bodies, get posts() { return posts; } };
 }
+async function wait(ready: () => boolean | Promise<boolean>) {
+  for (let index = 0; index < 1000; index++) { if (await ready()) return; await new Promise(resolve => setTimeout(resolve, 1)); }
+  throw new Error('Synthetic ordering barrier timed out');
+}
 function triage(report: ReviewReport) { return { schemaVersion: 1, reportId: report.body.reportId, attemptId: report.body.attemptId, identityDigest: report.receipt.identityDigest, dispositions: [] }; }
 async function ledger(env: Awaited<ReturnType<typeof setup>>) { return validateAttempt(JSON.parse(await readFile(join(env.stateRoot, `${env.request.attemptId}.attempt.json`), 'utf8'))); }
 
@@ -97,10 +101,6 @@ describe('live HTTP through actual isolated SDK children, no real credentials or
   });
   it('transport failure closes sibling dispatch before delayed worker exit', async () => {
     const env = await setup('filing'); dispatchRace.delayExit = true; let riskRequests = 0; let postsAfterFailure = 0;
-    const wait = async (ready: () => boolean | Promise<boolean>) => {
-      for (let index = 0; index < 1000; index++) { if (await ready()) return; await new Promise(resolve => setTimeout(resolve, 1)); }
-      throw new Error('Synthetic ordering barrier timed out');
-    };
     intercept(async (id, init) => {
       if (String(init.body).includes('Lens: correctness')) {
         await wait(async () => (await ledger(env)).reservations.some(item => item.lens === 'contracts-risk' && item.state === 'settled'));
@@ -118,6 +118,25 @@ describe('live HTTP through actual isolated SDK children, no real credentials or
     expect((await ledger(env)).reservations.some(item => item.state === 'uncertain')).toBe(true);
     expect(dispatchRace.pids).toHaveLength(2); for (const pid of dispatchRace.pids) expect(() => process.kill(pid, 0)).toThrow();
     await expect(verify(result.report, triage(result.report), env.current, env.approvalPath, env.stateRoot)).rejects.toMatchObject({ code: 20 });
+  });
+  it('HTTP error headers close sibling admission while the error body stalls', async () => {
+    const env = await setup('filing'); let errorSent = false; let riskRequests = 0;
+    intercept(async (id, init) => {
+      if (String(init.body).includes('Lens: correctness')) {
+        // Fail only once the sibling has a second request in flight, so its next reservation follows the error headers.
+        await wait(async () => (await ledger(env)).reservations.filter(item => item.lens === 'contracts-risk').length === 2);
+        errorSent = true; return new Response(new ReadableStream({ start() {} }), { status: 503 });
+      }
+      riskRequests++;
+      if (riskRequests === 2) { await wait(() => errorSent); await new Promise(resolve => setTimeout(resolve, 50)); }
+      if (riskRequests < 3) return Response.json({ ...reply(id), choices: [{ index: 0, finish_reason: 'tool_calls', message: { role: 'assistant', content: null,
+        tool_calls: [{ id: 'read-' + id, type: 'function', function: { name: 'read_git', arguments: JSON.stringify({ revision: 'head', path: 'src/a.ts', start: 1, end: 1 }) } }] } }] });
+      return Response.json(reply(id));
+    });
+    const started = Date.now(); const result = await reviewLive(env.request, env.stateRoot, env.approvalPath);
+    expect(result.exit).toBe(20); expect(errorSent).toBe(true); expect(riskRequests).toBe(2);
+    expect(Date.now() - started).toBeLessThan(env.request.policy.roundDeadlineMs);
+    expect((await ledger(env)).reservations.some(item => item.state === 'uncertain')).toBe(true);
   });
   it.each(['missing', 'reserved', 'active-lock', 'observation'] as const)('verification rejects %s authoritative attempt state', async kind => {
     const env = await setup('filing'); intercept(); const result = await reviewLive(env.request, env.stateRoot, env.approvalPath);
