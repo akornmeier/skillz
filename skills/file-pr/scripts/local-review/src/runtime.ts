@@ -43,7 +43,7 @@ export async function runLens(source: Awaited<ReturnType<typeof captureSnapshot>
   await writeFile(join(directory, 'auth.json'), '{}', { mode: 0o600 });
   const extension = import.meta.url.endsWith('.ts') ? 'ts' : 'js';
   const child = fork(new URL(`./runtime-child.${extension}`, import.meta.url), [], {
-    cwd: directory, execArgv: extension === 'ts' ? ['--experimental-transform-types', '--disable-warning=ExperimentalWarning'] : [],
+    cwd: directory, execArgv: extension === 'ts' ? ['--disable-warning=ExperimentalWarning'] : [],
     env: { HOME: directory, XDG_CONFIG_HOME: directory, PI_CODING_AGENT_DIR: directory, PATH: '/usr/bin:/bin', LANG: 'C', NO_COLOR: '1' },
     stdio: ['ignore', 'ignore', 'ignore', 'ipc'], serialization: 'json',
   });
