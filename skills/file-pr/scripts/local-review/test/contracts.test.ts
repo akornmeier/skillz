@@ -52,6 +52,27 @@ describe('strict schemas and evidence', () => {
     expect(() => validateFindingEvidence(finding(), source, [{ start: 3, end: 3 }])).toThrow();
     expect(validateFindingEvidence({ ...finding(), revision: 'base' }, source, [{ start: 2, end: 2 }]).revision).toBe('base');
   });
+  it.each([
+    [{ path: '../secret' }, 'unsafe path'],
+    [{ start: 3, end: 2 }, 'range 3-2 is inverted'],
+    [{ end: 99 }, 'range 2-99 ends past line 3'],
+    [{ start: 1, end: 1 }, 'quote mismatch at range 1-1: exact text is at lines 2-2'],
+    [{ quote: '+return false;' }, 'quote mismatch at range 2-2: keeps diff markers'],
+    [{ quote: '  return false;' }, 'quote mismatch at range 2-2: whitespace differs'],
+    [{ quote: 'return' }, 'quote mismatch at range 2-2: part of the cited lines'],
+    [{ quote: 'valid' }, 'quote mismatch at range 2-2: part of other lines'],
+    [{ start: 2, end: 3, quote: 'SECRET_VALUE' }, 'quote mismatch at range 2-3: not in file (quote 1 lines, range 2)'],
+    [{ start: 3, end: 3, quote: '}' }, 'range 3-3 misses the changed lines'],
+  ])('names the failed evidence check without echoing quote or source text (case %#)', (change, reason) => {
+    const source = 'if (valid) {\nreturn false;\n}';
+    expect(() => validateFindingEvidence({ ...finding(), ...change }, source, [{ start: 2, end: 2 }])).toThrow(`Unsupported finding evidence: ${reason}`);
+  });
+  it('locates a misplaced quote with one search', () => {
+    const source = `${'a\n'.repeat(200000)}b`;
+    const started = Date.now();
+    expect(() => validateFindingEvidence({ ...finding(), start: 1, end: 1, quote: `${'a\n'.repeat(2000)}b` }, source, [{ start: 1, end: 1 }])).toThrow('exact text is at lines 198001-200001');
+    expect(Date.now() - started).toBeLessThan(2000);
+  });
   it('never discards P2; P3 alone is nonblocking; pre-existing still requires parent triage', () => {
     const b = body();
     b.lenses.correctness.findings = [finding()];

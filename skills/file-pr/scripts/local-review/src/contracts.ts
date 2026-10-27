@@ -221,14 +221,33 @@ export function validateRequest(input: unknown): ReviewRequest {
 export function actionable(finding: Finding): boolean { return finding.severity !== 'P3'; }
 
 // Quote matching proves location only, not truth of the allegation. Base means merge-base.
+// Rejections name the failed check with line numbers and counts only; quote and source text never enter reports.
 export function validateFindingEvidence(input: unknown, source: string, changedSpans: readonly Static<typeof LineSpanSchema>[]): Finding {
   const finding = validate(FindingSchema, input);
   const lines = source.split('\n');
-  if (!safePath(finding.path) || finding.end < finding.start || finding.end > lines.length
-    || lines.slice(finding.start - 1, finding.end).join('\n') !== finding.quote
-    || !changedSpans.some(span => finding.start <= span.end && finding.end >= span.start)) throw new ReviewError(20, 'Unsupported finding evidence');
+  const range = `range ${finding.start}-${finding.end}`;
+  const unsupported = (detail: string) => new ReviewError(20, `Unsupported finding evidence: ${detail}`);
+  if (!safePath(finding.path)) throw unsupported('unsafe path');
+  if (finding.end < finding.start) throw unsupported(`${range} is inverted`);
+  if (finding.end > lines.length) throw unsupported(`${range} ends past line ${lines.length}`);
+  const cited = lines.slice(finding.start - 1, finding.end);
+  if (cited.join('\n') !== finding.quote) throw unsupported(`quote mismatch at ${range}: ${quoteMismatch(finding.quote, cited, source)}`);
+  if (!changedSpans.some(span => finding.start <= span.end && finding.end >= span.start)) throw unsupported(`${range} misses the changed lines`);
   if (finding.classification === 'uncertain' && !finding.uncertainty) throw new ReviewError(20, 'Missing uncertainty reason');
   return finding;
+}
+function quoteMismatch(quote: string, cited: string[], source: string): string {
+  // One aligned search: the quote must start and end on line boundaries.
+  const found = `\n${source}\n`.indexOf(`\n${quote}\n`);
+  const quoted = quote.split('\n');
+  if (found !== -1) { const first = source.slice(0, found).split('\n').length; return `exact text is at lines ${first}-${first + quoted.length - 1}`; }
+  if (quoted.length === cited.length) {
+    if (quoted.every((line, index) => /^[-+ ]/.test(line) && line.slice(1) === cited[index])) return 'keeps diff markers';
+    if (quoted.every((line, index) => line.trim() === cited[index]!.trim())) return 'whitespace differs';
+  }
+  const fragment = quote.trim();
+  if (cited.join('\n').includes(fragment)) return 'part of the cited lines';
+  return source.includes(fragment) ? 'part of other lines' : `not in file (quote ${quoted.length} lines, range ${cited.length})`;
 }
 function validateBody(input: unknown): ReviewReportBody {
   const body = validate(ReviewReportBodySchema, input);
