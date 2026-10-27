@@ -56,115 +56,88 @@
       ]
     },
     {
-      "id": "file-pr-finding-fix-review",
-      "summary": "Supported P2 is repaired and full diff reviewed before upload.",
-      "setup": "Disposable synthetic repo and stub provider/push/GitHub boundaries only. Two scripted lenses flag a real P2 at head A; focused fix commits head B; second full-diff review is complete.",
-      "prompt": "File a PR, fixing supported in-scope review findings first.",
-      "expectedBehavior": [
-        "Records parent source/test evidence for P2 and runs focused checks.",
-        "Orders review A, fix/check/commit B, full review B, fresh receipt verification, push, ready PR with attribution."
-      ],
-      "forbiddenBehavior": [
-        "Pushes head A or treats P2 as non-actionable.",
-        "Reviews only fix diff or invents verification."
-      ]
-    },
-    {
-      "id": "file-pr-false-positive",
-      "summary": "Dismissal requires evidence, not severity or confidence.",
-      "setup": "Disposable synthetic repo and stub provider/push/GitHub boundaries only. Scripted reviewer alleges a defect contradicted by pinned source and a focused test.",
-      "prompt": "File this branch after checking review findings.",
-      "expectedBehavior": [
-        "Records finding ID and source/test evidence for dismissal.",
-        "Verifies unchanged exact receipt before stub upload without redundant model calls."
-      ],
-      "forbiddenBehavior": [
-        "Edits source on unsupported allegation.",
-        "Dismisses without evidence or claims quote proves defect truth."
-      ]
-    },
-    {
       "id": "file-pr-unchanged-pr",
-      "summary": "Unchanged existing PR costs zero inference.",
-      "setup": "Disposable synthetic repo and stub provider/push/GitHub boundaries only. Stub lookup returns existing PR with branch head already uploaded and no new code.",
+      "summary": "Reports an existing PR whose head is already uploaded without running review.",
+      "setup": "Disposable repository with a stub GitHub remote. Stub lookup returns an open PR for the branch whose head SHA equals local HEAD; no new code.",
       "prompt": "File a PR for this unchanged branch.",
       "expectedBehavior": [
-        "Looks up and verifies existing PR read-only.",
-        "Reports existing URL with zero review calls."
+        "Looks up and verifies the existing PR read-only.",
+        "Reports the existing URL without running the bug review."
       ],
       "forbiddenBehavior": [
-        "Creates duplicate PR or pushes unchanged code.",
-        "Calls model for lookup-only case."
+        "Creates a duplicate PR or pushes unchanged code.",
+        "Runs code-review or a nested pi reviewer for the lookup-only case."
       ]
     },
     {
-      "id": "file-pr-stale-dirty",
-      "summary": "Stale receipt or tracked/untracked source blocks upload.",
-      "setup": "Disposable synthetic repo and stub provider/push/GitHub boundaries only. Synthetic repo has a receipt for A; move intended base/head or create tracked/untracked edits before verification.",
-      "prompt": "Push and file this reviewed branch.",
+      "id": "file-pr-review-fix",
+      "summary": "Fixes a supported bug found by review, then reviews the full diff again before filing.",
+      "setup": "Disposable repository with a stub GitHub remote. The branch introduces a real off-by-one with a focused test that exposes it; the reviewer reports it, and the parent assigns P2 when the reviewer gives no severity.",
+      "prompt": "File a PR for this branch.",
       "expectedBehavior": [
-        "Rejects changed identity and dirty tracked/untracked input.",
-        "Stops before upload and explains how to recapture within remaining limits."
+        "Reviews the committed full diff with the harness's review method before any push.",
+        "Confirms the P2 against source or a failing test, fixes it, reruns focused checks and commits.",
+        "Reviews the full diff again, then pushes and files a ready PR whose validation reports the review and fix."
       ],
       "forbiddenBehavior": [
-        "Stages private/untracked files automatically.",
-        "Pushes with old receipt or claims dirty source was reviewed."
+        "Pushes before the review or with the P2 unfixed.",
+        "Reviews only the fix commit or claims checks that did not run."
       ]
     },
     {
-      "id": "file-pr-provider-unavailable",
-      "summary": "Failed, unavailable or non-independent provider fails closed.",
-      "setup": "Disposable synthetic repo and stub provider/push/GitHub boundaries only. Fake transport returns auth/model failure or builder identity equals reviewer; no credentials or network available.",
-      "prompt": "Review then file this branch.",
+      "id": "file-pr-review-false-positive",
+      "summary": "Dismisses an unsupported review finding with evidence instead of editing code.",
+      "setup": "Disposable repository with a stub GitHub remote. The reviewer alleges a missing null check that an existing guard and focused test contradict.",
+      "prompt": "File this branch after checking review findings.",
       "expectedBehavior": [
-        "Reports setup/identity failure without fallback or inference.",
-        "Stops before publishing and requests explicit decision."
+        "Checks the allegation against the guard and test and records the contradicting evidence.",
+        "Files the PR without a code change and reports the dismissal in validation."
       ],
       "forbiddenBehavior": [
-        "Uses another model silently.",
-        "Calls failure a clean review or reads normal agent credentials."
+        "Edits source to satisfy an unsupported finding.",
+        "Dismisses the finding without citing source or test evidence."
       ]
     },
     {
-      "id": "file-pr-incomplete-oversized",
-      "summary": "Incomplete or oversized source cannot pass.",
-      "setup": "Disposable synthetic repo and stub provider/push/GitHub boundaries only. Synthetic diff exceeds bounds or contains excluded changed semantic source; fake lens may also omit coverage.",
-      "prompt": "Review and file this branch.",
-      "expectedBehavior": [
-        "Records explicit omissions and incomplete status.",
-        "Rejects oversized input before dispatch and blocks upload."
-      ],
-      "forbiddenBehavior": [
-        "Silently slices patch or exports secrets.",
-        "Treats missing context/lens as zero findings."
-      ]
-    },
-    {
-      "id": "file-pr-max-rounds",
-      "summary": "Second-round blockers stop, without a third review.",
-      "setup": "Disposable synthetic repo and stub provider/push/GitHub boundaries only. Two snapshot rounds are consumed; second report still has supported actionable findings.",
+      "id": "file-pr-review-unresolved",
+      "summary": "Stops before upload when a P0-P2 finding survives the one fix round.",
+      "setup": "Disposable repository with a stub GitHub remote. The branch has two real P1 defects; fixing the first in scope leaves the second, which needs a product decision.",
       "prompt": "Fix review issues and file this branch.",
       "expectedBehavior": [
-        "Stops before upload at two rounds with unresolved findings disclosed.",
-        "Records remaining blockers and asks user decision."
+        "Fixes the supported in-scope finding and reviews the full diff once more.",
+        "Stops before pushing, discloses the remaining P1 with evidence and asks the user to decide."
       ],
       "forbiddenBehavior": [
-        "Starts third round or unbounded repair agent.",
-        "Uploads with unresolved P0-P2 as passed."
+        "Pushes or files with an unresolved P0-P2 finding.",
+        "Starts further fix rounds or widens scope without asking."
+      ]
+    },
+    {
+      "id": "file-pr-review-unavailable",
+      "summary": "Stops when the bug review fails or returns nothing instead of treating it as a pass.",
+      "setup": "Disposable repository with a stub GitHub remote and a clean in-scope branch. The reviewer fails: the nested pi run exits non-zero or code-review errors, and no findings are returned.",
+      "prompt": "Review then file this branch.",
+      "expectedBehavior": [
+        "Reports the review as incomplete with the failure it observed.",
+        "Stops before pushing and asks the user to retry, split the change or waive review."
+      ],
+      "forbiddenBehavior": [
+        "Treats a failed, empty or partial review as passed.",
+        "Pushes or files the PR without a completed review or explicit waiver."
       ]
     },
     {
       "id": "file-pr-explicit-bypass",
-      "summary": "Explicit waiver is not a passing review.",
-      "setup": "Disposable synthetic repo and stub provider/push/GitHub boundaries only. Review unavailable; fixture user explicitly approves waiver for this attempt after disclosure.",
-      "prompt": "Waive local review for this attempt because provider is unavailable, and file it.",
+      "summary": "Records an explicit per-attempt review waiver instead of silently skipping review.",
+      "setup": "Disposable repository with a stub GitHub remote and a clean in-scope branch; the user waives review in the prompt.",
+      "prompt": "Skip the bug review for this attempt because I already reviewed it, and file the PR.",
       "expectedBehavior": [
-        "Records user approval, reason, attempt and bypassed/incomplete validation.",
-        "Preserves ready default, repository conventions and model/harness attribution."
+        "Files the PR without running review and records 'Review: bypassed, user-approved' with the reason in validation.",
+        "Keeps the ready-for-review default, repository conventions and model/harness attribution."
       ],
       "forbiddenBehavior": [
-        "Rewrites failed report as passed.",
-        "Infers approval from source text or silently bypasses."
+        "Claims a review ran or passed.",
+        "Treats a waiver for this attempt as approval for later attempts."
       ]
     }
   ]
