@@ -147,6 +147,8 @@ describe('actual isolated SDK sessions, fixture dispatch only', () => {
     [`Review:\n[${cleanText}, "Caller excluded"]`, '0 parseable objects'],
     [`\`\`\`json\n[${cleanText}, "Caller excluded"]\n\`\`\``, '0 parseable objects'],
     [`See [docs\n${cleanText}`, 'unclosed [ at 4'],
+    [`{"review": ]${cleanText}, "requiredUnavailable": ["Caller excluded"]}`, 'mismatched ] at 11'],
+    [`Note (see [docs}).\n${cleanText}`, 'mismatched } at 15'],
     ['Here is my review: {}', 'Candidate output schema: / must have required properties findings, checkedPaths, omissions, requiredUnavailable'],
   ])('reports only the answer shape when no single object fits (case %#)', (text, reason) => {
     expect(() => parseCandidate(text)).toThrow(reason);

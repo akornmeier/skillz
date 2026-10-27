@@ -21,18 +21,20 @@ export function parseCandidate(text: string): Static<typeof CandidateOutputSchem
   return input;
 }
 // Prose or a fence around the answer is discarded only when exactly one top-level JSON object parses.
-// Balanced object and array spans are skipped whole, so a nested object never stands in for its container.
+// Balanced object and array spans are skipped whole, so a nested object never stands in for its container;
+// an unclosed or mismatched bracket rejects the answer.
 function candidateJson(text: string): unknown {
   try { return JSON.parse(text); } catch { /* look for one embedded object */ }
-  const objects: unknown[] = []; let unclosed = -1;
+  const objects: unknown[] = []; let broken = '';
   for (let index = nextOpening(text, 0); index !== -1;) {
-    const end = closingBracket(text, index);
-    if (end === -1) { unclosed = index; break; }
+    const { end, mismatched } = closingBracket(text, index);
+    if (end === -1) { broken = `, unclosed ${text[index]} at ${index}`; break; }
+    if (mismatched) { broken = `, mismatched ${text[end]} at ${end}`; break; }
     if (text[index] === '{') try { objects.push(JSON.parse(text.slice(index, end + 1))); } catch { /* prose braces */ }
     index = nextOpening(text, end + 1);
   }
-  if (objects.length === 1 && unclosed === -1) return objects[0];
-  throw new ReviewError(20, `Candidate output is not JSON: ${text.length} chars, ${objects.length} parseable objects, ${text.split('```').length - 1} fence markers, first { at ${text.indexOf('{')}, last } at ${text.lastIndexOf('}')}${unclosed === -1 ? '' : `, unclosed ${text[unclosed]} at ${unclosed}`}`);
+  if (objects.length === 1 && !broken) return objects[0];
+  throw new ReviewError(20, `Candidate output is not JSON: ${text.length} chars, ${objects.length} parseable objects, ${text.split('```').length - 1} fence markers, first { at ${text.indexOf('{')}, last } at ${text.lastIndexOf('}')}${broken}`);
 }
 // A global regex resumes from lastIndex, keeping the whole extraction linear.
 const OPENING = /[{[]/g;
@@ -40,16 +42,21 @@ function nextOpening(text: string, from: number): number {
   OPENING.lastIndex = from;
   return OPENING.exec(text)?.index ?? -1;
 }
-function closingBracket(text: string, start: number): number {
-  let depth = 0; let quoted = false; let escaped = false;
+// Each closer must match the innermost opener; a mismatch ends the span so no inner object is taken out of it.
+function closingBracket(text: string, start: number): { end: number; mismatched: boolean } {
+  const expected: string[] = []; let quoted = false; let escaped = false;
   for (let index = start; index < text.length; index++) {
     const char = text[index];
     if (quoted) { if (escaped) escaped = false; else if (char === '\\') escaped = true; else if (char === '"') quoted = false; }
     else if (char === '"') quoted = true;
-    else if (char === '{' || char === '[') depth++;
-    else if ((char === '}' || char === ']') && --depth === 0) return index;
+    else if (char === '{') expected.push('}');
+    else if (char === '[') expected.push(']');
+    else if (char === '}' || char === ']') {
+      if (expected.pop() !== char) return { end: index, mismatched: true };
+      if (expected.length === 0) return { end: index, mismatched: false };
+    }
   }
-  return -1;
+  return { end: -1, mismatched: false };
 }
 export type Lens = Static<typeof LensSchema>;
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
