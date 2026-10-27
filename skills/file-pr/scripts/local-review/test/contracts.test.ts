@@ -78,6 +78,11 @@ describe('strict schemas and evidence', () => {
     expect(() => validateFindingEvidence({ ...finding(), start: 1, end: end - 1, quote }, source, [{ start: 2, end: 2 }])).toThrow('quote mismatch');
     expect(() => validateFindingEvidence({ ...finding(), end, quote }, source, [{ start: 1, end: 1 }])).toThrow('misses the changed lines');
   });
+  it('rejects a spacing-only quote whose source text outgrows the quote limit', () => {
+    const quote = 'x'.repeat(4090);
+    expect(validateFindingEvidence({ ...finding(), quote }, `{\n${' '.repeat(6)}${quote}\n}`, [{ start: 2, end: 2 }]).quote).toHaveLength(4096);
+    expect(() => validateFindingEvidence({ ...finding(), quote }, `{\n${' '.repeat(10)}${quote}\n}`, [{ start: 2, end: 2 }])).toThrow('Unsupported finding evidence: source text of range 2-2 exceeds the quote limit');
+  });
   it('locates a misplaced quote with one search', () => {
     const source = `${'a\n'.repeat(200000)}b`;
     const started = Date.now();

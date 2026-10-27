@@ -237,7 +237,10 @@ export function validateFindingEvidence(input: unknown, source: string, changedS
   if (!spacingOnly) throw unsupported(`quote mismatch at ${range}: ${quoteMismatch(finding.quote, cited, source)}`);
   if (!changedSpans.some(span => finding.start <= span.end && finding.end >= span.start)) throw unsupported(`${range} misses the changed lines`);
   if (finding.classification === 'uncertain' && !finding.uncertainty) throw new ReviewError(20, 'Missing uncertainty reason');
-  return { ...finding, quote: cited.join('\n') };
+  // Restored spacing can outgrow the quote limit; reject here so the lens records it instead of the report failing to seal.
+  const exact = { ...finding, quote: cited.join('\n') };
+  if (!Value.Check(FindingSchema, exact)) throw unsupported(`source text of ${range} exceeds the quote limit`);
+  return exact;
 }
 function quoteMismatch(quote: string, cited: string[], source: string): string {
   // One aligned search: the quote must start and end on line boundaries.
