@@ -430,8 +430,8 @@ All three names match their directories, satisfy the portable name grammar, and 
 
 - Pi discovers recursive `<name>/SKILL.md` packages in `~/.agents/skills/`, `~/.pi/agent/skills/`, project equivalents, packages, settings, and explicit `--skill` paths. Root `.md` discovery differs by location. `--no-skills` disables discovery, while explicit `--skill` remains additive.
 - Pi permits a declared name to differ from its directory, but the Agent Skills standard requires a match. Treat mismatch as a portability finding even when Pi loads it.
-- Pi supports optional `license`, `compatibility`, `metadata`, experimental `allowed-tools`, and `disable-model-invocation`. Broad Anthropic Skill surfaces guarantee only `name` and `description`; Claude Code separately supports `allowed-tools`. Unknown fields may be ignored elsewhere, so any behavior that depends on an optional field needs an explicit compatibility note and a safe fallback.
-- `disable-model-invocation: true` hides a skill from Pi's model metadata and requires `/skill:name`. Other harnesses may ignore it and auto-discover the skill, reversing the intended routing policy.
+- Pi supports optional `license`, `compatibility`, `metadata`, experimental `allowed-tools`, and `disable-model-invocation`. Broad Anthropic Skill surfaces guarantee only `name` and `description`; Claude Code separately supports `allowed-tools` and `disable-model-invocation`. Unknown fields may be ignored elsewhere, so any behavior that depends on an optional field needs an explicit compatibility note and a safe fallback.
+- `disable-model-invocation: true` hides a skill from Pi's model metadata and requires `/skill:name`; Claude Code likewise requires `/name`. Other harnesses may ignore it and auto-discover the skill, reversing the intended routing policy.
 - For Pi debugging: run with `--verbose`, confirm the location and valid description, check duplicate names, and use `/skill:name` or explicit `--skill <path>` to separate discovery failure from instruction failure. Restart after package changes because metadata is loaded at startup.
 
 ### `meta-skill` — high priority
