@@ -20,20 +20,19 @@ export function parseCandidate(text: string): Static<typeof CandidateOutputSchem
   if (!Value.Check(CandidateOutputSchema, input)) throw new ReviewError(20, `Candidate output schema: ${schemaLocation(CandidateOutputSchema, input)}`);
   return input;
 }
-// Bounds embedded-object scans to linear work per start; braces beyond this are not a review answer.
-const OBJECT_STARTS = 64;
 // Prose or a fence around the answer is discarded only when exactly one top-level JSON object parses.
+// Each balanced span is skipped whole, so a nested object never stands in for a malformed wrapper.
 function candidateJson(text: string): unknown {
   try { return JSON.parse(text); } catch { /* look for one embedded object */ }
-  const objects: unknown[] = []; let starts = 0;
-  let index = text.indexOf('{');
-  for (; index !== -1 && starts < OBJECT_STARTS; starts++) {
-    const end = closingBrace(text, index); let parsed = false;
-    if (end !== -1) try { objects.push(JSON.parse(text.slice(index, end + 1))); parsed = true; } catch { /* prose brace */ }
-    index = text.indexOf('{', parsed ? end + 1 : index + 1);
+  const objects: unknown[] = []; let unclosed = -1;
+  for (let index = text.indexOf('{'); index !== -1;) {
+    const end = closingBrace(text, index);
+    if (end === -1) { unclosed = index; break; }
+    try { objects.push(JSON.parse(text.slice(index, end + 1))); } catch { /* prose braces */ }
+    index = text.indexOf('{', end + 1);
   }
-  if (objects.length === 1 && index === -1) return objects[0];
-  throw new ReviewError(20, `Candidate output is not JSON: ${text.length} chars, ${objects.length}${index === -1 ? '' : '+'} parseable objects, ${text.split('```').length - 1} fence markers, first { at ${text.indexOf('{')}, last } at ${text.lastIndexOf('}')}`);
+  if (objects.length === 1 && unclosed === -1) return objects[0];
+  throw new ReviewError(20, `Candidate output is not JSON: ${text.length} chars, ${objects.length} parseable objects, ${text.split('```').length - 1} fence markers, first { at ${text.indexOf('{')}, last } at ${text.lastIndexOf('}')}${unclosed === -1 ? '' : `, unclosed { at ${unclosed}`}`);
 }
 function closingBrace(text: string, start: number): number {
   let depth = 0; let quoted = false; let escaped = false;

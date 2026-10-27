@@ -130,21 +130,26 @@ describe('actual isolated SDK sessions, fixture dispatch only', () => {
     ['prose before', `Based on the diff:\n${answer}`],
     ['prose after', `${answer}\nThat is the only defect.`],
     ['prose braces that are not JSON', `I checked {callers} and {tests}.\n${answer}\n}`],
+    ['quoted braces inside a prose span', `I checked { type: "{}" } first.\n${answer}`],
     ['pretty-printed', `Result:\n${JSON.stringify(JSON.parse(answer), null, 2)}`],
   ])('extracts the single answer object: %s', (_name, text) => {
     expect(parseCandidate(text)).toEqual(JSON.parse(answer));
   });
+  // A malformed wrapper must not let its nested answer drop the wrapper's requiredUnavailable.
+  const wrapped = `{"review": ${cleanText}, "requiredUnavailable": ["Caller excluded"],}`;
   it.each([
     ['No JSON here.', 'Candidate output is not JSON: 13 chars, 0 parseable objects, 0 fence markers, first { at -1, last } at -1'],
     [`Example: {"a":1}\n${cleanText}`, `Candidate output is not JSON: ${10 + cleanText.length + 7} chars, 2 parseable objects, 0 fence markers, first { at 9, last } at ${10 + cleanText.length + 6}`],
-    [`\`\`\`json\n{"findings": [\n\`\`\``, 'Candidate output is not JSON: 26 chars, 0 parseable objects, 2 fence markers, first { at 8, last } at -1'],
+    [`\`\`\`json\n{"findings": [\n\`\`\``, 'Candidate output is not JSON: 26 chars, 0 parseable objects, 2 fence markers, first { at 8, last } at -1, unclosed { at 8'],
+    [wrapped, `Candidate output is not JSON: ${wrapped.length} chars, 0 parseable objects, 0 fence markers, first { at 0, last } at ${wrapped.length - 1}`],
+    [`Checked {callers\n${cleanText}`, `unclosed { at 8`],
     ['Here is my review: {}', 'Candidate output schema: / must have required properties findings, checkedPaths, omissions, requiredUnavailable'],
   ])('reports only the answer shape when no single object fits (case %#)', (text, reason) => {
     expect(() => parseCandidate(text)).toThrow(reason);
   });
-  it('bounds embedded-object scanning on brace floods', () => {
+  it('rejects brace floods in linear time', () => {
     const started = Date.now();
-    expect(() => parseCandidate(`${'{'.repeat(90000)}${cleanText}`)).toThrow('0+ parseable objects');
+    expect(() => parseCandidate(`${'{'.repeat(90000)}${cleanText}`)).toThrow('0 parseable objects, 0 fence markers, first { at 0, last } at');
     expect(Date.now() - started).toBeLessThan(2000);
   });
   const clean = JSON.parse(cleanText) as Record<string, unknown>;
