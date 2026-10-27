@@ -36,7 +36,7 @@ evals/
 
 ## PR review
 
-`file-pr` reviews the committed diff for introduced bugs before every new-code upload, in both Claude Code (`/file-pr`, using the `code-review` skill) and Pi (`/skill:file-pr`, using a nested read-only `pi` run). Unresolved P0–P2 findings stop the upload; only an explicit per-attempt user waiver skips review, labeled bypassed. For a structural audit, run `/thermo-nuclear-code-quality-review` yourself; it is not part of the gate.
+`file-pr` reviews the committed diff for introduced bugs before every new-code upload, in both Claude Code (`/file-pr`, using the `code-review` skill) and Pi (`/skill:file-pr`, using a nested read-only `pi` run). Unresolved P0–P2 findings stop the upload; only an explicit per-attempt user waiver skips review, labeled bypassed. For a structural audit, run `/thermo-nuclear-code-quality-review` (Pi: `/skill:thermo-nuclear-code-quality-review`) yourself; it is not part of the gate.
 
 ## Validation
 

@@ -56,6 +56,20 @@
       ]
     },
     {
+      "id": "file-pr-unchanged-pr",
+      "summary": "Reports an existing PR whose head is already uploaded without running review.",
+      "setup": "Disposable repository with a stub GitHub remote. Stub lookup returns an open PR for the branch whose head SHA equals local HEAD; no new code.",
+      "prompt": "File a PR for this unchanged branch.",
+      "expectedBehavior": [
+        "Looks up and verifies the existing PR read-only.",
+        "Reports the existing URL without running the bug review."
+      ],
+      "forbiddenBehavior": [
+        "Creates a duplicate PR or pushes unchanged code.",
+        "Runs code-review or a nested pi reviewer for the lookup-only case."
+      ]
+    },
+    {
       "id": "file-pr-review-fix",
       "summary": "Fixes a supported bug found by review, then reviews the full diff again before filing.",
       "setup": "Disposable repository with a stub GitHub remote. The branch introduces a real off-by-one with a focused test that exposes it; the reviewer reports it as P2.",
