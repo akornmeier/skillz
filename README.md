@@ -34,19 +34,9 @@ evals/
 - `.skill-lock.json` retains installer metadata for third-party skills. Locally maintained skills in this repository are intentionally not lock-managed.
 - Generated dependencies and caches are ignored. A skill with a package manifest should install its dependencies within its own directory.
 
-## Local PR review
+## PR review
 
-`file-pr` routes new-code uploads through a bounded local-review procedure shared by Claude Code (`/file-pr`) and Pi (`/skill:file-pr`). Live OpenRouter review is explicit opt-in with a private scoped API-key approval; no harness subscription/auth reuse. Production filing also requires calibration and user rollout signoff. Without valid review, stop unless user explicitly waives this attempt, labeled bypassed rather than passed. Unchanged existing PR lookup needs no inference.
-
-Scoped setup requires Node >=22.19.0, pnpm 12.9.1 and provisioning approval. From this checkout:
-
-```sh
-pnpm --dir skills/file-pr/scripts/local-review install --frozen-lockfile --ignore-scripts --ignore-pnpmfile
-pnpm --dir skills/file-pr/scripts/local-review run validate
-node skills/file-pr/scripts/local-review/dist/cli.js --help
-```
-
-Helpers resolve from the loaded skill directory when used in other repositories. Reports and attempt state remain private outside Git checkouts. See [runner setup and limitations](skills/file-pr/scripts/local-review/README.md) and [parent review procedure](skills/file-pr/workflows/local-review.md). Calibration tools prepare twelve blinded fixtures, collect within separately approved aggregate budgets, grade evidence-backed judgments and check both-harness case/profile artifacts. Live execution requires explicit source/provider/privacy/key authority; $1.02 per-attempt scheduling ceiling is not expected spend or an invoice guarantee. Actual paid calibration and rollout signoff remain operator steps, never inferred from deterministic tests. No Git hooks or subscriptions are changed.
+`file-pr` reviews the committed diff for introduced bugs before every new-code upload, in both Claude Code (`/file-pr`, using the `code-review` skill) and Pi (`/skill:file-pr`, using a nested read-only `pi` run). Unresolved P0–P2 findings stop the upload; only an explicit per-attempt user waiver skips review, labeled bypassed. For a structural audit, run `/thermo-nuclear-code-quality-review` yourself; it is not part of the gate.
 
 ## Validation
 
