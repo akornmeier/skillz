@@ -169,7 +169,7 @@ describe('actual isolated SDK sessions, fixture dispatch only', () => {
     [JSON.stringify({ ...clean, findings: [{ id: 'x', lens: 'correctness', severity: 'P2', path: 'src/a.ts', revision: 'head', start: 1, end: 1, quote: 'SECRET_VALUE', cause: 'c', trigger: 't', impact: 'i', classification: 'introduced' }] }), 'Candidate rejected: Candidate output schema: /findings/0 must have required properties uncertainty'],
     [JSON.stringify({ ...clean, checkedPaths: ['src/other.ts'] }), 'Candidate rejected: Path is not readable filtered pinned text'],
     [JSON.stringify({ ...clean, requiredUnavailable: ['Caller excluded'] }), 'Candidate rejected: Required context unavailable'],
-    [JSON.stringify({ ...clean, findings: [{ id: 'x', lens: 'correctness', severity: 'P2', path: 'src/a.ts', revision: 'head', start: 1, end: 1, quote: 'SECRET_VALUE', cause: 'c', trigger: 't', impact: 'i', classification: 'introduced', uncertainty: null }] }), 'Candidate rejected: Unsupported finding evidence'],
+    [JSON.stringify({ ...clean, findings: [{ id: 'x', lens: 'correctness', severity: 'P2', path: 'src/a.ts', revision: 'head', start: 1, end: 1, quote: 'SECRET_VALUE', cause: 'c', trigger: 't', impact: 'i', classification: 'introduced', uncertainty: null }] }), 'Candidate rejected: Unsupported finding evidence: quote mismatch at range 1-1: not in file (quote 1 lines, range 1)'],
   ])('names the failed candidate check without echoing model text (case %#)', async (text, reason) => {
     const { result } = await run([{ text }]);
     expect(result.status).toBe('incomplete'); expect(result.reason).toBe(reason); expect(result.reason).not.toContain('SECRET_VALUE');
