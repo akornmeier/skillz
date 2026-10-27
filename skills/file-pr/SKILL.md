@@ -28,7 +28,7 @@ set -euo pipefail
 REVIEWED_HEAD="$(git rev-parse HEAD)"
 MERGE_BASE="$(git merge-base "$BASE" HEAD)"
 DIFF_FILE="$(mktemp "${TMPDIR:-/tmp}/file-pr-review.XXXXXX")"
-git diff --no-color --no-ext-diff --no-textconv -D "$MERGE_BASE" "$REVIEWED_HEAD" > "$DIFF_FILE"
+git diff --no-relative --no-color --no-ext-diff --no-textconv -D "$MERGE_BASE" "$REVIEWED_HEAD" > "$DIFF_FILE"
 [ -s "$DIFF_FILE" ] || { rm -f "$DIFF_FILE"; echo "file-pr review: empty diff" >&2; exit 3; }
 [ "$(wc -c < "$DIFF_FILE")" -le 200000 ] || { rm -f "$DIFF_FILE"; echo "file-pr review: diff over 200 KB" >&2; exit 4; }
 grep '^Binary files ' "$DIFF_FILE" | sed 's/^/binary entry: /' || true
@@ -37,7 +37,7 @@ printf 'reviewed head %s\nmerge base %s\ndiff file %s\n' "$REVIEWED_HEAD" "$MERG
 
 Shell variables may not persist between tool calls: use the printed values literally from here on, record the reviewed head, and delete the diff file when the review ends.
 
-- **Claude Code:** invoke the `code-review` skill at `high` effort and tell it to review exactly the patch in the printed diff file, which is `git diff -D <merge base> <reviewed head>`, not its default of unpushed commits. Do not pass `--max-findings`; it changes the user's own default. Exactly ten findings may be a truncated list: review the diff again in smaller parts or ask the user.
+- **Claude Code:** invoke the `code-review` skill at `high` effort and tell it to review exactly the patch in the printed diff file, which is `git diff --no-relative -D <merge base> <reviewed head>`, not its default of unpushed commits. Do not pass `--max-findings`; it changes the user's own default. Exactly ten findings may be a truncated list: review the diff again in smaller parts or ask the user.
 - **Pi:** run a fresh read-only reviewer that loads no repository instructions, with a timeout, putting the printed path in `DIFF_FILE`:
 
   ```sh
