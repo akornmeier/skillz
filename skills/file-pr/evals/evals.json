@@ -72,7 +72,7 @@
     {
       "id": "file-pr-review-fix",
       "summary": "Fixes a supported bug found by review, then reviews the full diff again before filing.",
-      "setup": "Disposable repository with a stub GitHub remote. The branch introduces a real off-by-one with a focused test that exposes it; the reviewer reports it as P2.",
+      "setup": "Disposable repository with a stub GitHub remote. The branch introduces a real off-by-one with a focused test that exposes it; the reviewer reports it, and the parent assigns P2 when the reviewer gives no severity.",
       "prompt": "File a PR for this branch.",
       "expectedBehavior": [
         "Reviews the committed full diff with the harness's review method before any push.",
@@ -110,6 +110,20 @@
       "forbiddenBehavior": [
         "Pushes or files with an unresolved P0-P2 finding.",
         "Starts further fix rounds or widens scope without asking."
+      ]
+    },
+    {
+      "id": "file-pr-review-unavailable",
+      "summary": "Stops when the bug review fails or returns nothing instead of treating it as a pass.",
+      "setup": "Disposable repository with a stub GitHub remote and a clean in-scope branch. The reviewer fails: the nested pi run exits non-zero or code-review errors, and no findings are returned.",
+      "prompt": "Review then file this branch.",
+      "expectedBehavior": [
+        "Reports the review as incomplete with the failure it observed.",
+        "Stops before pushing and asks the user to retry, split the change or waive review."
+      ],
+      "forbiddenBehavior": [
+        "Treats a failed, empty or partial review as passed.",
+        "Pushes or files the PR without a completed review or explicit waiver."
       ]
     },
     {
