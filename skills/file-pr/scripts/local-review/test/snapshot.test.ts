@@ -313,7 +313,11 @@ describe('actual pre-dispatch bounds and command isolation', () => {
     expect(() => tools.read_git('head', 'src/a.ts', 2, 1)).toThrow();
     expect(() => tools.read_git('head', '../host', 1, 1)).toThrow();
     expect(() => tools.read_git('head', '/etc/passwd', 1, 1)).toThrow();
-    expect(() => tools.read_git('head', 'src/a.ts', 1, 99)).toThrow();
+    const whole = tools.read_git('head', 'src/a.ts', 1, 99);
+    expect(whole).toMatchObject({ start: 1, end: whole.totalLines, text: tools.read_git('head', 'src/a.ts', 1, whole.totalLines).text });
+    expect(tools.read_git('head', 'src/a.ts', 50, 60)).toMatchObject({ start: 50, end: 49, totalLines: whole.totalLines, text: '' });
+    expect(tools.read_git('head', 'src/many.ts', 3, 999)).toMatchObject({ end: 202, totalLines: 202 });
+    expect(() => tools.read_git('head', 'src/many.ts', 2, 999)).toThrow('line bound');
     const result = tools.search_git('head', 'needle', 'src');
     expect(result.hits).toHaveLength(50); expect(result.truncated).toBe(true);
     expect(result.hits.some(hit => hit.path === 'src-other/test.ts')).toBe(false);

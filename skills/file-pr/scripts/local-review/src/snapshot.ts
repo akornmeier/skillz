@@ -287,10 +287,13 @@ export async function captureSnapshot(input: unknown, absoluteDeadline?: number)
     const tools = Object.freeze({
       read_git(revision: Revision, path: string, start: number, end: number) {
         validate(ReadSchema, { revision, path, start, end });
-        if (end < start || end - start + 1 > policy.readLines) throw new SnapshotError('Read line bound exceeded');
+        if (end < start) throw new SnapshotError('Read line bound exceeded');
         const source = readSource(revision, path).split('\n');
-        if (end > source.length) throw new SnapshotError('Read extends beyond pinned text');
-        const result = { revision, path, start, end, text: source.slice(start - 1, end).join('\n') };
+        // The model cannot know a file's length before reading it, so a range past the last line is clipped
+        // and the result says where the file ends. Bounds apply to the lines returned; existing text is never sliced.
+        const last = Math.min(end, source.length);
+        if (last - start + 1 > policy.readLines) throw new SnapshotError('Read line bound exceeded');
+        const result = { revision, path, start, end: Math.max(last, start - 1), totalLines: source.length, text: source.slice(start - 1, last).join('\n') };
         if (bytes(result) > policy.readBytes) throw new SnapshotError('Read byte bound exceeded');
         return result;
       },
