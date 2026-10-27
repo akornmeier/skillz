@@ -181,6 +181,11 @@ describe('actual isolated SDK sessions, fixture dispatch only', () => {
     const { result } = await run([{ text }], { ...DEFAULT_POLICY, maxCandidates: 1 });
     expect(result.status).toBe('incomplete'); expect(result.reason).toBe('Candidate rejected: Excessive candidates: 2 > 1');
   });
+  it('prompt limits requiredUnavailable to context the tools could not supply', () => {
+    expect(PROMPT).toContain('when a complete search finds no callers or tests, review the change on its own');
+    expect(PROMPT).toContain('requiredUnavailable is only for context the tools could not supply: a search with truncated true or excludedFiles above 0, or a needed path read_git refuses.');
+    expect(PROMPT).not.toContain('Empty search is not proof;');
+  });
   it('prompt keeps uncertain classification for unknown origin, not doubtful impact', () => {
     expect(PROMPT).toContain('uncertain only when you cannot tell which; any uncertain finding makes the review incomplete');
     expect(PROMPT).toContain('Doubt about whether a defect matters belongs in severity and impact, not classification.');
