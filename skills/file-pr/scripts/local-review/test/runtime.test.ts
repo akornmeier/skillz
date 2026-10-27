@@ -109,8 +109,15 @@ describe('actual isolated SDK sessions, fixture dispatch only', () => {
     expect(result.status).toBe('setup-error'); expect(result.reason).toContain('Wrong requested'); expect(effects).toBe(0); expect(result.usage.requests).toBe(0);
   });
   it('malformed tool arguments cannot bypass source bounds or buy retries', async () => {
-    const { result, events } = await run([{ calls: [{ name: 'read_git', args: { revision: 'head', path: 'src/a.ts', start: 1, end: 201 } }] }, { text: cleanText }]);
+    const { result, events } = await run([{ calls: [{ name: 'read_git', args: { revision: 'head', path: 'src/a.ts', start: 2, end: 1 } }] }, { text: cleanText }]);
     expect(result.status).toBe('incomplete'); expect(events.filter(event => event.kind === 'effect')).toHaveLength(1);
+  });
+  it('clips a read past the last line instead of failing the lens', async () => {
+    const { result } = await run([{ calls: [{ name: 'read_git', args: { revision: 'head', path: 'src/a.ts', start: 1, end: 201 } }] }, { text: cleanText }]);
+    expect(result.status).toBe('complete'); expect(result.reason).toBeNull();
+  });
+  it('prompt says read_git clips at the last line', () => {
+    expect(PROMPT).toContain("read_git clips a range at the file's last line and returns the actual end and totalLines.");
   });
   it('records rejected returned model identity in incomplete evidence', async () => {
     const { result } = await run([{ returnedModel: 'anthropic/other', text: cleanText }]);
