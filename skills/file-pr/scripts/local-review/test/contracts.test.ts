@@ -58,7 +58,8 @@ describe('strict schemas and evidence', () => {
     [{ end: 99 }, 'range 2-99 ends past line 3'],
     [{ start: 1, end: 1 }, 'quote mismatch at range 1-1: exact text is at lines 2-2'],
     [{ quote: '+return false;' }, 'quote mismatch at range 2-2: keeps diff markers'],
-    [{ quote: '  return false;' }, 'quote mismatch at range 2-2: whitespace differs'],
+    [{ quote: '+  return false;' }, 'quote mismatch at range 2-2: keeps diff markers'],
+    [{ quote: 'return  false;' }, 'quote mismatch at range 2-2: not in file (quote 1 lines, range 1)'],
     [{ quote: 'return' }, 'quote mismatch at range 2-2: part of the cited lines'],
     [{ quote: 'valid' }, 'quote mismatch at range 2-2: part of other lines'],
     [{ start: 2, end: 3, quote: 'SECRET_VALUE' }, 'quote mismatch at range 2-3: not in file (quote 1 lines, range 2)'],
@@ -66,6 +67,21 @@ describe('strict schemas and evidence', () => {
   ])('names the failed evidence check without echoing quote or source text (case %#)', (change, reason) => {
     const source = 'if (valid) {\nreturn false;\n}';
     expect(() => validateFindingEvidence({ ...finding(), ...change }, source, [{ start: 2, end: 2 }])).toThrow(`Unsupported finding evidence: ${reason}`);
+  });
+  it.each([
+    ['trimmed indentation', 2, 'return false;', '  return false;'],
+    ['extra trailing space', 2, '  return false;  ', '  return false;'],
+    ['tab for spaces, two lines', 3, '\treturn false;\n}', '  return false;\n}'],
+  ])('accepts a quote differing only in leading/trailing spacing and stores the source text (%s)', (_name, end, quote, exact) => {
+    const source = 'if (valid) {\n  return false;\n}';
+    expect(validateFindingEvidence({ ...finding(), end, quote }, source, [{ start: 2, end: 2 }]).quote).toBe(exact);
+    expect(() => validateFindingEvidence({ ...finding(), start: 1, end: end - 1, quote }, source, [{ start: 2, end: 2 }])).toThrow('quote mismatch');
+    expect(() => validateFindingEvidence({ ...finding(), end, quote }, source, [{ start: 1, end: 1 }])).toThrow('misses the changed lines');
+  });
+  it('rejects a spacing-only quote whose source text outgrows the quote limit', () => {
+    const quote = 'x'.repeat(4090);
+    expect(validateFindingEvidence({ ...finding(), quote }, `{\n${' '.repeat(6)}${quote}\n}`, [{ start: 2, end: 2 }]).quote).toHaveLength(4096);
+    expect(() => validateFindingEvidence({ ...finding(), quote }, `{\n${' '.repeat(10)}${quote}\n}`, [{ start: 2, end: 2 }])).toThrow('Unsupported finding evidence: source text of range 2-2 exceeds the quote limit');
   });
   it('locates a misplaced quote with one search', () => {
     const source = `${'a\n'.repeat(200000)}b`;
