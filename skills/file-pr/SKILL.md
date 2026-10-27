@@ -31,6 +31,7 @@ DIFF_FILE="$(mktemp "${TMPDIR:-/tmp}/file-pr-review.XXXXXX")"
 git diff --no-color --no-ext-diff --no-textconv -D "$MERGE_BASE" "$REVIEWED_HEAD" > "$DIFF_FILE"
 [ -s "$DIFF_FILE" ] || { rm -f "$DIFF_FILE"; echo "file-pr review: empty diff" >&2; exit 3; }
 [ "$(wc -c < "$DIFF_FILE")" -le 200000 ] || { rm -f "$DIFF_FILE"; echo "file-pr review: diff over 200 KB" >&2; exit 4; }
+grep '^Binary files ' "$DIFF_FILE" | sed 's/^/binary entry: /' || true
 printf 'reviewed head %s\nmerge base %s\ndiff file %s\n' "$REVIEWED_HEAD" "$MERGE_BASE" "$DIFF_FILE"
 ```
 
@@ -50,7 +51,7 @@ Shell variables may not persist between tool calls: use the printed values liter
   printf '%s\n' "$REVIEW"
   ```
 
-A review is incomplete, never a pass, when the reviewer cannot run, errors, times out, returns nothing, reviews a different range, or the diff is too large for one pass: stop and ask the user to split the change, retry or waive. An empty diff has nothing to review or file; stop as step 2 says.
+A review is incomplete, never a pass, when the reviewer cannot run, errors, times out, returns nothing, reviews a different range, the diff is too large for one pass, or a printed `binary entry` is a source or text file (for example one marked `-diff` in `.gitattributes`) whose change the reviewer cannot see: stop and ask the user to split the change, retry or waive. An empty diff has nothing to review or file; stop as step 2 says.
 
 Check every finding against the source and relevant tests before acting; a reviewer's claim or severity is not proof. Give each verified finding a severity from its impact when the reviewer did not (Claude Code's does not): P3 only when it has no behavior, data or security impact, and P2 when unsure. Fix supported in-scope P0–P2 bugs, rerun focused checks, commit, and review the full diff once more. Dismiss unsupported findings with the source or test evidence that contradicts them. P3 alone does not block. If a P0–P2 finding remains after that one fix round, or a fix would widen scope, stop and ask the user.
 
