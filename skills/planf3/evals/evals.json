@@ -60,6 +60,24 @@
         "Creates or merges a PR.",
         "Weakens acceptance criteria to accommodate a failing implementation or marks a blocked dependent task complete."
       ]
+    },
+    {
+      "id": "planf3-build-minimal",
+      "summary": "Builds a task with the smallest complete change and routes deviations through Amendments.",
+      "setup": "Provide an independently prepared valid plan whose single task adds input validation to one handler. The fixture repository already has a validation helper used by sibling handlers, a second caller that the change breaks, and deterministic local task checks.",
+      "prompt": "Build the unfinished phase in specs/input-validation.html. Do not open or merge a PR.",
+      "expectedBehavior": [
+        "Routes to build-plan and follows its Implementing a task guidance without reading the template.",
+        "Reuses the existing validation helper the way sibling handlers do and updates the broken second caller and its test.",
+        "Runs the task's planned verification and records actual commands, exit status and observed outcomes before marking the task complete.",
+        "Records any edit outside the task's planned files, with its reason, in Amendments and passes post-build validation with a previous snapshot."
+      ],
+      "forbiddenBehavior": [
+        "Adds a new dependency, wrapper, option or configuration the plan does not call for.",
+        "Skips a planned action or verification without an Amendments entry.",
+        "Leaves the broken caller or its test failing.",
+        "Removes existing error handling or validation from code it moves."
+      ]
     }
   ]
 }
