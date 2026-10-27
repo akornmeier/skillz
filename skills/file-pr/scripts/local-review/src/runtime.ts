@@ -21,27 +21,33 @@ export function parseCandidate(text: string): Static<typeof CandidateOutputSchem
   return input;
 }
 // Prose or a fence around the answer is discarded only when exactly one top-level JSON object parses.
-// Each balanced span is skipped whole, so a nested object never stands in for a malformed wrapper.
+// Balanced object and array spans are skipped whole, so a nested object never stands in for its container.
 function candidateJson(text: string): unknown {
   try { return JSON.parse(text); } catch { /* look for one embedded object */ }
   const objects: unknown[] = []; let unclosed = -1;
-  for (let index = text.indexOf('{'); index !== -1;) {
-    const end = closingBrace(text, index);
+  for (let index = nextOpening(text, 0); index !== -1;) {
+    const end = closingBracket(text, index);
     if (end === -1) { unclosed = index; break; }
-    try { objects.push(JSON.parse(text.slice(index, end + 1))); } catch { /* prose braces */ }
-    index = text.indexOf('{', end + 1);
+    if (text[index] === '{') try { objects.push(JSON.parse(text.slice(index, end + 1))); } catch { /* prose braces */ }
+    index = nextOpening(text, end + 1);
   }
   if (objects.length === 1 && unclosed === -1) return objects[0];
-  throw new ReviewError(20, `Candidate output is not JSON: ${text.length} chars, ${objects.length} parseable objects, ${text.split('```').length - 1} fence markers, first { at ${text.indexOf('{')}, last } at ${text.lastIndexOf('}')}${unclosed === -1 ? '' : `, unclosed { at ${unclosed}`}`);
+  throw new ReviewError(20, `Candidate output is not JSON: ${text.length} chars, ${objects.length} parseable objects, ${text.split('```').length - 1} fence markers, first { at ${text.indexOf('{')}, last } at ${text.lastIndexOf('}')}${unclosed === -1 ? '' : `, unclosed ${text[unclosed]} at ${unclosed}`}`);
 }
-function closingBrace(text: string, start: number): number {
+// A global regex resumes from lastIndex, keeping the whole extraction linear.
+const OPENING = /[{[]/g;
+function nextOpening(text: string, from: number): number {
+  OPENING.lastIndex = from;
+  return OPENING.exec(text)?.index ?? -1;
+}
+function closingBracket(text: string, start: number): number {
   let depth = 0; let quoted = false; let escaped = false;
   for (let index = start; index < text.length; index++) {
     const char = text[index];
     if (quoted) { if (escaped) escaped = false; else if (char === '\\') escaped = true; else if (char === '"') quoted = false; }
     else if (char === '"') quoted = true;
-    else if (char === '{') depth++;
-    else if (char === '}' && --depth === 0) return index;
+    else if (char === '{' || char === '[') depth++;
+    else if ((char === '}' || char === ']') && --depth === 0) return index;
   }
   return -1;
 }

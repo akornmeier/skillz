@@ -131,6 +131,7 @@ describe('actual isolated SDK sessions, fixture dispatch only', () => {
     ['prose after', `${answer}\nThat is the only defect.`],
     ['prose braces that are not JSON', `I checked {callers} and {tests}.\n${answer}\n}`],
     ['quoted braces inside a prose span', `I checked { type: "{}" } first.\n${answer}`],
+    ['bracketed prose', `Checked [src/a.ts] and [callers].\n${answer}`],
     ['pretty-printed', `Result:\n${JSON.stringify(JSON.parse(answer), null, 2)}`],
   ])('extracts the single answer object: %s', (_name, text) => {
     expect(parseCandidate(text)).toEqual(JSON.parse(answer));
@@ -143,13 +144,16 @@ describe('actual isolated SDK sessions, fixture dispatch only', () => {
     [`\`\`\`json\n{"findings": [\n\`\`\``, 'Candidate output is not JSON: 26 chars, 0 parseable objects, 2 fence markers, first { at 8, last } at -1, unclosed { at 8'],
     [wrapped, `Candidate output is not JSON: ${wrapped.length} chars, 0 parseable objects, 0 fence markers, first { at 0, last } at ${wrapped.length - 1}`],
     [`Checked {callers\n${cleanText}`, `unclosed { at 8`],
+    [`Review:\n[${cleanText}, "Caller excluded"]`, '0 parseable objects'],
+    [`\`\`\`json\n[${cleanText}, "Caller excluded"]\n\`\`\``, '0 parseable objects'],
+    [`See [docs\n${cleanText}`, 'unclosed [ at 4'],
     ['Here is my review: {}', 'Candidate output schema: / must have required properties findings, checkedPaths, omissions, requiredUnavailable'],
   ])('reports only the answer shape when no single object fits (case %#)', (text, reason) => {
     expect(() => parseCandidate(text)).toThrow(reason);
   });
-  it('rejects brace floods in linear time', () => {
+  it.each([['brace', `${'{'.repeat(90000)}${cleanText}`, '0 parseable objects'], ['bracket pair', `${'[]'.repeat(45000)}`, 'first { at -1']])('rejects %s floods in linear time', (_name, text, reason) => {
     const started = Date.now();
-    expect(() => parseCandidate(`${'{'.repeat(90000)}${cleanText}`)).toThrow('0 parseable objects, 0 fence markers, first { at 0, last } at');
+    expect(() => parseCandidate(text)).toThrow(reason);
     expect(Date.now() - started).toBeLessThan(2000);
   });
   const clean = JSON.parse(cleanText) as Record<string, unknown>;
