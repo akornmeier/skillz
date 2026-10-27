@@ -38,7 +38,7 @@ This review began with 23 skills installed under `~/.agents/skills/`: 13 locally
 ### Highest-priority improvements
 
 1. **Harden `voyage-embeddings` before use.** Its ingest path can disclose full local source and paths, incur paid API and Pinecone writes, and retry permanent failures without a dry run, cost estimate, data-classification gate, or immediate approval.
-2. **Resolve the thermo-nuclear review contract.** Define read-only review versus approval-gated repair and document the Pi-specific explicit-only routing fallback before use in other harnesses.
+2. **Resolve the thermo-nuclear review contract.** Define read-only review versus approval-gated repair. Pi and Claude Code both honor its explicit-only routing (`disable-model-invocation`); document a fallback before use in other harnesses.
 3. **Repair `meta-skill` portability.** Its scanner misses this repository by default and its vendored root-relative web links currently block repository evaluation validation.
 4. **Restore and execute the evaluation matrix.** Add repository-schema suites for the three new packages, then run every case across Pi's fast/economical, balanced/default, and highest-reasoning profiles with fresh sessions, equivalent tools, and complete reproducibility records.
 
@@ -456,7 +456,7 @@ All three names match their directories, satisfy the portable name grammar, and 
 **Findings:**
 
 - Description opens with imperative “Run” rather than strict third-person “Runs.” More importantly, Pi never exposes that description for automatic discovery because `disable-model-invocation: true` makes the package explicit-only.
-- `disable-model-invocation` is a Pi-specific routing dependency. A harness that ignores it may auto-load an intentionally extreme review persona for ordinary maintainability requests.
+- `disable-model-invocation` is a client routing extension that Pi and Claude Code honor. A harness that ignores it may auto-load an intentionally extreme review persona for ordinary maintainability requests.
 - Scope says “review,” but instructions say to “go for” ambitious restructuring. No read-only boundary, mutation approval, target/diff selection, repository-policy check, test loop, or output distinction between findings and applied edits exists.
 - Repeated absolutes and the fixed 1,000-line blocker consume most of the body without evidence, exception handling, or a feedback mechanism. This risks aggressive over-refactoring and low-value duplication rather than high-conviction review.
 - No `evals/evals.json`, baseline, discovery/explicit-invocation test, clean-diff case, false-positive case, behavior-preservation case, or unauthorized-mutation assertion exists.
@@ -481,6 +481,6 @@ All three names match their directories, satisfy the portable name grammar, and 
 ### Priority order
 
 1. Harden `voyage-embeddings` before any real ingest or migration; current path can disclose source and incur paid external writes.
-2. Resolve `thermo-nuclear-code-quality-review`'s review-versus-edit contract and explicit-only portability before using it outside Pi.
+2. Resolve `thermo-nuclear-code-quality-review`'s review-versus-edit contract, and document an explicit-only fallback before using it outside Pi and Claude Code.
 3. Repair `meta-skill`'s global-root discovery and evaluation-validator integration so future audits produce trustworthy coverage.
 4. Run fresh evaluation matrices only after definitions validate; current package presence and syntax checks are not behavioral evidence.
