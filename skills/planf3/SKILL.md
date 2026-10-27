@@ -23,6 +23,10 @@ A plan is an offline, locally complete HTML package in `specs/`. The main page c
 
 Resolve every relative skill path against the directory containing this `SKILL.md`, regardless of the current working directory. If no `USER_PROMPT` is available, ask for it.
 
+## Smallest complete change
+
+Plan the smallest change that fully does the job. Map every place it must reach (callers, tests, fixtures, config, exports) and what it could break for users. Prefer code, patterns and dependencies already in the repository. List features nobody asked for under Non-goals, and put scope choices for a vague request under Open decisions instead of choosing silently. Never cut validation at trust boundaries, error handling that prevents data loss, security, accessibility, or anything requested. Build Plan applies the same rule to code.
+
 ## Contracts
 
 - Author new plans from `TEMPLATE`. Read it fully, replace every `{{...}}` placeholder, duplicate repeat blocks as needed, and remove all template markers.
@@ -43,12 +47,12 @@ Resolve every relative skill path against the directory containing this `SKILL.m
 
 Read only the matching workflow before acting:
 
-| Workflow | Use when | File |
-| --- | --- | --- |
-| Create Plan | Planning or designing new work without a referenced plan | `workflows/create-plan.md` |
-| Update Plan | Revising the content of an existing plan | `workflows/update-plan.md` |
-| Update References | Refreshing metadata or back/forward references | `workflows/update-references.md` |
-| Build Plan | Implementing an existing plan | `workflows/build-plan.md` |
+| Workflow          | Use when                                                 | File                             |
+| ----------------- | -------------------------------------------------------- | -------------------------------- |
+| Create Plan       | Planning or designing new work without a referenced plan | `workflows/create-plan.md`       |
+| Update Plan       | Revising the content of an existing plan                 | `workflows/update-plan.md`       |
+| Update References | Refreshing metadata or back/forward references           | `workflows/update-references.md` |
+| Build Plan        | Implementing an existing plan                            | `workflows/build-plan.md`        |
 
 `workflows/image-generation.md` is a subworkflow used only when figures must be created or updated.
 
