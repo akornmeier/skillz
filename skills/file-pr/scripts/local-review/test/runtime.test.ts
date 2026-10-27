@@ -3,7 +3,7 @@ import { access, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { DEFAULT_POLICY, FindingSchema, OmissionSchema, validateRequest } from '../src/contracts.js';
 import { captureSnapshot } from '../src/snapshot.js';
-import { CandidateOutputSchema, memoryBudget, PROMPT, runLens, MODEL, type FixtureStep, type RuntimeEvent } from '../src/runtime.js';
+import { CandidateOutputSchema, memoryBudget, parseCandidate, PROMPT, runLens, MODEL, type FixtureStep, type RuntimeEvent } from '../src/runtime.js';
 import { commit, gitFixture, put } from './git-fixture.js';
 
 const roots: string[] = [];
@@ -117,14 +117,50 @@ describe('actual isolated SDK sessions, fixture dispatch only', () => {
     expect(result.observedModels).toEqual([{ provider: MODEL.provider, requested: MODEL.requested, returned: 'anthropic/other', endpoint: MODEL.endpoint }]);
     expect(result.status).toBe('incomplete');
   });
-  it('accepts one Markdown fence around the whole answer', async () => {
-    const { result } = await run([{ text: `\`\`\`json\n${cleanText}\n\`\`\`` }]);
+  it('accepts prose and a fence around exactly one JSON answer', async () => {
+    const { result } = await run([{ text: `Now I have enough context.\n\n\`\`\`json\n${cleanText}\n\`\`\`\nDone.` }]);
     expect(result.status).toBe('complete'); expect(result.checkedPaths).toEqual(['src/a.ts']);
+  });
+  const finding = { id: 'toggle', lens: 'correctness', severity: 'P2', path: 'src/a.ts', revision: 'head', start: 1, end: 1, quote: 'export const enabled = false;', cause: 'Braces } { and "quotes" in text', trigger: 't', impact: 'i', classification: 'introduced', uncertainty: null };
+  const answer = JSON.stringify({ findings: [finding], checkedPaths: ['src/a.ts'], omissions: [], requiredUnavailable: [] });
+  it.each([
+    ['raw', answer],
+    ['whole LF fence', `\`\`\`json\n${answer}\n\`\`\``],
+    ['whole CRLF fence', `\`\`\`json\r\n${answer}\r\n\`\`\``],
+    ['prose before', `Based on the diff:\n${answer}`],
+    ['prose after', `${answer}\nThat is the only defect.`],
+    ['prose braces that are not JSON', `I checked {callers} and {tests}.\n${answer}\n}`],
+    ['quoted braces inside a prose span', `I checked { type: "{}" } first.\n${answer}`],
+    ['bracketed prose', `Checked [src/a.ts] and [callers].\n${answer}`],
+    ['pretty-printed', `Result:\n${JSON.stringify(JSON.parse(answer), null, 2)}`],
+  ])('extracts the single answer object: %s', (_name, text) => {
+    expect(parseCandidate(text)).toEqual(JSON.parse(answer));
+  });
+  // A malformed wrapper must not let its nested answer drop the wrapper's requiredUnavailable.
+  const wrapped = `{"review": ${cleanText}, "requiredUnavailable": ["Caller excluded"],}`;
+  it.each([
+    ['No JSON here.', 'Candidate output is not JSON: 13 chars, 0 parseable objects, 0 fence markers, first { at -1, last } at -1'],
+    [`Example: {"a":1}\n${cleanText}`, `Candidate output is not JSON: ${10 + cleanText.length + 7} chars, 2 parseable objects, 0 fence markers, first { at 9, last } at ${10 + cleanText.length + 6}`],
+    [`\`\`\`json\n{"findings": [\n\`\`\``, 'Candidate output is not JSON: 26 chars, 0 parseable objects, 2 fence markers, first { at 8, last } at -1, unclosed { at 8'],
+    [wrapped, `Candidate output is not JSON: ${wrapped.length} chars, 0 parseable objects, 0 fence markers, first { at 0, last } at ${wrapped.length - 1}`],
+    [`Checked {callers\n${cleanText}`, `unclosed { at 8`],
+    [`Review:\n[${cleanText}, "Caller excluded"]`, '0 parseable objects'],
+    [`\`\`\`json\n[${cleanText}, "Caller excluded"]\n\`\`\``, '0 parseable objects'],
+    [`See [docs\n${cleanText}`, 'unclosed [ at 4'],
+    [`{"review": ]${cleanText}, "requiredUnavailable": ["Caller excluded"]}`, 'mismatched ] at 11'],
+    [`Note (see [docs}).\n${cleanText}`, 'mismatched } at 15'],
+    ['Here is my review: {}', 'Candidate output schema: / must have required properties findings, checkedPaths, omissions, requiredUnavailable'],
+  ])('reports only the answer shape when no single object fits (case %#)', (text, reason) => {
+    expect(() => parseCandidate(text)).toThrow(reason);
+  });
+  it.each([['brace', `${'{'.repeat(90000)}${cleanText}`, '0 parseable objects'], ['bracket pair', `${'[]'.repeat(45000)}`, 'first { at -1']])('rejects %s floods in linear time', (_name, text, reason) => {
+    const started = Date.now();
+    expect(() => parseCandidate(text)).toThrow(reason);
+    expect(Date.now() - started).toBeLessThan(2000);
   });
   const clean = JSON.parse(cleanText) as Record<string, unknown>;
   it.each([
-    ['Here is my review: {}', 'Candidate rejected: Candidate output is not JSON'],
-    [`${cleanText}\nDone.`, 'Candidate rejected: Candidate output is not JSON'],
+    ['No JSON here.', 'Candidate rejected: Candidate output is not JSON: 13 chars, 0 parseable objects, 0 fence markers, first { at -1, last } at -1'],
     [JSON.stringify({ ...clean, summary: 'SECRET_VALUE' }), 'Candidate rejected: Candidate output schema: / unexpected key summary'],
     [JSON.stringify({ ...clean, 'export const enabled = false;': 1 }), 'Candidate rejected: Candidate output schema: / unexpected key [key]'],
     [JSON.stringify({ ...clean, ['9'.repeat(5000)]: 1 }), 'Candidate rejected: Candidate output schema: / unexpected key [key]'],
@@ -134,7 +170,7 @@ describe('actual isolated SDK sessions, fixture dispatch only', () => {
     [JSON.stringify({ ...clean, checkedPaths: ['src/other.ts'] }), 'Candidate rejected: Path is not readable filtered pinned text'],
     [JSON.stringify({ ...clean, requiredUnavailable: ['Caller excluded'] }), 'Candidate rejected: Required context unavailable'],
     [JSON.stringify({ ...clean, findings: [{ id: 'x', lens: 'correctness', severity: 'P2', path: 'src/a.ts', revision: 'head', start: 1, end: 1, quote: 'SECRET_VALUE', cause: 'c', trigger: 't', impact: 'i', classification: 'introduced', uncertainty: null }] }), 'Candidate rejected: Unsupported finding evidence'],
-  ])('names the failed candidate check without echoing model text: %s', async (text, reason) => {
+  ])('names the failed candidate check without echoing model text (case %#)', async (text, reason) => {
     const { result } = await run([{ text }]);
     expect(result.status).toBe('incomplete'); expect(result.reason).toBe(reason); expect(result.reason).not.toContain('SECRET_VALUE');
   });
