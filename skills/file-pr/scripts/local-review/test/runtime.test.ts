@@ -170,9 +170,20 @@ describe('actual isolated SDK sessions, fixture dispatch only', () => {
     [JSON.stringify({ ...clean, checkedPaths: ['src/other.ts'] }), 'Candidate rejected: Path is not readable filtered pinned text'],
     [JSON.stringify({ ...clean, requiredUnavailable: ['Caller excluded'] }), 'Candidate rejected: Required context unavailable'],
     [JSON.stringify({ ...clean, findings: [{ id: 'x', lens: 'correctness', severity: 'P2', path: 'src/a.ts', revision: 'head', start: 1, end: 1, quote: 'SECRET_VALUE', cause: 'c', trigger: 't', impact: 'i', classification: 'introduced', uncertainty: null }] }), 'Candidate rejected: Unsupported finding evidence: quote mismatch at range 1-1: not in file (quote 1 lines, range 1)'],
+    [JSON.stringify({ ...clean, findings: [{ ...finding, classification: 'uncertain', uncertainty: 'SECRET_VALUE' }] }), 'Candidate rejected: Uncertain candidate: an uncertain classification leaves the review incomplete'],
   ])('names the failed candidate check without echoing model text (case %#)', async (text, reason) => {
     const { result } = await run([{ text }]);
     expect(result.status).toBe('incomplete'); expect(result.reason).toBe(reason); expect(result.reason).not.toContain('SECRET_VALUE');
+  });
+  it('names the candidate count when findings exceed the policy limit', async () => {
+    const text = JSON.stringify({ ...clean, findings: [finding, { ...finding, id: 'toggle-2' }] });
+    expect((await run([{ text }])).result.status).toBe('complete');
+    const { result } = await run([{ text }], { ...DEFAULT_POLICY, maxCandidates: 1 });
+    expect(result.status).toBe('incomplete'); expect(result.reason).toBe('Candidate rejected: Excessive candidates: 2 > 1');
+  });
+  it('prompt keeps uncertain classification for unknown origin, not doubtful impact', () => {
+    expect(PROMPT).toContain('uncertain only when you cannot tell which; any uncertain finding makes the review incomplete');
+    expect(PROMPT).toContain('Doubt about whether a defect matters belongs in severity and impact, not classification.');
   });
   it('prompt spells out every key the candidate schema accepts', () => {
     const keys = [CandidateOutputSchema, FindingSchema, OmissionSchema].flatMap(schema => Object.keys(schema.properties));
