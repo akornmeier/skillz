@@ -33,24 +33,27 @@ git diff --no-relative --no-color --no-ext-diff --no-textconv -D "$MERGE_BASE" "
 [ -s "$DIFF_FILE" ] || { rm -f "$DIFF_FILE"; echo "file-pr review: empty diff" >&2; exit 3; }
 [ "$(wc -c < "$DIFF_FILE")" -le 200000 ] || { rm -f "$DIFF_FILE"; echo "file-pr review: diff over 200 KB" >&2; exit 4; }
 grep '^Binary files ' "$DIFF_FILE" | sed 's/^/binary entry: /' || true
-git diff --no-relative --name-only --diff-filter=D "$MERGE_BASE" "$REVIEWED_HEAD" | sed 's/^/deleted: /'
+git -c core.quotePath=false diff --no-relative --name-only --diff-filter=D "$MERGE_BASE" "$REVIEWED_HEAD" | sed 's/^/deleted: /'
 printf 'reviewed head %s\nmerge base %s\ndiff file %s\n' "$REVIEWED_HEAD" "$MERGE_BASE" "$DIFF_FILE"
 ```
 
-Shell variables may not persist between tool calls: use the printed values literally from here on, record the reviewed head, and delete the diff file when the review ends. Each run gets its own diff file; a prepare deletes review diffs over a day old, which a killed run may have left. `-D` shows a deleted file as a header only, which keeps deleted lockfiles, generated files and secrets out of the review. Each printed `deleted:` path that is source code still needs its old contents reviewed for what its removal breaks: Claude Code's reviewer reads them with `git show`, and Pi's gets them as a second attached diff.
+Shell variables may not persist between tool calls: use the printed values literally from here on, record the reviewed head, and delete the diff file when the review ends. Each run gets its own diff file; a prepare deletes review diffs over a day old, which a killed run may have left. `-D` shows a deleted file as a header only, which keeps deleted lockfiles, generated files and secrets out of the review. Every printed `deleted:` path needs a check for remaining references, and each one that is source code also needs its old contents reviewed for what its removal breaks, counted toward the 200 KB limit: Claude Code's reviewer reads them with `git show`, and Pi's gets them as a second attached diff.
 
-- **Claude Code:** invoke the `code-review` skill at `high` effort and tell it to review exactly the patch in the printed diff file, which is `git diff --no-relative -D <merge base> <reviewed head>`, not its default of unpushed commits. Name the deleted source paths and tell it to read each one's old contents with `git show <merge base>:<path>` and check what its removal breaks. If the project or user has its own `code-review` skill or command (`.claude/skills/code-review/`, `~/.claude/skills/code-review/`, `.claude/commands/code-review.md` or `~/.claude/commands/code-review.md`), invoking `code-review` may load it instead of the built-in one: tell the user once per attempt and ask whether to review with it, under these same instructions, or waive review. Do not pass `--max-findings`; it changes the user's own default. Exactly ten findings may be a truncated list: review the diff again in smaller parts or ask the user.
+- **Claude Code:** invoke the `code-review` skill at `high` effort and tell it to review exactly the patch in the printed diff file, which is `git diff --no-relative -D <merge base> <reviewed head>`, not its default of unpushed commits. Name every deleted source path from the printed list and tell it to read each one's old contents with `git show <merge base>:<path>`, check what its removal breaks, and check for remaining references to every deleted path. If the project or user has its own `code-review` skill or command (`.claude/skills/code-review/`, `~/.claude/skills/code-review/`, `.claude/commands/code-review.md` or `~/.claude/commands/code-review.md`), invoking `code-review` may load it instead of the built-in one: tell the user once per attempt and ask whether to review with it, under these same instructions, or waive review. Do not pass `--max-findings`; it changes the user's own default. Exactly ten findings may be a truncated list: review the diff again in smaller parts or ask the user.
 - **Pi:** run a fresh read-only reviewer that loads no repository instructions, with a timeout, putting the printed path in `DIFF_FILE` and any deleted source paths in `DELETED_SOURCE`:
 
-  ```sh
+  ```bash
   set -euo pipefail
   DIFF_FILE='<printed diff file>'
-  OLD_FILE="$DIFF_FILE.deleted"
+  OLD_FILE="$(mktemp "${TMPDIR:-/tmp}/file-pr-review.XXXXXX")"
   trap 'rm -f "$DIFF_FILE" "$OLD_FILE"' EXIT
   DELETED_SOURCE=() # each deleted source path, quoted
   ATTACH=(@"$DIFF_FILE")
   if [ "${#DELETED_SOURCE[@]}" -gt 0 ]; then
-    git -C "$(git rev-parse --show-toplevel)" diff --no-color --no-ext-diff --no-textconv '<merge base>' '<reviewed head>' -- "${DELETED_SOURCE[@]}" > "$OLD_FILE"
+    TOP="$(git rev-parse --show-toplevel)"
+    MATCHED="$(git --literal-pathspecs -C "$TOP" diff --name-only --diff-filter=D '<merge base>' '<reviewed head>' -- "${DELETED_SOURCE[@]}" | wc -l)"
+    [ "$MATCHED" -eq "${#DELETED_SOURCE[@]}" ] || { echo "file-pr review: a deleted source path did not match" >&2; exit 6; }
+    git --literal-pathspecs -C "$TOP" diff --no-color --no-ext-diff --no-textconv '<merge base>' '<reviewed head>' -- "${DELETED_SOURCE[@]}" > "$OLD_FILE"
     [ "$(cat "$DIFF_FILE" "$OLD_FILE" | wc -c)" -le 200000 ] || { echo "file-pr review: diff over 200 KB" >&2; exit 4; }
     ATTACH+=(@"$OLD_FILE")
   fi
