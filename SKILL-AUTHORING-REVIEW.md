@@ -38,7 +38,7 @@ This review began with 23 skills installed under `~/.agents/skills/`: 13 locally
 ### Highest-priority improvements
 
 1. **Harden `voyage-embeddings` before use.** Its ingest path can disclose full local source and paths, incur paid API and Pinecone writes, and retry permanent failures without a dry run, cost estimate, data-classification gate, or immediate approval.
-2. **Resolve the thermo-nuclear review contract.** Define read-only review versus approval-gated repair and document the Pi-specific explicit-only routing fallback before use in other harnesses.
+2. **Resolve the thermo-nuclear review contract.** Define read-only review versus approval-gated repair. Pi and Claude Code both honor its explicit-only routing (`disable-model-invocation`); document a fallback before use in other harnesses.
 3. **Repair `meta-skill` portability.** Its scanner misses this repository by default and its vendored root-relative web links currently block repository evaluation validation.
 4. **Restore and execute the evaluation matrix.** Add repository-schema suites for the three new packages, then run every case across Pi's fast/economical, balanced/default, and highest-reasoning profiles with fresh sessions, equivalent tools, and complete reproducibility records.
 
@@ -80,7 +80,7 @@ This review began with 23 skills installed under `~/.agents/skills/`: 13 locally
 
 **Implemented:** Third-person discovery metadata, portable compatibility guidance, duplicate-PR protection, diff and convention inspection, repository-policy-aware draft handling, and post-creation verification.
 
-**Evaluation coverage:** Definitions now cover an existing PR, an empty or unrelated diff, and repository-specific conventions. Execute them across all configured profiles.
+**Evaluation coverage:** Definitions cover an existing or unchanged PR, an empty or unrelated diff, repository conventions, a dirty tree, review fixes, false positives, unresolved findings, an unavailable, oversized or hidden-source review, and an explicit bypass. A reviewer-replacement question and a commit made after review need a multi-turn or Claude Code harness and are not covered. Execute them across all configured profiles.
 
 ### `gauntlet-loop` — authoring update complete
 
@@ -430,8 +430,8 @@ All three names match their directories, satisfy the portable name grammar, and 
 
 - Pi discovers recursive `<name>/SKILL.md` packages in `~/.agents/skills/`, `~/.pi/agent/skills/`, project equivalents, packages, settings, and explicit `--skill` paths. Root `.md` discovery differs by location. `--no-skills` disables discovery, while explicit `--skill` remains additive.
 - Pi permits a declared name to differ from its directory, but the Agent Skills standard requires a match. Treat mismatch as a portability finding even when Pi loads it.
-- Pi supports optional `license`, `compatibility`, `metadata`, experimental `allowed-tools`, and `disable-model-invocation`. Broad Anthropic Skill surfaces guarantee only `name` and `description`; Claude Code separately supports `allowed-tools`. Unknown fields may be ignored elsewhere, so any behavior that depends on an optional field needs an explicit compatibility note and a safe fallback.
-- `disable-model-invocation: true` hides a skill from Pi's model metadata and requires `/skill:name`. Other harnesses may ignore it and auto-discover the skill, reversing the intended routing policy.
+- Pi supports optional `license`, `compatibility`, `metadata`, experimental `allowed-tools`, and `disable-model-invocation`. Broad Anthropic Skill surfaces guarantee only `name` and `description`; Claude Code separately supports `allowed-tools` and `disable-model-invocation`. Unknown fields may be ignored elsewhere, so any behavior that depends on an optional field needs an explicit compatibility note and a safe fallback.
+- `disable-model-invocation: true` hides a skill from Pi's model metadata and requires `/skill:name`; Claude Code likewise requires `/name`. Other harnesses may ignore it and auto-discover the skill, reversing the intended routing policy.
 - For Pi debugging: run with `--verbose`, confirm the location and valid description, check duplicate names, and use `/skill:name` or explicit `--skill <path>` to separate discovery failure from instruction failure. Restart after package changes because metadata is loaded at startup.
 
 ### `meta-skill` — high priority
@@ -456,7 +456,7 @@ All three names match their directories, satisfy the portable name grammar, and 
 **Findings:**
 
 - Description opens with imperative “Run” rather than strict third-person “Runs.” More importantly, Pi never exposes that description for automatic discovery because `disable-model-invocation: true` makes the package explicit-only.
-- `disable-model-invocation` is a Pi-specific routing dependency. A harness that ignores it may auto-load an intentionally extreme review persona for ordinary maintainability requests.
+- `disable-model-invocation` is a client routing extension that Pi and Claude Code honor. A harness that ignores it may auto-load an intentionally extreme review persona for ordinary maintainability requests.
 - Scope says “review,” but instructions say to “go for” ambitious restructuring. No read-only boundary, mutation approval, target/diff selection, repository-policy check, test loop, or output distinction between findings and applied edits exists.
 - Repeated absolutes and the fixed 1,000-line blocker consume most of the body without evidence, exception handling, or a feedback mechanism. This risks aggressive over-refactoring and low-value duplication rather than high-conviction review.
 - No `evals/evals.json`, baseline, discovery/explicit-invocation test, clean-diff case, false-positive case, behavior-preservation case, or unauthorized-mutation assertion exists.
@@ -481,6 +481,6 @@ All three names match their directories, satisfy the portable name grammar, and 
 ### Priority order
 
 1. Harden `voyage-embeddings` before any real ingest or migration; current path can disclose source and incur paid external writes.
-2. Resolve `thermo-nuclear-code-quality-review`'s review-versus-edit contract and explicit-only portability before using it outside Pi.
+2. Resolve `thermo-nuclear-code-quality-review`'s review-versus-edit contract, and document an explicit-only fallback before using it outside Pi and Claude Code.
 3. Repair `meta-skill`'s global-root discovery and evaluation-validator integration so future audits produce trustworthy coverage.
 4. Run fresh evaluation matrices only after definitions validate; current package presence and syntax checks are not behavioral evidence.
