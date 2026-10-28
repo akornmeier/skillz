@@ -80,7 +80,7 @@ This review began with 23 skills installed under `~/.agents/skills/`: 13 locally
 
 **Implemented:** Third-person discovery metadata, portable compatibility guidance, duplicate-PR protection, diff and convention inspection, repository-policy-aware draft handling, and post-creation verification.
 
-**Evaluation coverage:** Definitions now cover an existing PR, an empty or unrelated diff, and repository-specific conventions. Execute them across all configured profiles.
+**Evaluation coverage:** Definitions cover an existing or unchanged PR, an empty or unrelated diff, repository conventions, a dirty tree, review fixes, false positives, unresolved findings, an unavailable, oversized or hidden-source review, and an explicit bypass. A reviewer-replacement question and a commit made after review need a multi-turn or Claude Code harness and are not covered. Execute them across all configured profiles.
 
 ### `gauntlet-loop` — authoring update complete
 

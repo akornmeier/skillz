@@ -27,7 +27,7 @@ set -euo pipefail
 : "${BASE:?set BASE to the intended base ref}"
 REVIEWED_HEAD="$(git rev-parse HEAD)"
 MERGE_BASE="$(git merge-base "$BASE" HEAD)"
-find "${TMPDIR:-/tmp}" -maxdepth 1 -type f -name 'file-pr-review.*' -mmin +1440 -delete 2>/dev/null || true
+find "${TMPDIR:-/tmp}/" -maxdepth 1 -type f -name 'file-pr-review.*' -mmin +1440 -delete 2>/dev/null || true
 DIFF_FILE="$(mktemp "${TMPDIR:-/tmp}/file-pr-review.XXXXXX")"
 git diff --no-relative --no-color --no-ext-diff --no-textconv -D "$MERGE_BASE" "$REVIEWED_HEAD" > "$DIFF_FILE"
 [ -s "$DIFF_FILE" ] || { rm -f "$DIFF_FILE"; echo "file-pr review: empty diff" >&2; exit 3; }
