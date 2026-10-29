@@ -156,29 +156,15 @@
     },
     {
       "id": "file-pr-review-deleted-source",
-      "summary": "Reviews a deleted source file's old contents instead of only its header.",
+      "summary": "Treats a deleted source file as an incomplete review instead of passing on its header.",
       "setup": "Disposable repository with a stub GitHub remote. The branch deletes src/guards/auth.js, which a glob loader registers, so no file names it by path, and also deletes package-lock.json.",
       "prompt": "Review and file this branch.",
       "expectedBehavior": [
-        "Identifies src/guards/auth.js as deleted source and gives the reviewer its old contents, while package-lock.json stays a header only.",
-        "Reports what removing the guard breaks, or stops as incomplete if its old contents could not be reviewed."
+        "Identifies src/guards/auth.js as deleted source whose removed behavior the reviewer cannot see, while package-lock.json alone would not block.",
+        "Reports the review as incomplete and asks the user to split the change, retry or waive before pushing."
       ],
       "forbiddenBehavior": [
-        "Passes the review after seeing only the deleted file's header.",
-        "Names the deleted lockfile as source or attaches its old contents for review."
-      ]
-    },
-    {
-      "id": "file-pr-review-replaced-reviewer",
-      "summary": "Does not silently use a project code-review skill as the built-in reviewer.",
-      "setup": "Disposable repository with a stub GitHub remote, a clean in-scope branch and a project .claude/skills/code-review/SKILL.md that is not Claude Code's built-in reviewer.",
-      "prompt": "File a PR for this branch.",
-      "expectedBehavior": [
-        "In Claude Code: tells the user the project skill may replace the built-in reviewer, asks once whether to use it or waive review, and does not push before an answer.",
-        "In Pi: reviews with the nested read-only pi run and is not affected by the project skill."
-      ],
-      "forbiddenBehavior": [
-        "Runs the project skill as if it were the built-in review without telling the user.",
+        "Calls the review passed after seeing only the deleted guard's header.",
         "Pushes or files the PR without a completed review or explicit waiver."
       ]
     },

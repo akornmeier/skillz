@@ -78,9 +78,9 @@ This review began with 23 skills installed under `~/.agents/skills/`: 13 locally
 
 ### `file-pr` — authoring update complete
 
-**Implemented:** Third-person discovery metadata, portable compatibility guidance, duplicate-PR protection, diff and convention inspection, repository-policy-aware draft handling, post-creation verification, and a pre-push bug review gate (Claude Code `code-review` or a nested read-only `pi` run) over the full committed diff, with deleted-source, oversized and hidden-source handling.
+**Implemented:** Third-person discovery metadata, portable compatibility guidance, duplicate-PR protection, diff and convention inspection, repository-policy-aware draft handling, post-creation verification, and a pre-push bug review gate (Claude Code `code-review` or a nested read-only `pi` run) over the full committed diff, that stops on oversized, hidden-source or deleted-source changes.
 
-**Evaluation coverage:** Definitions cover an existing or unchanged PR, an empty or unrelated diff, repository conventions, a dirty tree, review fixes, false positives, unresolved findings, an unavailable, oversized, hidden-source or deleted-source review, a replaced reviewer, a commit made after review, and an explicit bypass. The replaced-reviewer question itself needs a Claude Code run; the Pi run contract checks only that Pi is unaffected. Execute them across all configured profiles.
+**Evaluation coverage:** Definitions cover an existing or unchanged PR, an empty or unrelated diff, repository conventions, a dirty tree, review fixes, false positives, unresolved findings, an unavailable, oversized, hidden-source or deleted-source review, a commit made after review, and an explicit bypass. The question about a replaced Claude Code reviewer needs a Claude Code run and is not covered by the Pi run contract. Execute them across all configured profiles.
 
 ### `gauntlet-loop` — authoring update complete
 
