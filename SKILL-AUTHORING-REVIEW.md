@@ -78,9 +78,9 @@ This review began with 23 skills installed under `~/.agents/skills/`: 13 locally
 
 ### `file-pr` — authoring update complete
 
-**Implemented:** Third-person discovery metadata, portable compatibility guidance, duplicate-PR protection, diff and convention inspection, repository-policy-aware draft handling, and post-creation verification.
+**Implemented:** Third-person discovery metadata, portable compatibility guidance, duplicate-PR protection, diff and convention inspection, repository-policy-aware draft handling, post-creation verification, and a pre-push bug review gate (Claude Code `code-review` or a nested read-only `pi` run) over the full committed diff, that stops on oversized or hidden-source changes and discloses deleted files it could not read.
 
-**Evaluation coverage:** Definitions cover an existing or unchanged PR, an empty or unrelated diff, repository conventions, a dirty tree, review fixes, false positives, unresolved findings, an unavailable, oversized or hidden-source review, and an explicit bypass. A reviewer-replacement question and a commit made after review need a multi-turn or Claude Code harness and are not covered. Execute them across all configured profiles.
+**Evaluation coverage:** Definitions cover an existing or unchanged PR, an empty or unrelated diff, repository conventions, a dirty tree, review fixes, false positives, unresolved findings, an unavailable, oversized or hidden-source review, deleted-file disclosure, a commit made after review, and an explicit bypass. The question about a replaced Claude Code reviewer needs a Claude Code run and is not covered by the Pi run contract. Execute them across all configured profiles.
 
 ### `gauntlet-loop` — authoring update complete
 
@@ -354,7 +354,7 @@ Specifically:
 2. Build the umbrella leaf structure and deduplicate contradictory guidance.
 3. Add umbrella evaluations before removing discovery from the old packages.
 4. Compare umbrella routing and output against the current family using fresh sessions.
-5. Replace the five subordinate packages with explicit-only compatibility aliases during one transition period. Each alias should route to one umbrella mode and use Pi's `disable-model-invocation: true`.
+5. Replace the five subordinate packages with explicit-only compatibility aliases during one transition period. Each alias should route to one umbrella mode and use `disable-model-invocation: true`, which Pi and Claude Code honor.
 6. Remove the retired packages from `.skill-lock.json` so an installer update cannot overwrite the locally consolidated versions.
 7. Search global and project configuration, prompts, agents, and evals for old names. Migrate the existing three `prototype` cases to umbrella modes.
 8. Remove aliases after the transition period and keep migration history in Git rather than discoverable packages.
@@ -455,8 +455,8 @@ All three names match their directories, satisfy the portable name grammar, and 
 
 **Findings:**
 
-- Description opens with imperative “Run” rather than strict third-person “Runs.” More importantly, Pi never exposes that description for automatic discovery because `disable-model-invocation: true` makes the package explicit-only.
-- `disable-model-invocation` is a client routing extension that Pi and Claude Code honor. A harness that ignores it may auto-load an intentionally extreme review persona for ordinary maintainability requests.
+- Description opens with imperative “Run” rather than strict third-person “Runs.” More importantly, Pi and Claude Code never expose that description for automatic discovery because `disable-model-invocation: true` makes the package explicit-only.
+- A harness that ignores `disable-model-invocation` may auto-load an intentionally extreme review persona for ordinary maintainability requests.
 - Scope says “review,” but instructions say to “go for” ambitious restructuring. No read-only boundary, mutation approval, target/diff selection, repository-policy check, test loop, or output distinction between findings and applied edits exists.
 - Repeated absolutes and the fixed 1,000-line blocker consume most of the body without evidence, exception handling, or a feedback mechanism. This risks aggressive over-refactoring and low-value duplication rather than high-conviction review.
 - No `evals/evals.json`, baseline, discovery/explicit-invocation test, clean-diff case, false-positive case, behavior-preservation case, or unauthorized-mutation assertion exists.
