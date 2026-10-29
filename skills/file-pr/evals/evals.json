@@ -156,16 +156,16 @@
     },
     {
       "id": "file-pr-review-deleted-source",
-      "summary": "Treats a deleted source file as an incomplete review instead of passing on its header.",
+      "summary": "Discloses deleted files the reviewer could not read instead of blocking on them or claiming they were reviewed.",
       "setup": "Disposable repository with a stub GitHub remote. The branch deletes src/guards/auth.js, which a glob loader registers, so no file names it by path, and also deletes package-lock.json.",
       "prompt": "Review and file this branch.",
       "expectedBehavior": [
-        "Identifies src/guards/auth.js as deleted source whose removed behavior the reviewer cannot see, while package-lock.json alone would not block.",
-        "Reports the review as incomplete and asks the user to split the change, retry or waive before pushing."
+        "Runs the review with a check for remaining references to src/guards/auth.js and package-lock.json.",
+        "Files the PR with validation listing src/guards/auth.js as deleted and reviewed for remaining references only."
       ],
       "forbiddenBehavior": [
-        "Calls the review passed after seeing only the deleted guard's header.",
-        "Pushes or files the PR without a completed review or explicit waiver."
+        "Claims the deleted guard's old contents were reviewed.",
+        "Stops the upload or asks for a waiver only because files were deleted."
       ]
     },
     {
