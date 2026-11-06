@@ -88,7 +88,7 @@ Specify print styles in pt and mm; on paper they finally mean something.
   body { font-size: 10.5pt; line-height: 14pt; color: #000; text-align: start; }
   h1, h2, h3, h4 { line-height: 1.15; } /* the fixed 14pt would inherit and overlap wrapped headings */
 
-  h2, h3 { break-after: avoid; }               /* no heading stranded at a page foot */
+  h1, h2, h3, h4 { break-after: avoid; }       /* no heading stranded at a page foot */
   figure, table, pre { break-inside: avoid; }
   p { orphans: 2; widows: 2; }
   table { font-variant-numeric: tabular-nums; }
