@@ -30,7 +30,7 @@ Ask only when the target cannot be enumerated or the request conflicts with a de
 
 ## 3. Prepare round 1
 
-Fix known issues and run the checks first. Show the frame, with the roster and checks, in a few lines before sending round 1. When delivering a PR, create the branch, commit, and open the PR with `file-pr` before round 1, so every member reviews the same commit. Build the brief from [references/brief.md](references/brief.md) and send it complete and unchanged to all members in parallel; delegates get no conversation history.
+Fix known issues and run the checks first. Show the frame, with the roster and checks, in a few lines before sending round 1. When delivering a PR, create the branch, commit, and open the PR with `file-pr` before round 1, so every member reviews the same commit. If there is nothing to commit yet, review the current commit and open the PR once the first fixes are committed; if the council finds nothing to fix, report that and open no PR. Build the brief from [references/brief.md](references/brief.md) and send it complete and unchanged to all members in parallel; delegates get no conversation history.
 
 ## 4. Run rounds
 
