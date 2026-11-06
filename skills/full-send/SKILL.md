@@ -49,8 +49,8 @@ one appears.
 3. **Get feedback.** Use the `sol-loop` skill to verify changes. If it reports
    no Sol route or ends with an item still disputed, decide that item yourself,
    list the decision in the report, and continue.
-4. **File the PR** with the `file-pr` skill. Rebase onto the latest default
-   branch first. Add one short line to the description that says how you proved
+4. **File the PR** with the `file-pr` skill. Rebase onto the latest base
+   branch first (the PR's actual base, usually the default branch). Add one short line to the description that says how you proved
    the change.
 5. **Babysit the PR** with the `babysit-pr` skill. Fix real findings and CI
    failures. Get proof for each fix before you push it.
@@ -90,8 +90,8 @@ Full confidence means all of these are true on the latest commit:
 - Review bots have finished, except advisory ones such as CodeRabbit that
   `babysit-pr` says never to wait for, and each finding is fixed or dismissed
   with a written reason.
-- No human review still requests changes.
-- The branch is up to date with the default branch, and GitHub reports it as
+- Required approvals are satisfied, and no human review still requests changes.
+- The branch is up to date with its base branch, and GitHub reports it as
   mergeable.
 
 Merge with the method the repo uses. Check the allowed methods and recent merged

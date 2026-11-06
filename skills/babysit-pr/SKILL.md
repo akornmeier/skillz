@@ -115,7 +115,9 @@ user, and ask before closing the PR unless closure was explicitly authorized.
 If nothing has changed, stay quiet rather than posting filler comments. Stop
 when `pr-wait` exits 0, or in T3 Code when the merge gate passes on the latest
 head. Merge only when the user explicitly requested it;
-otherwise report that the PR is ready. Right before a merge, run `git fetch` and
-check the PR again. Never merge when it is BEHIND or DIRTY, or when base commits
-that landed after the last green run touch this PR's files. Rebase, push, and
+otherwise report that the PR is ready. A watcher's exit 0 is not the merge
+gate. Right before a merge, run `git fetch` and check the PR again: required
+checks and approvals, no changes-requested review, no unresolved threads.
+Never merge when it is BEHIND or DIRTY, or when base commits that landed after
+the last green run touch this PR's files. Rebase, push, and
 wait for green again.

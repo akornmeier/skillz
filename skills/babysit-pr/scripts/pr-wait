@@ -277,7 +277,7 @@ class Watcher:
         self.printed: set[str] = set()
         self.events = 0
         self.required: set[str] | None = None
-        self.prev_snapshot: list[tuple[str, str]] | None = None
+        self.prev_snapshot: tuple[str, list[tuple[str, str]]] | None = None
         self.empty_gate_since: tuple[str, float] | None = None
         self.pr_files: dict[str, set[str]] = {}
 
@@ -463,7 +463,9 @@ class Watcher:
         all_done = gate_done and all(c["bucket"] != "pending" for c in watched.values())
         # Checks appear a few seconds after a push. Two identical polls in a row
         # guard against calling a half-registered set of checks finished.
-        snapshot = sorted((name, c["bucket"]) for name, c in watched.items())
+        # The head is part of the snapshot so a push between reads never counts
+        # as stable.
+        snapshot = (head, sorted((name, c["bucket"]) for name, c in watched.items()))
         stable = snapshot == self.prev_snapshot
         self.prev_snapshot = snapshot
         green = gate_done and stable and not fail_lines
