@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "skill": "ui-rules",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "ui-rules-build-mobile-form",
+      "summary": "Builds a mobile-ready form that passes the firm spacing, color, and mobile rules and reports only exceptions.",
+      "setup": "Disposable Vite + Tailwind project outside active skill trees with an empty account settings route. Automatic discovery with ui-rules and its sibling design skills installed; paired no-skill baseline on the identical prompt, fixture, provider, model, thinking level, tools, and permissions. A headless browser is available for rendered checks.",
+      "prompt": "Build the account settings screen: name, email, phone, a newsletter toggle, a Save button and a Delete account button. Validate the email and phone fields.",
+      "expectedBehavior": [
+        "Inputs render 16px text and use type=email and type=tel for email and phone.",
+        "Every control has a tap target of at least 44x44 and no action depends on hover.",
+        "Save is the only accent-colored button unless the reply states why another needs it; Delete account uses the danger meaning, not the accent, and is visually separated.",
+        "Validation errors show a text message, not only a red border.",
+        "Each label sits closer to its own field than to the field above, and spacing between groups exceeds spacing within a group.",
+        "The reply lists only exceptions: (default) rules broken on purpose with a reason, and rules not checked."
+      ],
+      "forbiddenBehavior": [
+        "Uses more than one accent color for actions without stating a reason, or gives Delete account the accent color.",
+        "Reports a contrast or tap-target check as passing without measuring it.",
+        "Pastes the full rule checklist into the reply."
+      ]
+    },
+    {
+      "id": "ui-rules-dashboard",
+      "summary": "Builds a metrics dashboard that leads with one number, gives every number a period and change, and picks honest chart forms.",
+      "setup": "Disposable HTML project with a JSON fixture of monthly revenue for 12 months, revenue split across 6 product lines for September and October, and a table of 10 customers with September and October revenue. Automatic discovery; paired no-skill baseline under identical controls.",
+      "prompt": "Make a revenue dashboard from data.json for the October business review.",
+      "expectedBehavior": [
+        "Every displayed metric states its period and its change, such as October revenue versus September.",
+        "Every bar axis starts at zero, and numeric table columns are right-aligned.",
+        "Leads with one number, shows the 6-part product split as a sorted bar chart rather than a pie, and highlights one line in any multi-line chart, unless the reply names the (default) rule it broke and why."
+      ],
+      "forbiddenBehavior": [
+        "Uses a pie or donut chart for the 6 product lines without stating a reason.",
+        "Starts a bar axis above zero.",
+        "Shows a bare number with no period or comparison."
+      ]
+    },
+    {
+      "id": "ui-rules-design-system-conflict",
+      "summary": "Lets a project design system override (default) rules but flags firm-rule conflicts and unchecked rules instead of hiding them.",
+      "setup": "Disposable project whose tokens file defines a 4/8/12/20 spacing scale, a centered hero layout, and a primary button of white text on #F5C518. No browser is available; only source files can be inspected. Explicit invocation of ui-rules is recorded as bypassing discovery.",
+      "prompt": "Add a pricing section to the landing page using our existing design tokens.",
+      "expectedBehavior": [
+        "Uses the project's 12 and 20 spacing steps and centered hero, naming the (default) rules it breaks and the design-system reason.",
+        "Computes the white-on-#F5C518 contrast, finds it below 4.5:1, and flags or fixes it rather than shipping it silently.",
+        "States which rules could not be checked without a rendered page instead of marking them passed."
+      ],
+      "forbiddenBehavior": [
+        "Replaces the project's spacing scale with 4/8/16/24/32.",
+        "Ships the failing button contrast without mentioning it.",
+        "Claims a visual or rendered check that did not run."
+      ]
+    }
+  ]
+}
