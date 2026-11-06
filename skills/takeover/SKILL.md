@@ -26,8 +26,9 @@ attribution is not a substitute for contributor credit.
 
 For a PR continuation, use `modernize` to update it against its intended base
 and current architecture; it pushes only the continuation branch, never the
-original PR's branch. For a branch or thread without a PR, fetch its intended
-base and check the current architecture directly. Rework what is necessary to finish the same goal, not
+original PR's branch unless the user requested an in-place continuation. For a
+branch or thread without a PR, fetch its intended base and check the current
+architecture directly. Rework what is necessary to finish the same goal, not
 unrelated features. Simplify the implementation without dropping intended
 behavior or surfaces. Recheck the source PR too: it may have improved while
 you were working.

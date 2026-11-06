@@ -142,12 +142,12 @@ Voyage charges per token embedded. For storage-sensitive ingests, models that su
 result = vo.embed(texts, model="voyage-4", input_type="document", output_dtype="int8")
 ```
 
-`int8` reduces vector storage 4×; `binary`/`ubinary` reduce 32× at the cost of recall. Most users won't need this — full `float` is the default and matches what Pinecone expects without further configuration. See `references/models.md` for details.
+`int8` makes the returned embeddings 4× smaller and `binary`/`ubinary` 32× smaller, at some cost in recall. Pinecone dense indexes store 32-bit floats either way, so use the default `float` for Pinecone. See `references/models.md` for details.
 
 ## Troubleshooting
 
 - **`voyageai.error.AuthenticationError`** — `VOYAGE_API_KEY` isn't reaching the script. Confirm it's in the `env` block of `~/.claude/settings.local.json` and restart the Claude Code session so the env reloads.
-- **Dimension mismatch on upsert** — the Voyage model's output dimension differs from the Pinecone index's. If the model supports it, pass `output_dimension=N` to `vo.embed()` to match the index; otherwise create a new, correctly-dimensioned index (with approval) and leave the existing one alone.
+- **Dimension mismatch on upsert** — the Voyage model's output dimension differs from the Pinecone index's. If the model supports it, pass `output_dimension=N` to `vo.embed()` to match the index (the bundled scripts have no flag for this, so edit their `vo.embed()` call); otherwise create a new, correctly-dimensioned index (with approval) and leave the existing one alone.
 - **Retrieval quality looks worse than llama-text-embed-v2** — first check `input_type`: ingest must use `document` and search must use `query`. Using the same value on both sides, or `None`, is the most common cause.
 - **Rate-limit errors during large ingests** — `upsert_with_recovery()` retries with backoff. If it's still failing, lower `VOYAGE_BATCH_SIZE` from 128 to ~32.
 

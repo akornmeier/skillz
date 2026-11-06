@@ -81,13 +81,13 @@ Or pass `output_dimension=256` to `vo.embed()` directly (cleaner).
 
 Pass `output_dtype` to `vo.embed()` (check the Voyage docs for which models support non-float types):
 
-| `output_dtype` | Storage per dim | Retrieval impact |
+| `output_dtype` | Embedding size per dim | Retrieval impact |
 | --- | --- | --- |
 | `float` (default) | 4 bytes | None — baseline |
-| `int8`, `uint8` | 1 byte (4× saving) | Small but measurable |
-| `binary`, `ubinary` | 0.125 bytes (32× saving) | Larger drop, but acceptable for many use cases when paired with reranking |
+| `int8`, `uint8` | 1 byte (4× smaller) | Small but measurable |
+| `binary`, `ubinary` | 0.125 bytes (32× smaller) | Larger drop, but acceptable for many use cases when paired with reranking |
 
-Pinecone supports `int8` indexes directly. For binary, you'll need to handle the bit-packing yourself — most users should stick to `float` and only quantize when storage is a real bottleneck.
+These are sizes of the embeddings Voyage returns, not Pinecone storage: Pinecone dense indexes store 32-bit floats, so quantized output saves transfer and local storage only. Use `float` for Pinecone unless the user has another store that keeps quantized vectors.
 
 ## input_type — the most important parameter
 

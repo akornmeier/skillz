@@ -62,7 +62,7 @@ Apply style inputs in this order:
 2. project-local `.pi/diagram-design/style-guide.md`;
 3. bundled defaults.
 
-Current-request overrides are temporary unless the user asks to save them; when the request supplies tokens, apply them over bundled defaults without onboarding. If the request supplies none and the project-local file does not exist, follow [references/onboarding.md](references/onboarding.md). Ask whether to derive tokens from an approved website, accept pasted tokens, or adopt bundled defaults. Write only the project-local file; never edit this skill package.
+Current-request overrides are temporary unless the user asks to save them; when the request supplies tokens, apply them over project-local tokens when present, otherwise over bundled defaults, without onboarding. If the request supplies none and the project-local file does not exist, follow [references/onboarding.md](references/onboarding.md). Ask whether to derive tokens from an approved website, accept pasted tokens, or adopt bundled defaults. Write only the project-local file; never edit this skill package.
 
 ## Build workflow
 
