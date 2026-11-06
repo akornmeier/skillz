@@ -48,7 +48,7 @@
   --measure: 30em; /* about 66 characters per line; 65ch would run 75-90 */
 }
 
-@media (prefers-color-scheme: dark) {
+@media screen and (prefers-color-scheme: dark) { /* paper is light: print keeps the light tokens */
   :root {
     --bg: #1a1a1a;         /* near-black, not #000 */
     --text: #e0e0e0;       /* 13.2:1, off-white, not #fff, so letters don't glow */
@@ -74,6 +74,7 @@ body {
   font-size: clamp(1rem, 0.95rem + 0.27vw, 1.1875rem); /* 16px at 320px wide, 19px from 1440px */
   font-weight: var(--body-weight);
   line-height: var(--leading); /* unitless, so it scales with each element's size */
+  overflow-wrap: break-word; /* long URLs wrap instead of scrolling the page sideways */
   font-kerning: auto;
   font-variant-ligatures: common-ligatures contextual;
   font-optical-sizing: auto;

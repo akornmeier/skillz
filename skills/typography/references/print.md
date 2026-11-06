@@ -77,11 +77,13 @@ Specify print styles in pt and mm; on paper they finally mean something.
     size: A4;                  /* or 210mm 297mm, letter, A5 */
     margin: 20mm 18mm 28mm;    /* single-sided: top, equal sides, bottom largest */
   }
-  /* Bound document instead: mirrored pages. Visible margins grow inner < top < outer < bottom,
-     and the inner one also carries the 5–10mm the binding swallows (here 15 + 7mm).
-     Check that your engine supports :left and :right. */
-  @page :left  { margin: 20mm 22mm 30mm 25mm; }  /* top, inner, bottom, outer */
-  @page :right { margin: 20mm 25mm 30mm 22mm; }  /* top, outer, bottom, inner */
+  /* Bound document: uncomment these to replace the margin above with mirrored pages
+     (top, inner, bottom, outer on :left; top, outer, bottom, inner on :right).
+     Visible margins grow inner < top < outer < bottom, and the inner one also carries
+     the 5–10mm the binding swallows (here 15 + 7mm). Check your engine supports them.
+  @page :left  { margin: 20mm 22mm 30mm 25mm; }
+  @page :right { margin: 20mm 25mm 30mm 22mm; }
+  */
 
   body { font-size: 10.5pt; line-height: 14pt; color: #000; text-align: start; }
   h1, h2, h3, h4 { line-height: 1.15; } /* the fixed 14pt would inherit and overlap wrapped headings */

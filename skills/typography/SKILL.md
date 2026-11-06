@@ -37,7 +37,7 @@ Set type that reads well, or review type that doesn't. On screens, apply the rul
 - Every `clamp()` minimum and maximum is in `rem`, and the middle value includes a `rem` term (`1.6rem + 2.4vw`). Never size text in viewport units alone.
 - Body text 45–75 characters per line, about 66 ideal. Multi-column text 40–50 per column; captions and UI text 35–50. (default)
 - Set the measure in `em`: `max-width: 30em` on the text column holds about 66 characters in most text faces. Avoid `65ch`: `ch` is the width of a zero, wider than the average letter, so 65ch runs 75–90 characters.
-- On narrow screens let the line shorten with the viewport. Never make body text scroll sideways.
+- On narrow screens let the line shorten with the viewport. Never make body text scroll sideways; set `overflow-wrap: break-word` so long URLs wrap.
 
 ### Leading and space
 
@@ -63,7 +63,7 @@ Set type that reads well, or review type that doesn't. On screens, apply the rul
 
 - Dark mode is not an inverted palette. Background #121212–#1a1a1a, text #e0e0e0–#f0f0f0, about 13–16:1. Never pure white on pure black (21:1); the letters glow and tire the eye. (default)
 - Raise the body weight 20–50 units on a variable face, or one step on a static family, most of all for light weights and small sizes. Optionally add 0.1 to the body line height. (default)
-- Swap color tokens under `prefers-color-scheme: dark`, and check contrast in both modes.
+- Swap color tokens under `@media screen and (prefers-color-scheme: dark)`, so print keeps the light tokens, and check contrast in both modes.
 
 ## Files
 
