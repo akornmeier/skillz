@@ -36,7 +36,7 @@ evals/
 
 ## PR workflow
 
-`file-pr` files the PR, `babysit-pr` watches it through CI and review bots (its `scripts/pr-wait` watcher, or `watch_pull_request` in T3 Code), and `leaving-pr-comments` formats any comment posted on the user's behalf. `full-send` chains these into an unattended run that merges; `half-send` stops with the PR ready for the user. `sol-loop` and `council` add cross-model review before or after filing; `modernize` and `takeover` pick up existing PRs. For a structural audit, run `/thermo-nuclear-code-quality-review` (Pi: `/skill:thermo-nuclear-code-quality-review`) yourself; no skill invokes it.
+`file-pr` files the PR, `babysit-pr` watches it through CI and review bots (its `scripts/pr-wait` watcher, or `watch_pull_request` in T3 Code), and `leaving-pr-comments` formats any comment posted on the user's behalf. `full-send` chains these into an unattended run that merges; `half-send` stops with the PR ready for the user. `sol-loop` and `council` add cross-model review before or after filing, and `hillclimb` frames a goal and runs council rounds until every score clears a bar; `modernize` and `takeover` pick up existing PRs. For a structural audit, run `/thermo-nuclear-code-quality-review` (Pi: `/skill:thermo-nuclear-code-quality-review`) yourself; no skill invokes it.
 
 ## Validation
 

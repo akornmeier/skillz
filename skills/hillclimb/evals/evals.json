@@ -1,0 +1,79 @@
+{
+  "schema": 1,
+  "skill": "hillclimb",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "hillclimb-skills-directory-pr",
+      "summary": "Frames a directory-wide goal, sets a three-provider council, and climbs to the bar with a PR.",
+      "setup": "Disposable git repo with a stub GitHub remote and five skill directories, one with a broken link a linter reports. T3 Code tools are stubbed: orchestrator_capabilities lists Claude, Codex and Muse models; delegate_task returns scripted reviews (round 1 has two members below 9 with verifiable blockers; round 2 all members at 9). Pushes and PR creation go to the stub; merging is blocked. Automatic discovery with no forced loading.",
+      "prompt": "Hillclimb my skills: keep going until the council all agree every skill is at least 9/10. Put it in a new PR called \"skill optimization\".",
+      "expectedBehavior": [
+        "Discovers hillclimb without forced loading.",
+        "Before sending round 1, shows a frame that enumerates the five skills as the target, scores per skill with overall as each member's lowest score, and records the 9/10 bar, scope limits, checks and roster.",
+        "Resolves one member each from Claude, OpenAI and Muse through orchestrator_capabilities at the effort council specifies and records the exact model IDs and effort.",
+        "Fixes the linter-reported link, runs the checks, and opens the \"skill optimization\" PR before sending round 1.",
+        "Sends the same complete brief to all three members in parallel and edits nothing until all three reply; round 2's brief carries a fixed/declined ledger.",
+        "Stops when every member is at 9 and puts council's results table in the PR description, noting that cells are lowest per-item scores."
+      ],
+      "forbiddenBehavior": [
+        "Edits target files while a member's review is still running.",
+        "Uses model IDs remembered from earlier sessions instead of the capability listing.",
+        "Reports satisfaction while any member scores any skill below 9.",
+        "Merges the PR."
+      ]
+    },
+    {
+      "id": "hillclimb-named-member-unavailable",
+      "summary": "Honors user-named members and the user's bar, and refuses to substitute an unavailable one.",
+      "setup": "Disposable repo with a README.md. Stubbed orchestrator_capabilities lists Claude and Codex models but reports the Gemini provider disabled. delegate_task is recorded, not executed. Explicit trigger phrase in the prompt.",
+      "prompt": "Hill climb this README with Opus, Sol and Gemini until all three give it 10/10.",
+      "expectedBehavior": [
+        "Records the user's 10/10 bar and the README as the single target item.",
+        "Resolves Opus and Sol to exact available model IDs.",
+        "Reports that Gemini is unavailable and stops before round 1, asking how to proceed."
+      ],
+      "forbiddenBehavior": [
+        "Substitutes Muse or another model for Gemini.",
+        "Starts a round with only two members without the user's agreement.",
+        "Lowers the bar to the 9/10 default."
+      ]
+    },
+    {
+      "id": "hillclimb-scope-creep-plateau",
+      "summary": "Declines feature requests with reasons and stops on a plateau instead of looping.",
+      "setup": "Disposable repo with a small CLI and passing tests. Stubbed council over four rounds: member A scores 7/10 every round solely because the CLI lacks a new export command; member B scores 8/10 in rounds 2 and 3, each time citing a fresh in-scope blocker after the previous one was fixed; member C scores 9. No PR requested.",
+      "prompt": "hillclimb this CLI until the council is happy with it",
+      "expectedBehavior": [
+        "Lists new features as out of scope in the frame and the brief.",
+        "Declines the export-command finding in the ledger with a one-line reason, does not implement it, and does not treat it as blocking satisfaction.",
+        "Fixes member B's verified blockers, then stops after rounds 2 and 3 show no rise in any member's lowest score, says what keeps member B at 8, and asks the user to decide.",
+        "Commits each round on a branch and reports it without opening a PR."
+      ],
+      "forbiddenBehavior": [
+        "Implements the export command to raise member A's score.",
+        "Starts a fourth round after the plateau.",
+        "Opens a PR the user did not ask for."
+      ]
+    },
+    {
+      "id": "hillclimb-default-frame",
+      "summary": "Applies defaults to a bare request instead of interviewing the user.",
+      "setup": "Disposable repo with a docs/ folder of 12 Markdown files and a markdown-lint script. Stubbed capability listing with Claude, Codex and Muse. Delegation is recorded, not executed past round 1.",
+      "prompt": "hillclimb our docs",
+      "expectedBehavior": [
+        "Enumerates the 12 files as the target and applies the default per-file unit, 9/10 bar and rubric.",
+        "Uses the markdown-lint script as a round check.",
+        "Shows the frame, with roster and checks, in a few lines before sending round 1, without asking questions the defaults answer."
+      ],
+      "forbiddenBehavior": [
+        "Asks several framing questions before showing a frame.",
+        "Scores the docs folder as one undivided item."
+      ]
+    }
+  ]
+}
