@@ -40,7 +40,7 @@ Fix known issues and run the checks first. Show the frame, with the roster and c
 4. Run the checks, commit the round, and push when delivering a PR.
 5. Send every member, satisfied or not, the next-round brief: the same frame plus the ledger.
 
-Stop when council's satisfaction rule holds. Also stop and ask the user when no member's lowest score rises across two consecutive rounds, showing what keeps each low. After all members are satisfied, apply a member's suggested correction only if it is a pure fix of an error, and disclose it rather than starting another round.
+Stop when council's satisfaction rule holds. Also stop and ask the user when no member's lowest score rises from one round to the next, showing what keeps each low. After all members are satisfied, apply a member's suggested correction only if it is a pure fix of an error, and disclose it rather than starting another round.
 
 ## 5. Report
 

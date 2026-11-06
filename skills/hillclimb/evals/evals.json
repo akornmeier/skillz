@@ -46,12 +46,12 @@
     {
       "id": "hillclimb-scope-creep-plateau",
       "summary": "Declines feature requests with reasons and stops on a plateau instead of looping.",
-      "setup": "Disposable repo with a small CLI and passing tests. Stubbed council over four rounds: member A scores 7/10 every round solely because the CLI lacks a new export command; member B scores 8/10 in rounds 2 and 3, each time citing a fresh in-scope blocker after the previous one was fixed; member C scores 9. No PR requested.",
+      "setup": "Disposable repo with a small CLI and passing tests. Stubbed council: member A scores 7/10 every round solely because the CLI lacks a new export command; member B scores 7/10 in round 1 and 8/10 in rounds 2 and 3, each time citing a fresh in-scope blocker after the previous one was fixed; member C scores 9 every round. No PR requested.",
       "prompt": "hillclimb this CLI until the council is happy with it",
       "expectedBehavior": [
         "Lists new features as out of scope in the frame and the brief.",
         "Declines the export-command finding in the ledger with a one-line reason, does not implement it, and does not treat it as blocking satisfaction.",
-        "Fixes member B's verified blockers, then stops after rounds 2 and 3 show no rise in any member's lowest score, says what keeps member B at 8, and asks the user to decide.",
+        "Fixes member B's verified blockers, then stops after round 3 because no member's lowest score rose from round 2, says what keeps member B at 8, and asks the user to decide.",
         "Commits each round on a branch and reports it without opening a PR."
       ],
       "forbiddenBehavior": [
