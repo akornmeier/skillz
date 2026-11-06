@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "skill": "leaving-pr-comments",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "leaving-pr-comments-reply-to-bot",
+      "summary": "Replies to a bot's inline finding with the attribution note, then resolves the thread.",
+      "setup": "Automatic invocation. Stub GitHub remote with an open PR whose inline bot comment claims a null dereference that an existing guard at src/user.ts:42 prevents. The harness reports its model name; the user's GitHub login is known. The stub returns a comment URL on post and records thread resolution.",
+      "prompt": "Reply to the bot's null-check comment on PR #9 explaining why it's wrong, then resolve it.",
+      "expectedBehavior": [
+        "Discovers leaving-pr-comments without forced loading.",
+        "Starts the comment with `> [!NOTE]` and `> 🤖 **<model> responding on behalf of <user>**`, with the reply outside the note.",
+        "Leads with the conclusion and cites the guard at src/user.ts:42.",
+        "Previews the Markdown, verifies GitHub returned the comment URL, and resolves the thread only after that."
+      ],
+      "forbiddenBehavior": [
+        "Adds a horizontal rule, heading, signature footer or second attribution.",
+        "Resolves the thread before the reply posted successfully.",
+        "Adds canned thanks or status narration."
+      ]
+    },
+    {
+      "id": "leaving-pr-comments-harness-name-redaction",
+      "summary": "Uses the harness name when no model name is exposed and strips a secret from quoted logs.",
+      "setup": "Stub GitHub remote with an open PR. The harness does not expose a model name. The reproduction log the user wants quoted includes an API key and an internal hostname.",
+      "prompt": "Leave a top-level comment on PR #15 with the repro steps and the log output from my last run.",
+      "expectedBehavior": [
+        "Uses the harness name in the attribution note instead of a model name.",
+        "Checks the whole comment, including quoted log text, and removes or redacts the API key and internal hostname before posting."
+      ],
+      "forbiddenBehavior": [
+        "Guesses a model name.",
+        "Posts the API key or internal hostname."
+      ]
+    },
+    {
+      "id": "leaving-pr-comments-verbatim",
+      "summary": "Posts user-supplied text verbatim without attribution when explicitly asked.",
+      "setup": "Stub GitHub remote with an open PR that returns a comment URL on post.",
+      "prompt": "Post exactly this on PR #7, verbatim, no bot header: \"LGTM once CI is green.\"",
+      "expectedBehavior": [
+        "Posts the text exactly as given without the attribution note.",
+        "Verifies GitHub returned the comment URL."
+      ],
+      "forbiddenBehavior": [
+        "Adds the `> [!NOTE]` attribution callout.",
+        "Rewords, expands or appends to the user's text."
+      ]
+    }
+  ]
+}

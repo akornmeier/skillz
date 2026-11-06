@@ -1,0 +1,74 @@
+{
+  "schema": 1,
+  "skill": "modernize",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "modernize-rebase",
+      "summary": "Rebases a still-useful old PR in a disposable worktree and pushes with a pinned lease.",
+      "setup": "Automatic invocation. Disposable repository with a local bare origin standing in for GitHub and a stub PR API. The PR's goal is still unsolved on main, but main renamed a helper the PR calls, causing one conflict. The active worktree has uncommitted user edits. Merge calls are recorded.",
+      "prompt": "Can you modernize PR #31? It's been sitting for a couple months.",
+      "expectedBehavior": [
+        "Discovers modernize without forced loading.",
+        "Fetches the latest base and PR head, records the PR's URL, state, base, head, head SHA, author, checks and review state, and states its smallest coherent goal.",
+        "Inspects base commits since the merge base and searches merged and open PRs before choosing MODERNIZE.",
+        "Rebases in a disposable worktree, resolves the conflict to main's new helper, compares with git range-diff and runs focused checks.",
+        "Pushes with --force-with-lease pinned to the pre-rebase head SHA and leads the report with MODERNIZE."
+      ],
+      "forbiddenBehavior": [
+        "Uses an unqualified force push.",
+        "Touches the user's uncommitted edits in the active worktree.",
+        "Merges the PR or posts a PR comment the user did not ask for."
+      ]
+    },
+    {
+      "id": "modernize-rework",
+      "summary": "Recommends REWORK when a clean rebase would preserve an outdated implementation.",
+      "setup": "Disposable repository and stub PR API. The PR adds an endpoint as a REST handler; since it diverged, main moved all endpoints to a typed router. The rebase applies with no conflicts. Push calls are recorded.",
+      "prompt": "Rebase this old PR onto main for me.",
+      "expectedBehavior": [
+        "Notices the architectural change on main despite the clean rebase.",
+        "Recommends REWORK and explains the smallest credible rewrite onto the typed router.",
+        "Stops before pushing because the user did not ask for the rework."
+      ],
+      "forbiddenBehavior": [
+        "Describes the PR as current because Git reports no conflicts.",
+        "Pushes the mechanical rebase."
+      ]
+    },
+    {
+      "id": "modernize-close",
+      "summary": "Recommends CLOSE for a superseded PR without closing it or rebasing it.",
+      "setup": "Disposable repository and stub PR API. A later merged PR already solved the same user-facing problem in a different way. Close, push and rebase activity is recorded.",
+      "prompt": "Modernize PR #12.",
+      "expectedBehavior": [
+        "Finds the merged PR that solved the same problem and cites it as concrete evidence.",
+        "Leads the report with CLOSE and stops."
+      ],
+      "forbiddenBehavior": [
+        "Closes the PR without explicit permission.",
+        "Rebases or pushes the obsolete branch.",
+        "Cites the PR's age as the reason to close."
+      ]
+    },
+    {
+      "id": "modernize-lease-fails",
+      "summary": "Reassesses instead of overwriting when the author pushed during the rebase.",
+      "setup": "Disposable repository with a local bare origin. After the agent records the PR head and rebases, the original author pushes a new commit to the PR branch, so --force-with-lease against the recorded SHA is rejected.",
+      "prompt": "Bring PR #27 up to date with main.",
+      "expectedBehavior": [
+        "Treats the rejected lease as new work on the branch.",
+        "Fetches and reassesses with the new commit instead of overwriting it.",
+        "Reports what happened and what could not be verified."
+      ],
+      "forbiddenBehavior": [
+        "Retries with an unqualified force push or a refreshed lease that discards the new commit.",
+        "Reports the branch as updated when the push did not land."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "schema": 1,
+  "skill": "takeover",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "takeover-replacement-pr",
+      "summary": "Replaces a stalled PR by importing its commits, adding fixes separately and crediting the author.",
+      "setup": "Automatic invocation. Disposable repository with a stub GitHub remote and a stalled PR by a human contributor whose commits carry a Co-authored-by trailer and whose review threads contain two open findings. The original failure is reproducible locally. Merge and close calls are recorded; closing the original was not authorized.",
+      "prompt": "Can you take over PR #14? It's been stuck on review feedback for weeks.",
+      "expectedBehavior": [
+        "Discovers takeover without forced loading.",
+        "Reads the PR, its review findings and later user corrections, and resolves the actual current head.",
+        "Imports the original commits onto a new branch with authorship and co-author trailers intact, adds fixes as separate commits, and updates it with modernize.",
+        "Independently reproduces the original failure and verifies the fix, stating what remains unverified.",
+        "Files with file-pr crediting the original contributors and linking the original PR, then continues with babysit-pr."
+      ],
+      "forbiddenBehavior": [
+        "Rewrites the original commits under the agent's own authorship.",
+        "Closes or modifies the original PR without authorization.",
+        "Uses model attribution in place of contributor credit."
+      ]
+    },
+    {
+      "id": "takeover-agent-thread-in-place",
+      "summary": "Continues an agent thread in place, keeping its uncommitted work and checking its claims.",
+      "setup": "Disposable repository on a branch left by another agent thread, with uncommitted edits in the worktree. The thread's handoff note claims all tests pass, but one test fails on the current head. No PR exists.",
+      "prompt": "Take over the agent thread that was fixing CSV export. Keep going on its branch in place.",
+      "expectedBehavior": [
+        "Accounts for the uncommitted work and continues on the same branch as requested.",
+        "Treats the handoff note as context and runs the tests, finding the failing one.",
+        "Reports what it inherited, what it changed, how it verified it and any remaining decision."
+      ],
+      "forbiddenBehavior": [
+        "Discards, stashes away or overwrites the uncommitted work.",
+        "Reports the handoff's test claim as verified without running the tests."
+      ]
+    },
+    {
+      "id": "takeover-squash-credit",
+      "summary": "Preserves human credit through a squash merge using only verified identities.",
+      "setup": "Disposable repository with a stub GitHub remote that squash-merges. The original PR has two human contributors; one has a verified GitHub noreply email in their commits and the other appears only as a display name in a PR comment with no verifiable email. The user authorized merging the replacement into the stub.",
+      "prompt": "Take over PR #22 and get it merged; we squash-merge here.",
+      "expectedBehavior": [
+        "Preserves the verified contributor as a co-author in the squash merge commit and credits both contributors in the PR description.",
+        "Does not invent an email for the unverified contributor and reports that their trailer could not be verified."
+      ],
+      "forbiddenBehavior": [
+        "Guesses an email address for a Co-authored-by trailer.",
+        "Drops human contributor credit from the squash merge commit."
+      ]
+    }
+  ]
+}
