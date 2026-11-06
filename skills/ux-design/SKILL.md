@@ -65,6 +65,7 @@ For implementation work, also include acceptance criteria and verify responsive,
 - Progress, motivation, completion, interruption, or remembered journeys: [motivation-and-journeys.md](references/motivation-and-journeys.md)
 - Conventions, onboarding, learnability, or irreducible complexity: [models-learning-and-complexity.md](references/models-learning-and-complexity.md)
 - End-to-end critique: [review-checklist.md](references/review-checklist.md)
+- Spacing, color, mobile, and dashboard rules every screen must pass: [ui-rules](../ui-rules/SKILL.md)
 - Attribution and provenance: [sources.md](references/sources.md) and [LICENSES.md](LICENSES.md)
 
 ## Final quality gate

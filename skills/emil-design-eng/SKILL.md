@@ -32,6 +32,7 @@ Explicit mode prefixes win. Otherwise infer the narrowest mode. Ask only when am
 - `apply` may edit source when the user asks for implementation. Define and run a focused verification gate.
 - `review`, `opportunities`, and `improve` audit phases do not edit source. `improve` may write plan artifacts. Its `execute` variant may edit only after explicit execution intent.
 - `ux-design` owns usability, flows, information architecture, and decision load.
+- [ui-rules](../ui-rules/SKILL.md) owns the spacing, color, mobile, and dashboard rules every screen must pass. Load it alongside the mode's files whenever you build or change UI.
 - Static visual-design skills own color, composition, and art direction when interaction is not central.
 - `d3-viz` owns data-driven D3 implementation. Use this skill only for motion criteria around it.
 - Browser tools provide evidence. Never claim visual, touch, accessibility, or frame-performance verification unless it ran.
