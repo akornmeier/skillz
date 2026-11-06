@@ -5,12 +5,12 @@ description: Checks every screen against fixed UI rules for spacing, color, mobi
 
 # UI Rules
 
-Check every screen against these rules before showing it: a page, component, form, dashboard, artifact, mock, or screenshot you report on. Fix what fails, then show it.
+Check every screen against these rules before showing it: a page, component, form, dashboard, artifact, or mock. Fix what fails, then show it. In a review-only task, report violations instead of editing.
 
 ## How to apply
 
 1. Check every section that fits the screen. Mobile applies to any web UI that can render on a phone. Dashboards applies to any screen with metrics, charts, or data tables.
-2. Rules marked (default) are starting points. Break them when the design needs it, and say which rule and why in one line. Rules without (default) are firm: fix every violation before showing.
+2. Rules marked (default) are starting points. Break them when the design needs it, and say which rule and why in one line. Rules without (default) are firm: fix every violation before showing, or report it in a review-only task.
 3. A project's design system or the user's explicit instruction outranks a (default) rule. It does not outrank a firm rule; flag the conflict instead of shipping it silently.
 4. Measure where a rule gives a number. Compute contrast from the actual colors, and read tap-target and input font sizes from the code or rendered page. If you could not check a rule, say so. Never report an unchecked rule as passing.
 5. When you show the screen, list only exceptions: (default) rules you broke on purpose, firm-rule conflicts, and rules you could not check. Do not paste the whole checklist.
