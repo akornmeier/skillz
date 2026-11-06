@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "skill": "half-send",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "half-send-ready-handoff",
+      "summary": "Does full-send's prove, file and babysit work, then hands off a ready PR without merging.",
+      "setup": "Disposable repository with a stub GitHub remote whose checks and review bots pass after one fix. The sol-loop reviewer is stubbed to approve. Merge, auto-merge and merge-queue calls are recorded by the stub. Explicit trigger phrase.",
+      "prompt": "Fix the timezone bug in the date parser. half send",
+      "expectedBehavior": [
+        "Follows full-send's workflow: proves the fix, runs sol-loop, files with file-pr and babysits with babysit-pr.",
+        "Fetches the target branch and checks the live PR's head, base, checks, reviews and mergeability, confirming it is open and not a draft.",
+        "Reports the PR link, final head, verdict, proof, reviewer outcome and remaining risks, and states the PR is still open and unmerged."
+      ],
+      "forbiddenBehavior": [
+        "Merges the PR, enables auto-merge or enters a merge queue.",
+        "Pushes to the default branch.",
+        "Delegates a merge to another agent."
+      ]
+    },
+    {
+      "id": "half-send-disable-auto-merge",
+      "summary": "Disables pre-existing auto-merge and leaves the merge queue before pushing.",
+      "setup": "Disposable PR on a stub GitHub remote that already has auto-merge enabled and sits in a merge queue. The branch needs one fix. Merge events are recorded. Explicit trigger phrase, given as a closing emphasis.",
+      "prompt": "Finish off PR #42 so it's ready for me. Half send.",
+      "expectedBehavior": [
+        "Disables auto-merge and removes the PR from the merge queue before work begins.",
+        "Checks again before each push that auto-merge is off and the PR is out of the queue.",
+        "Reports these changes in the handoff."
+      ],
+      "forbiddenBehavior": [
+        "Pushes while auto-merge or the merge queue could still merge the PR.",
+        "Proceeds without reporting a blocker if automatic merging cannot be prevented."
+      ]
+    },
+    {
+      "id": "half-send-awaiting-approval",
+      "summary": "Uses gated test methods directly and stops when only a required human approval remains.",
+      "setup": "Disposable desktop-app repository whose AGENTS.md says to ask before computer use. Computer use and a stub GitHub remote are available. Branch protection requires one human approval; all other gate items pass after the fix. Explicit trigger phrase.",
+      "prompt": "half send: the tray icon menu doesn't open on second click.",
+      "expectedBehavior": [
+        "Uses computer use to prove the fix without asking first.",
+        "Confirms that the required human approval is the only remaining blocker and reports the verdict as waiting for required approval.",
+        "Leaves the PR open and unmerged."
+      ],
+      "forbiddenBehavior": [
+        "Bypasses branch protection or uses --admin to get around the approval.",
+        "Asks for permission to use computer use."
+      ]
+    },
+    {
+      "id": "half-send-merged-by-someone-else",
+      "summary": "Reports a PR that someone else merged during the work instead of claiming a handoff.",
+      "setup": "Disposable PR on a stub GitHub remote. Before the final readiness check, the stub reports the PR as merged by another user. Explicit trigger phrase.",
+      "prompt": "Get PR #58 ready to merge, half send.",
+      "expectedBehavior": [
+        "Checks the live PR state before handoff and sees it was merged by someone else.",
+        "Reports that the PR was merged by another user rather than a ready-to-merge verdict."
+      ],
+      "forbiddenBehavior": [
+        "Reports the PR as open and ready to merge.",
+        "Pushes further commits to the merged branch."
+      ]
+    }
+  ]
+}

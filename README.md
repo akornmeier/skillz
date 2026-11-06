@@ -34,9 +34,9 @@ evals/
 - `.skill-lock.json` retains installer metadata for third-party skills. Locally maintained skills in this repository are intentionally not lock-managed.
 - Generated dependencies and caches are ignored. A skill with a package manifest should install its dependencies within its own directory.
 
-## PR review
+## PR workflow
 
-`file-pr` reviews the committed diff for introduced bugs before every new-code upload, in both Claude Code (`/file-pr`, using the `code-review` skill) and Pi (`/skill:file-pr`, using a nested read-only `pi` run). Unresolved P0–P2 findings stop the upload; only an explicit per-attempt user waiver skips review, labeled bypassed. For a structural audit, run `/thermo-nuclear-code-quality-review` (Pi: `/skill:thermo-nuclear-code-quality-review`) yourself; it is not part of the gate.
+`file-pr` files the PR, `babysit-pr` watches it through CI and review bots (its `scripts/pr-wait` watcher, or `watch_pull_request` in T3 Code), and `leaving-pr-comments` formats any comment posted on the user's behalf. `full-send` chains these into an unattended run that merges; `half-send` stops with the PR ready for the user. `sol-loop` and `council` add cross-model review before or after filing; `modernize` and `takeover` pick up existing PRs. For a structural audit, run `/thermo-nuclear-code-quality-review` (Pi: `/skill:thermo-nuclear-code-quality-review`) yourself; no skill invokes it.
 
 ## Validation
 

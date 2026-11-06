@@ -1,6 +1,6 @@
 ---
 name: karpathy-guidelines
-description: Applies cautious, scope-controlled coding practices that surface assumptions, favor simple solutions, make surgical changes, and verify outcomes. Use when implementing, reviewing, debugging, or refactoring code where ambiguous requirements, hidden scope, or unnecessary complexity are risks.
+description: Applies cautious, scope-controlled coding practices that surface assumptions, favor simple solutions, make surgical changes, and verify outcomes. Use when implementing, reviewing, debugging, or refactoring code where ambiguous requirements, hidden scope, or unnecessary complexity are real risks; not needed for trivial, fully specified edits.
 license: MIT
 compatibility: Has no runtime dependencies. Project instructions, required adjacent changes, and explicit user requirements take precedence over its caution defaults.
 metadata:

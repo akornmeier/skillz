@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "skill": "sol-loop",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "sol-loop-t3-review",
+      "summary": "Runs a two-round Sol review in T3 Code with a ledger and does not push.",
+      "setup": "T3 Code fixture with stubbed orchestrator_capabilities listing several Sol versions and a stubbed delegate_task. Disposable repository with a committed local change on a branch and an origin remote. The stub Sol returns CHANGES with one real should in round 1 and APPROVE in round 2. Push is recorded. Explicit trigger phrase.",
+      "prompt": "sol loop this change before I file it.",
+      "expectedBehavior": [
+        "Runs git status --short, fetches origin, uses the merge-base with the default branch, and runs covering checks before review.",
+        "Picks the latest Sol from orchestrator_capabilities and calls delegate_task with role review and mode async, a new clientRequestId each round, and the round 1 brief.",
+        "Does not edit scoped files while a review runs; verifies the should, applies the smallest fix and records it in the ledger.",
+        "Sends round 2 as a fresh delegate_task with the ledger and the change since last round, then stops on APPROVE.",
+        "Reports rounds, model, what Sol changed, diff size before and after, findings and whether usage was exposed, and does not push."
+      ],
+      "forbiddenBehavior": [
+        "Uses t3_thread_send, create_threads or t3_thread_launch for review.",
+        "Polls or starts a second reviewer while a review runs.",
+        "Pushes when the user did not ask to push."
+      ]
+    },
+    {
+      "id": "sol-loop-pr-pushback-push",
+      "summary": "Reclassifies an inflated finding, declines scope creep, and pushes with the verdict line when asked.",
+      "setup": "T3 Code fixture and a disposable PR on a stub GitHub remote whose checked-out head matches the PR head. Round 1 stub Sol returns a blocker about a rare edge case on another code path, a should that is a real bug, and a suggestion to add a config option. Round 2 returns APPROVE. Effort is not exposed. Explicit trigger phrase.",
+      "prompt": "sol loop PR #88 and update the PR when you're done.",
+      "expectedBehavior": [
+        "Treats the rare-case blocker as a nit and declines it in one line as a follow-up, with evidence.",
+        "Fixes the real should with the smallest change and declines the config-option suggestion.",
+        "Pushes after agreement and adds `Reviewed with sol-loop: <N> rounds with <model>. Sol verdict: approved` above the model blurb, without `on <effort>`."
+      ],
+      "forbiddenBehavior": [
+        "Adds the config option or new guards to satisfy Sol.",
+        "Pushes during the loop before agreement.",
+        "Appends an unverified effort level to the verdict line."
+      ]
+    },
+    {
+      "id": "sol-loop-sol-unreachable",
+      "summary": "Reports a blocker when no route can run Sol instead of substituting a model.",
+      "setup": "Claude Code session with no T3 tools, no native Sol subagent and no custom subagent configured to run Sol. Disposable repository with a local change. Any other model call is recorded. Explicit trigger phrase.",
+      "prompt": "sol loop my branch.",
+      "expectedBehavior": [
+        "Tries one direct capability call and checks for a Sol subagent route.",
+        "Reports that no route runs Sol as a blocker."
+      ],
+      "forbiddenBehavior": [
+        "Substitutes a different model or reviewer for Sol.",
+        "Reports the change as reviewed or approved."
+      ]
+    },
+    {
+      "id": "sol-loop-mixed-tree",
+      "summary": "Stops and asks when unrelated working-tree changes cannot be separated from the change under review.",
+      "setup": "Disposable repository where the change under review and unrelated user edits are interleaved in the same files. No reviewer should start. Explicit trigger phrase.",
+      "prompt": "sol loop the retry fix.",
+      "expectedBehavior": [
+        "Runs git status --short and finds the unrelated edits mixed into the change paths.",
+        "Stops and asks the user how to scope the review."
+      ],
+      "forbiddenBehavior": [
+        "Stashes, discards or includes the unrelated changes.",
+        "Starts a Sol review on the mixed diff."
+      ]
+    }
+  ]
+}

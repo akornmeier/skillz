@@ -1,68 +1,123 @@
 ---
 name: babysit-pr
-description: Monitors GitHub pull requests through CI and automated review. Use when the user asks to watch, monitor, or babysit a PR, investigate failed checks, or respond to review-bot comments.
-compatibility: Requires access to the pull request, its source repository, and authenticated GitHub tooling or equivalent review and CI APIs.
-metadata:
-  category: pull-request-automation
+description: Monitor a pull request through review and CI. Use when the user asks to monitor, watch, or babysit a PR.
 ---
 
 # Babysit PR
 
-Finish a scoped PR, not an unlimited bot-improvement loop. Default: **two autonomous repair pushes** per babysit request. "Until green" does not waive this limit. A new head SHA, review, rebase or resumed session does not reset the count.
+Many repos have AI review bots. They're helpful, even if they are not always
+right.
 
-## Review freeze
+## Waiting
 
-- Identify the head SHA, required checks/approvals, expected automated reviews and repair pushes already made.
-- **Freeze tracked-file edits and further pushes immediately after every push**, before a review-start event appears. Also freeze when an expected review is requested, queued or running for the current head SHA.
-- Use workflow/check-run lifecycle signals keyed to the head SHA, not an earlier head's completed run. Copilot may expose `Running Copilot Code Review`. A streamed comment is not review completion.
-- A temporarily missing run is not proof that no review is expected. If no automated review is configured/requested for this PR, no review wait is needed.
-- While frozen: inspect source/logs, run non-mutating checks and collect findings. Reproductions needing edits wait or use disposable copies, not the PR branch. No speculative cleanup.
-- Recheck head SHA and review state before each edit batch and before pushing. If a review starts mid-batch or the head changes externally, pause and reassess; preserve local edits without resetting or discarding them.
-- Bound each expected-review wait to **30 minutes by default**; status changes do not restart it. Escalate missing, failed or stalled reviews: ask whether to keep waiting or proceed without an optional review. Never assume completion or waive required checks/approvals.
-- Do not cancel reviews to unlock editing. Only an explicit user decision overrides the optional-review wait; disclose the unfinished review.
+Never write your own watcher, polling loop, or `sleep` loop. Use one watcher
+per PR: `watch_pull_request` in T3 Code, `pr-wait` everywhere else. Never run
+both on the same PR. Every watcher on a GitHub account shares one rate limit.
 
-## One review batch, one repair push
+### In T3 Code: `watch_pull_request`
 
-After the review freeze ends and CI results are available:
+Handle the existing checks and comments first. Then call
+`watch_pull_request` and end your turn. T3 Code wakes you with a message when
+a check fails, the required checks pass, someone comments or reviews, or the
+branch conflicts.
 
-1. Collect the complete batch: inline threads, review summaries (including suppressed findings) and CI failures.
-2. Revalidate against the current head SHA and original acceptance criteria, not just old citations. Old-head findings may still be real; deduplicate repeats and explain already-addressed ones.
-3. Assign a disposition:
+- **Only the thread that owns the PR watches it.** If you are a delegated
+  child task (a reviewer, a Sol round, any `delegate_task` child), never call
+  `watch_pull_request`. The parent owns the PR. Do not watch PRs you are not
+  working on.
+- **A wake is news, not a merge decision.** Check the merge gate yourself.
+- **Unwatch when you hand off.** A watched thread stays in Working and out of
+  the user's inbox. When you stop (ready, blocked, or asking the user a question),
+  call `unwatch_pull_request` first. A merge or close ends the watch on its
+  own.
+- **"Stopped watching, could not read it"** usually means GitHub's rate limit
+  is used up. Run `gh api rate_limit --jq .resources.graphql` before you
+  watch again. If `remaining` is near 0, wait for `reset` with one background
+  command, then watch again. Never watch again in a tight loop.
 
-   | Finding | Action |
-   | --- | --- |
-   | Verified in-scope defect eligible for this repair round | Include in the batch |
-   | Already addressed or false positive | Explain with evidence; no edit |
-   | Optional hardening, wording/style nit or scope expansion | Defer with a concise reason |
-   | Infrastructure failure | Report honestly; bounded retry only with a credible transient-failure hypothesis |
+### Everywhere else: `pr-wait`
 
-4. Apply the escalating bar:
-   - **First repair push:** verified defects within the PR's original acceptance criteria.
-   - **Second repair push:** repair regressions or demonstrated release blockers, not another sweep of improvements. A blocker means broken acceptance/required CI, incorrect required results, or a concrete security/data-integrity risk. Bot severity alone is not evidence.
-   - **After two repair pushes:** no more autonomous edits or repair pushes. If a verified release blocker remains, present evidence and request approval for another scoped batch. Do not dismiss it because it arrived late, or merge past it.
-5. If eligible repairs remain, make one scoped batch. Run focused checks and repository-mandated validation once per batch; rerun after failures as needed. Benchmark only when affected or required. Tie verification claims to the revision actually tested.
-6. Reply with dispositions and resolve only addressed threads. For a repaired batch, push once, increment the count and return to the review freeze. Otherwise evaluate the finish condition. Use monitoring events when available; otherwise poll without filler comments.
+Wait with `scripts/pr-wait` from this skill's directory (use its absolute
+path).
 
-## Finish condition
-
-Report ready when all are true:
-
-- Required checks pass on the current head SHA.
-- Required repository approvals are satisfied.
-- Verified in-scope release blockers are addressed and remaining findings have explicit dispositions.
-- The review freeze has ended through completed expected reviews, confirmed absence of expected reviews, or an explicit user decision about an optional review.
-
-Optional bot wording such as "needs a closer look" is not a release gate. Do not request another review merely to obtain green prose. If ready, finish; if blocked, report the blocker and decision needed instead of continuing silently.
-
-Follow repository policy for rebases. If base changes require a rebase or an overlapping PR makes this PR obsolete, report the condition before destructive or externally visible action. Never close or merge without authorization.
-
-When responding on Tony's behalf, use:
-
-```md
-[MODEL-SLUG] RESPONDING ON BEHALF OF TONY
------
-
-[actual reply]
+```bash
+pr-wait <pr> [--repo owner/name] [--until ready|green|any-change]
 ```
 
-For visual findings, attach verified screenshots/videos when available without exposing sensitive content.
+It prints one line per real event. It exits 0 when the `--until` condition is
+met or the PR merges, 1 when it needs you (a required check failed, conflicts,
+unresolved threads, PR closed), and 2 on bad input.
+
+- `ready` (default): required checks green, Greptile or Macroscope reviewed the
+  head, and no unresolved threads. Use this to babysit.
+- `green`: required checks only. Use it when the repo has no Greptile or
+  Macroscope.
+- `any-change`: exit on the first event.
+
+In Claude Code, run it with the Monitor tool at its maximum `timeout_ms`, so
+each line wakes you. A monitor expires after at most 30 minutes; when it does,
+start `pr-wait` again. Without a monitor, run it as one long command. It ends
+on its own.
+
+Start it again after you push, after you handle an exit 1, after a monitor
+expires, and after a resume. Its first run for a PR only records what already
+exists, so handle existing checks and comments before starting it.
+It remembers what it already reported, so nothing that arrived in between is
+lost. If it says another pid already watches the PR, do not start a second one.
+Kill the old one only if its events do not reach you.
+
+With either watcher: when an event needs no action, end your turn without a
+message. Never post or say "still waiting".
+
+## GitHub rate limits
+
+`gh pr create`, `gh pr view`, and `gh pr checks` use GraphQL. When GraphQL is
+used up, the REST limit is separate and usually still has room. Use
+`gh api repos/<owner>/<repo>/pulls/<n>` to read a PR, and
+`gh api repos/<owner>/<repo>/commits/<sha>/check-runs` for checks.
+
+## Reviews
+
+Act on checks for the current head and on review threads that are still
+unresolved. Skip comments that a later push already addressed. Verify every bot
+finding against the source before changing code. Fix real findings and CI
+failures, distinguish repository failures from infrastructure flakes, and reply
+with a written reason when dismissing false positives.
+
+If the repo has `.macroscope/check-run-agents/*.md`, read those rules before you
+reply to a Macroscope finding. Its findings cite them.
+
+CodeRabbit is advisory. Treat its findings like any other finding, but never
+wait for it and never hold a merge for it.
+
+If a review bot leaves feedback you believe is not worth addressing, reply with
+a written reason and resolve the comment. Use the `leaving-pr-comments` skill
+for every comment posted on the user's behalf.
+
+Screenshots and videos help as well, when you have a way to upload them.
+
+Keep the PR at the size the user's goal needs. Review loops tend to grow a
+PR one cheap-looking fix at a time. Fix real bugs in the intended case.
+Decline the rest with a written reason, and list them as follow-ups:
+unneeded tests, guards for edge cases that do not matter, extra integration
+or compatibility, and small performance costs. Prefer the fix that deletes or
+narrows code.
+
+## Base branch and merging
+
+Keep an eye on changes to `main` and rebase when needed. `pr-wait` reports when
+new base commits touch this PR's files, and when the PR becomes BEHIND or DIRTY.
+`watch_pull_request` reports conflicts only, so check for BEHIND yourself
+before you call the PR ready.
+If an overlapping PR makes this one obsolete, stop monitoring, report it to the
+user, and ask before closing the PR unless closure was explicitly authorized.
+
+If nothing has changed, stay quiet rather than posting filler comments. Stop
+when `pr-wait` exits 0, or in T3 Code when the merge gate passes on the latest
+head. Merge only when the user explicitly requested it;
+otherwise report that the PR is ready. A watcher's exit 0 is not the merge
+gate. Right before a merge, run `git fetch` and check the PR again: required
+checks and approvals, no changes-requested review, no unresolved threads.
+Never merge when it is BEHIND or DIRTY, or when base commits that landed after
+the last green run touch this PR's files. Rebase, push, and
+wait for green again.

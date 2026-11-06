@@ -33,7 +33,7 @@ Keep router short. Every task leaf lives exactly one directory below package roo
 ## Relative-link rules
 
 - Resolve a link relative to the Markdown file containing it.
-- Package links from `SKILL.md` use `references/file.md` or `workflows/file.md`.
+- Package links from `SKILL.md` use `references/<name>.md` or `workflows/<name>.md`.
 - Leaf files should use local anchors, not sideways links to other leaves.
 - Never use CWD-relative paths for bundled files. Agents must resolve them from the loaded skill directory.
 

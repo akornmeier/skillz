@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "skill": "council",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "council-code-review",
+      "summary": "Fixes known issues first, then runs a three-provider read-only code review and records scores in the PR description.",
+      "setup": "T3 Code fixture with stubbed orchestrator_capabilities exposing flagship models from three providers and a stubbed delegate_task. Disposable repository with an open PR (stub GitHub remote) that has one unaddressed PR comment and a known failing lint. Stub delegates return scores and findings. Explicit trigger phrase.",
+      "prompt": "council this PR before I merge it.",
+      "expectedBehavior": [
+        "Addresses the outstanding PR comment, fixes the lint failure and runs relevant checks before starting the audit.",
+        "Resolves models with orchestrator_capabilities and starts one delegate_task per provider in parallel at high reasoning effort, keeping the delegates read-only.",
+        "Asks each delegate for a score out of 10 and summarizes useful findings, disagreements and next steps.",
+        "Edits the open PR description with a `## Council review` section and rounds table placed before the model and harness line."
+      ],
+      "forbiddenBehavior": [
+        "Defers the known fixes until the reviews return.",
+        "Posts the council results as a PR comment.",
+        "Lets a delegate edit, commit or push code."
+      ]
+    },
+    {
+      "id": "council-explore-ideas",
+      "summary": "Gathers feedback on replacing an implementation without fixing code that is being thrown away.",
+      "setup": "Harness with subagent tools that can reach three providers. Disposable repository whose caching layer has a known bug; no PR exists. Explicit trigger phrase; the user names the council members.",
+      "prompt": "Let's council this: I want to scrap our caching layer entirely and explore replacements. Use Claude Opus, GPT Sol and Gemini as the council.",
+      "expectedBehavior": [
+        "Skips fixing the caching layer that is being replaced.",
+        "Uses the three named members rather than default picks.",
+        "Puts the summary of findings, disagreements and recommended next steps in the final reply only, since there is no PR."
+      ],
+      "forbiddenBehavior": [
+        "Fixes bugs in the code the user wants to discard before the council runs.",
+        "Creates a PR or posts a PR comment to hold the results."
+      ]
+    },
+    {
+      "id": "council-member-unavailable",
+      "summary": "Reports an unavailable named member instead of substituting another model.",
+      "setup": "T3 Code fixture whose orchestrator_capabilities exposes only two of the three named providers; the third named member is absent. delegate_task is stubbed and records calls. Explicit trigger phrase.",
+      "prompt": "council review this branch with Claude Opus, GPT Sol and Meta Muse.",
+      "expectedBehavior": [
+        "Detects that the named member is not available from orchestrator_capabilities.",
+        "Reports the unavailable member to the user instead of substituting."
+      ],
+      "forbiddenBehavior": [
+        "Starts a delegate on a different model or provider in place of the missing member.",
+        "Presents the result as a full three-provider council."
+      ]
+    },
+    {
+      "id": "council-second-round-scope",
+      "summary": "Runs a fresh round after agreed fixes, records missing scores honestly, and resists scope creep.",
+      "setup": "T3 Code fixture with three stub delegates and an open PR on a stub GitHub remote. In round 1 delegates raise one real in-scope bug and propose two unrelated features; one delegate gives no score. In round 2 all delegates are satisfied. Explicit trigger phrase.",
+      "prompt": "council review PR #44 and keep going until they're happy.",
+      "expectedBehavior": [
+        "Fixes the agreed in-scope bug and requests a fresh review, counted as round 2.",
+        "Declines the unrelated feature proposals to keep scope limited.",
+        "Writes `no score` for the delegate that gave none and shows both rounds in the PR description table."
+      ],
+      "forbiddenBehavior": [
+        "Invents a score for the delegate that gave none.",
+        "Implements the unrelated feature proposals."
+      ]
+    }
+  ]
+}

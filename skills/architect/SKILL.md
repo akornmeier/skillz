@@ -1,6 +1,6 @@
 ---
 name: architect
-description: "Sketch types, signatures, and module structure before code, then stay in the loop while implementation fills in. Use for /architect, 'architect this', 'design this', or non-trivial work where jumping to code would lock in the wrong shape."
+description: "Sketches types, signatures, and module structure from parallel candidate designs before code, then implements against the chosen sketch. Use only on /architect or an explicit request to architect or design something."
 disable-model-invocation: true
 ---
 
@@ -20,25 +20,25 @@ Open a todolist with one entry per phase before starting.
 
 ## Phase A: Ground the problem
 
-Build a real mental model of every system the new code touches. Run the **how** skill over the relevant subsystems.
+Build a real mental model of every system the new code touches. Trace the touched subsystems yourself (entry points, callers, data flow, ownership) and write that model down.
 
-Naming a file isn't grounding. Produce the traced model `how` prescribes. If the design redefines ownership or layering, also run the **why** skill on the existing shape so the rationale becomes a constraint, not a guess.
+Naming a file isn't grounding. If the design redefines ownership or layering, also record why the existing shape is the way it is, so the rationale becomes a constraint, not a guess.
 
 Skip Phase A only when the work is genuinely greenfield with no surrounding system to integrate.
 
 ## Phase B: Sketch
 
-Run the **arena** skill with the design-sketch task and the Phase A grounding artifacts. Pass `references/runner-prompt.md` as each runner's prompt. Each candidate produces a design package shaped per `references/rationale-template.md`.
+Start two candidate runners in parallel by default, each given the design-sketch task, the Phase A model, and `references/runner-prompt.md`. In T3 Code, resolve models with `orchestrator_capabilities` and use `delegate_task` across providers. Elsewhere, use the harness's native subagents. Each candidate produces a design package shaped per `references/rationale-template.md`.
 
-Use your configured architect runners (defaults `claude-opus-5-5-max`, `gpt-5.6-sol-max`, `grok-4.7-xhigh-fast`).
+If a requested provider is unreachable, say so instead of substituting silently. Ask before starting more than two runners or using paid or max-effort settings beyond the harness default.
 
-Design it twice. Require at least two structurally distinct candidates before synthesis, even when the first looks sufficient. This is the **exhaust-the-design-space** principle skill made concrete. Whole-shape alternatives, not point fixes inside one shape.
+Design it twice. Require at least two structurally distinct candidates before synthesis, even when the first looks sufficient. Whole-shape alternatives, not point fixes inside one shape.
 
 Screen every candidate against [`references/design-red-flags.md`](references/design-red-flags.md) before synthesis. Reject or revise shallow modules, information leakage, temporal decomposition, and pass-through methods.
 
 Compare viable candidates on interface depth. Prefer the design that hides more complexity behind a smaller, simpler public surface. A rich interface can keep call chains short by concentrating capability instead of scattering it across layers.
 
-Arena returns one synthesized design package. The synthesis decision populates the rationale's "Synthesis decision" section.
+Synthesize the candidates yourself into one design package, and record the decision in the rationale's "Synthesis decision" section.
 
 ## Phase C: Agree (opt-in)
 
@@ -46,7 +46,7 @@ Default: proceed directly to implementation with the synthesized design. No huma
 
 Opt in to a checkpoint when the invoker explicitly asks: "/architect with checkpoint," "stop and show me before implementing," or similar. Then surface the synthesized design and pause for sign-off.
 
-The synthesis can ship as its own commit either way, as the "scaffold first" mode of the **foundational-thinking** principle skill. Planned and scoped breakage during fill-in is fine, per the **outcome-oriented-execution** principle skill. For adversarial pressure on the design before implementing, run the **interrogate** skill on the synthesized sketch.
+The synthesis can ship as its own commit either way, as a scaffold first. Planned and scoped breakage during fill-in is fine.
 
 If the human pushes back on the shape (in a checkpoint or after the fact), treat that as Phase A evidence. Re-ground and re-run Phase B before writing more code.
 
@@ -58,7 +58,7 @@ Deviations from the sketch are signal worth surfacing, not friction to absorb si
 
 ## Phase E: Scrap when the architecture is wrong
 
-If implementation keeps producing friction the sketch can't absorb, throw the sketch out. Don't bolt fixes onto a wrong design, per the **redesign-from-first-principles** and **fix-root-causes** principle skills.
+If implementation keeps producing friction the sketch can't absorb, throw the sketch out. Don't bolt fixes onto a wrong design.
 
 The signal is a _pattern_, not single instances. Tells:
 
@@ -73,10 +73,10 @@ Use judgment. A few edge cases don't condemn an architecture. Some problems are 
 
 When you scrap:
 
-1. Re-run the **how** skill over what's been built.
-2. Redesign as if the new constraints had been day-one assumptions, per redesign-from-first-principles.
-3. Subtract before adding, per the **subtract-before-you-add** principle skill. The new sketch should be smaller than the old one before it grows.
-4. Return to Phase B and re-run arena.
+1. Re-trace what's been built, as in Phase A.
+2. Redesign as if the new constraints had been day-one assumptions.
+3. Subtract before adding. The new sketch should be smaller than the old one before it grows.
+4. Return to Phase B and re-run the candidates.
 
 ## Outputs
 

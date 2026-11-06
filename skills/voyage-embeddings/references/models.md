@@ -1,6 +1,20 @@
 # Voyage AI model reference
 
-Full model catalog with dimensions, context length, and selection guidance. Source: Anthropic platform docs (Voyage AI section).
+Full model catalog with dimensions, context length, and selection guidance. Sources: Anthropic platform docs (Voyage AI section) and [Voyage embeddings docs](https://docs.voyageai.com/docs/embeddings) (code and dimension rows rechecked 2026-11).
+
+## Contents
+
+- Voyage 4 — current generation
+- Domain-specific models
+- Multimodal
+- Previous generation
+- Decision tree
+- Dimension and quantization knobs
+- input_type — the most important parameter
+- Pricing (high-level)
+- Similarity functions
+- SDKs
+- Useful links
 
 ## Voyage 4 — current generation (recommended for new work)
 
@@ -15,9 +29,9 @@ Full model catalog with dimensions, context length, and selection guidance. Sour
 
 | Model | Context | Dimensions | When to use |
 | --- | --- | --- | --- |
-| `voyage-code-3` | 32,000 | 1024 (default), 256, 512, 2048 | Code retrieval, programming docs, source files. Beats general models on code search. |
-| `voyage-finance-2` | 32,000 | 1024 | Earnings calls, filings, financial analysis. |
-| `voyage-law-2` | 16,000 | 1024 | Legal docs, contracts, long-context retrieval. Also strong as a general model. |
+| `voyage-code-4` | 32,000 | 1024 (default), 256, 512, 2048 | Code retrieval and coding-agent use cases, programming docs, source files. Current code model; supersedes `voyage-code-3`. |
+| `voyage-finance-2` | 32,000 | 1024 only | Earnings calls, filings, financial analysis. |
+| `voyage-law-2` | 16,000 | 1024 only | Legal docs, contracts, long-context retrieval. Also strong as a general model. |
 
 ## Multimodal
 
@@ -33,10 +47,11 @@ Full model catalog with dimensions, context length, and selection guidance. Sour
 | `voyage-3-large` | 32,000 | 1024 (default), 256, 512, 2048 |
 | `voyage-3.5` | 32,000 | 1024 (default), 256, 512, 2048 |
 | `voyage-3.5-lite` | 32,000 | 1024 (default), 256, 512, 2048 |
+| `voyage-code-3` | 32,000 | 1024 (default), 256, 512, 2048 |
 
 ## Decision tree
 
-1. **Is the corpus code?** → `voyage-code-3`. The domain advantage is real and well-documented.
+1. **Is the corpus code?** → `voyage-code-4`. The domain advantage is real and well-documented. (An existing `voyage-code-3` index keeps working; don't mix the two in one index.)
 2. **Is the corpus finance or legal?** → `voyage-finance-2` or `voyage-law-2`. Both also do well as general models if your corpus is mixed.
 3. **Is the corpus mixed text + images + video?** → `voyage-multimodal-3.5`.
 4. **Is the corpus mixed text + content-rich images, no video?** → `voyage-multimodal-3` (cheaper than 3.5).
@@ -46,7 +61,7 @@ Full model catalog with dimensions, context length, and selection guidance. Sour
 
 ## Dimension and quantization knobs
 
-All v4 / v3-line models are **Matryoshka** — you can truncate a 1024-dim vector to 512, 256, etc., and renormalize without re-embedding. This trades retrieval quality for storage. The leading 256 dims are typically ~95% as good as the full 1024 for many tasks.
+Models listed above with several dimensions (the v4 line, `voyage-code-4`/`voyage-code-3`, the v3.5/v3-large line, `voyage-multimodal-3.5`) are **Matryoshka** — you can truncate a 1024-dim vector to 512, 256, etc., and renormalize without re-embedding. This trades retrieval quality for storage. `voyage-finance-2`, `voyage-law-2`, and `voyage-multimodal-3` are fixed at 1024. The leading 256 dims are typically ~95% as good as the full 1024 for many tasks.
 
 ```python
 import voyageai
@@ -64,15 +79,15 @@ Or pass `output_dimension=256` to `vo.embed()` directly (cleaner).
 
 ### `output_dtype` quantization
 
-Pass `output_dtype` to `vo.embed()`:
+Pass `output_dtype` to `vo.embed()` (check the Voyage docs for which models support non-float types):
 
-| `output_dtype` | Storage per dim | Retrieval impact |
+| `output_dtype` | Embedding size per dim | Retrieval impact |
 | --- | --- | --- |
 | `float` (default) | 4 bytes | None — baseline |
-| `int8`, `uint8` | 1 byte (4× saving) | Small but measurable |
-| `binary`, `ubinary` | 0.125 bytes (32× saving) | Larger drop, but acceptable for many use cases when paired with reranking |
+| `int8`, `uint8` | 1 byte (4× smaller) | Small but measurable |
+| `binary`, `ubinary` | 0.125 bytes (32× smaller) | Larger drop, but acceptable for many use cases when paired with reranking |
 
-Pinecone supports `int8` indexes directly. For binary, you'll need to handle the bit-packing yourself — most users should stick to `float` and only quantize when storage is a real bottleneck.
+These are sizes of the embeddings Voyage returns, not Pinecone storage: Pinecone dense indexes store 32-bit floats, so quantized output saves transfer and local storage only. Use `float` for Pinecone unless the user has another store that keeps quantized vectors.
 
 ## input_type — the most important parameter
 
@@ -87,7 +102,7 @@ What happens under the hood: Voyage prepends a fixed prompt to each input.
 - `query` → *"Represent the query for retrieving supporting documents: " + your_text*
 - `None` → no prompt, retrieval quality drops
 
-Always specify. Mixing types between ingest and search is the most common silent bug — your top-k results will look "fine" on easy queries and fail on harder ones.
+Always specify: `document` at ingest, `query` at search. Using the same type on both sides, or omitting it, is the most common silent bug — your top-k results will look "fine" on easy queries and fail on harder ones.
 
 ## Pricing (high-level)
 
