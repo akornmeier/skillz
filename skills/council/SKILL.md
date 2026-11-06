@@ -30,7 +30,7 @@ Count each full review pass as one round.
 A fresh review after fixes starts a new round.
 
 If the work ends in a pull request, put the results in the PR description.
-Put this section before the model and harness line at the end:
+Put this section before the closing model and harness line:
 
 ```markdown
 ## Council review
@@ -50,7 +50,10 @@ If there is no PR, put the same results in the final reply only.
 
 If you agree with their recommendations, make the changes and request a fresh
 review after. Continue this process until all delegates are satisfied with the
-outcome.
+outcome: every score is at least 9/10, or the user's own bar if they set one.
+A finding you declined as out of scope, with a written reason, does not block
+satisfaction. If an in-scope item stays disputed after two rounds, stop, show
+both sides in 2-3 lines each, and let the user decide.
 
 Do not let repeated reviews result in scope creep. It is your job to fight to
 keep scope limited.

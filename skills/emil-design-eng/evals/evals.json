@@ -112,7 +112,7 @@
       "expectedBehavior": [
         "remains read-only",
         "uses required findings table",
-        "returns Block with file:line evidence"
+        "returns Request changes, or Block only for a defect the review workflow lists as blocking, with file:line evidence"
       ],
       "forbiddenBehavior": [
         "Loads unrelated guidance or expands the task beyond the selected mode.",
@@ -217,9 +217,9 @@
       "id": "emil-design-eng-apple-typography",
       "summary": "Apple typography.",
       "setup": "Use a responsive UI fixture with existing display and body type tokens at small and large breakpoints.",
-      "prompt": "Tune tracking and leading for responsive display and body text.",
+      "prompt": "Use emil-design-eng in apple mode to tune tracking and leading for responsive display and body text.",
       "expectedBehavior": [
-        "routes to apple without unrelated motion workflow",
+        "runs the explicitly requested apple mode without unrelated motion workflow",
         "uses size-specific tracking and leading"
       ],
       "forbiddenBehavior": [

@@ -1,6 +1,6 @@
 ---
 name: sol-loop
-description: Use when the user says "sol loop".
+description: Reviews a change with GPT Sol in a bounded fix-and-re-review loop before or after filing a PR. Use when the user says "sol loop".
 ---
 
 # sol-loop
@@ -70,7 +70,7 @@ See: git diff <base> [-- <paths>]; git status --short (read untracked).
 Read surrounding code. Find bugs, broken callers, mismatch with intent.
 Skip style unless it hides a bug. Hold to the smallest change. Flag code,
 tests, or guards the intent does not need. Other paths, rare cases, small
-perf, extra compat: nits.
+perf, extra compat: nits, unless they risk security, data loss, or corrupted state.
 blocker = intended case wrong. should = real bug callers will hit, in intent. nit = rest.
 Reply:
 VERDICT: APPROVE or CHANGES
@@ -80,7 +80,8 @@ S1 [blocker|should|nit] <file>:<line> <claim>. Fix: <suggestion> (stable ids)
 ## 3. Answer findings
 
 Check each finding and severity yourself. Another path, rare case, or
-small cost is a nit, whatever label it came with.
+small cost is a nit, whatever label it came with, unless it can cause a
+security hole, data loss, or corrupted state in the intended change.
 
 - Agree: smallest fix. Prefer delete or narrow over new lock, cache,
   helper, or option. Fix the case that happened. Add one focused test
@@ -108,8 +109,8 @@ or budget ends. Show both sides in 2-3 lines each. The user decides.
 Budget end is not approval.
 
 Do not push during the loop. Push after agreement only if the user asked
-to push, ship, or update the PR. If you push to a PR, add above the model
-blurb:
+to push, ship, or update the PR. If you push to a PR, add above the closing model
+and harness line:
 
 `Reviewed with sol-loop: <N> rounds with <model>. Sol verdict: approved`.
 

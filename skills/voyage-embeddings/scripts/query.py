@@ -3,9 +3,9 @@
 
 Usage:
     query.py \\
-        --index code-corpus-voyage \\
-        --namespace pono \\
-        --model voyage-code-3 \\
+        --index <index> \\
+        --namespace <namespace> \\
+        --model voyage-code-4 \\
         --query "how does the retry handler work" \\
         [--top-k 10]
 
@@ -17,9 +17,9 @@ Notes:
       retrieval quality.
     - --model must match the model used at upsert time. Mixing models across
       ingest and query produces nonsense scores even when both succeed.
-    - For integrated Pinecone indexes (e.g. llama-text-embed-v2), use the
-      pinecone-query skill (MCP) instead — this script is for standard indexes
-      with client-side embedding only.
+    - For integrated Pinecone indexes (e.g. llama-text-embed-v2), query through
+      the Pinecone MCP tools instead — this script is for standard indexes with
+      client-side embedding only.
 """
 
 import argparse

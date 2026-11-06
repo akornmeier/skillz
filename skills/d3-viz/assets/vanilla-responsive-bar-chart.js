@@ -64,7 +64,7 @@ export function createResponsiveBarChart(container, data, options = {}) {
 
     const y = d3
       .scaleLinear()
-      .domain([0, d3.max(cleanData, (datum) => datum.value) ?? 0])
+      .domain([0, d3.max(cleanData, (datum) => datum.value) || 1])
       .nice()
       .range([innerHeight, 0]);
 

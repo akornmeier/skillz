@@ -50,7 +50,7 @@ Do not replace one tell mechanically with another. Punctuation, passive voice, a
 
 **Inflated**
 
-> This groundbreaking release serves as a testament to our enduring commitment to innovation.
+> This groundbreaking release, which adds offline sync and cuts startup time from 2.1 seconds to 1.4 seconds, serves as a testament to our enduring commitment to innovation.
 
 **Direct**
 

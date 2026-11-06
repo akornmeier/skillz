@@ -54,11 +54,14 @@ unresolved threads, PR closed), and 2 on bad input.
   Macroscope.
 - `any-change`: exit on the first event.
 
-In Claude Code, run it with the Monitor tool (`timeout_ms: 3600000`), so each
-line wakes you. Without a monitor, run it as one long command. It ends on its
-own.
+In Claude Code, run it with the Monitor tool at its maximum `timeout_ms`, so
+each line wakes you. A monitor expires after at most 30 minutes; when it does,
+start `pr-wait` again. Without a monitor, run it as one long command. It ends
+on its own.
 
-Start it again after you push, after you handle an exit 1, and after a resume.
+Start it again after you push, after you handle an exit 1, after a monitor
+expires, and after a resume. Its first run for a PR only records what already
+exists, so handle existing checks and comments before starting it.
 It remembers what it already reported, so nothing that arrived in between is
 lost. If it says another pid already watches the PR, do not start a second one.
 Kill the old one only if its events do not reach you.
@@ -75,7 +78,8 @@ used up, the REST limit is separate and usually still has room. Use
 
 ## Reviews
 
-Only act on checks and comments newer than the latest push. Verify every bot
+Act on checks for the current head and on review threads that are still
+unresolved. Skip comments that a later push already addressed. Verify every bot
 finding against the source before changing code. Fix real findings and CI
 failures, distinguish repository failures from infrastructure flakes, and reply
 with a written reason when dismissing false positives.

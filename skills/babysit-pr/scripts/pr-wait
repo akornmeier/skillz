@@ -68,6 +68,7 @@ STATE_DIR = Path.home() / ".local" / "state" / "pr-wait"
 # instead of replaying hours of comments as new events.
 STALE_STATE_SECONDS = 6 * 3600
 MAX_FAILED_POLLS = 10
+NO_CHECKS_GRACE = 120
 TRANSIENT = re.compile(
     r"HTTP (5\d\d|429)|rate limit|timed? ?out|connection (reset|refused)|EOF|"
     r"temporar|could not resolve host|TLS handshake|Something went wrong",
@@ -277,6 +278,7 @@ class Watcher:
         self.events = 0
         self.required: set[str] | None = None
         self.prev_snapshot: list[tuple[str, str]] | None = None
+        self.empty_gate_since: tuple[str, float] | None = None
         self.pr_files: dict[str, set[str]] = {}
 
     def load(self) -> Json | None:
@@ -444,7 +446,20 @@ class Watcher:
         watched = {
             name: c for name, c in checks.items() if bot_name(name) not in ADVISORY_BOTS
         }
-        gate_done = bool(gate) and all(bucket(n) != "pending" for n in gate)
+        # A head with no checks at all is green once none have appeared for
+        # NO_CHECKS_GRACE seconds; checks usually register within seconds.
+        if gate:
+            self.empty_gate_since = None
+        elif self.empty_gate_since is None or self.empty_gate_since[0] != head:
+            self.empty_gate_since = (head, time.monotonic())
+        no_checks = (
+            not gate
+            and self.empty_gate_since is not None
+            and time.monotonic() - self.empty_gate_since[1] >= NO_CHECKS_GRACE
+        )
+        gate_done = (bool(gate) or no_checks) and all(
+            bucket(n) != "pending" for n in gate
+        )
         all_done = gate_done and all(c["bucket"] != "pending" for c in watched.values())
         # Checks appear a few seconds after a push. Two identical polls in a row
         # guard against calling a half-registered set of checks finished.

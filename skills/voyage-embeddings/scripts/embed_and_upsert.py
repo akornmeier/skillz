@@ -3,9 +3,9 @@
 
 Usage:
     embed_and_upsert.py \\
-        --index code-corpus-voyage \\
-        --namespace pono \\
-        --model voyage-code-3 \\
+        --index <index> \\
+        --namespace <namespace> \\
+        --model voyage-code-4 \\
         --file path/to/file.py [--file ...]
 
 Env vars: VOYAGE_API_KEY, PINECONE_API_KEY (both already in ~/.claude/settings.local.json)
@@ -17,6 +17,17 @@ Notes:
       overwrites in place rather than duplicating.
     - input_type defaults to 'document' (right for upserts). Pass --input-type
       query only for ad-hoc test searches.
+    - Embedding calls are paid per token; confirm with the user before a real ingest.
+
+Error handling (upsert_with_recovery): three reasonable strategies were weighed:
+    (a) abort on first failure: fast feedback, but loses progress on large jobs;
+    (b) retry the whole batch with exponential backoff: handles transient
+        Voyage/Pinecone 429/503s; the right default for almost all ingests;
+    (c) retry individual vectors on batch failure: slowest, isolates a bad record.
+    This script ships (b): 1s, 2s, 4s backoff over 4 attempts, catching all
+    exceptions. For jobs larger than ~50k records, where burning time on a
+    permanent error becomes a real cost, narrow the except clause to
+    PineconeApiException with retriable status codes.
 """
 
 import argparse
@@ -106,7 +117,7 @@ def main() -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--index", required=True, help="Pinecone standard index name")
     p.add_argument("--namespace", required=True, help="Namespace within the index (per-repo by convention)")
-    p.add_argument("--model", default="voyage-4", help="Voyage model (e.g. voyage-code-3, voyage-4-large)")
+    p.add_argument("--model", default="voyage-4", help="Voyage model (e.g. voyage-code-4, voyage-4-large)")
     p.add_argument("--file", type=Path, action="append", default=[], required=True, help="File to embed (repeatable)")
     p.add_argument(
         "--input-type",

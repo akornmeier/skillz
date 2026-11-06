@@ -1,6 +1,6 @@
 ---
 name: gauntlet-loop
-description: Designs or runs multi-agent improvement loops with isolated builders, fresh critics, inspectable quality bars, iterative repair, and progress tracking. Use for reference-driven artifact improvement, independent review, blind comparison, or Gauntlet Loop launch prompts.
+description: Designs or runs multi-agent improvement loops with isolated builders, fresh critics, inspectable quality bars, iterative repair, and progress tracking. Use when the user wants an iterative builder/critic improvement loop or a Gauntlet Loop launch prompt, including loops with reference-driven targets, independent review, or blind comparison.
 compatibility: Prompt design works in any harness. Faithful execution requires file access plus a delegation capability that starts isolated fresh-context agents; concurrent builders also require isolated workspaces.
 metadata:
   category: orchestration

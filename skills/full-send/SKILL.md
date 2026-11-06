@@ -46,7 +46,9 @@ one appears.
    smallest change that works. Fix the case that happened, not every case
    that could. If you are on the default branch, create a branch first.
 2. **Prove it.** Get proof for every change you made. See "Proof".
-3. **Get feedback.** Use the `sol-loop` skill to verify changes.
+3. **Get feedback.** Use the `sol-loop` skill to verify changes. If it reports
+   no Sol route or ends with an item still disputed, decide that item yourself,
+   list the decision in the report, and continue.
 4. **File the PR** with the `file-pr` skill. Rebase onto the latest default
    branch first. Add one short line to the description that says how you proved
    the change.
@@ -59,8 +61,8 @@ one appears.
 Stay active from step 1 to step 7. If you end your turn while checks or bots are
 pending, the work stops, because nobody will prompt you again. Wait with the
 watcher from `babysit-pr`, so something wakes you when the PR changes. In T3
-Code that is `watch_pull_request`. If you stop before the merge, call
-`unwatch_pull_request` first.
+Code that is `watch_pull_request`. Keep the watch active while you wait. If you
+stop before the merge to hand off or ask, call `unwatch_pull_request` first.
 
 ## Proof
 
@@ -85,8 +87,9 @@ Full confidence means all of these are true on the latest commit:
 
 - Your proof covers every change in the diff.
 - Required checks are green.
-- Review bots have finished, and each finding is fixed or dismissed with a
-  written reason.
+- Review bots have finished, except advisory ones such as CodeRabbit that
+  `babysit-pr` says never to wait for, and each finding is fixed or dismissed
+  with a written reason.
 - No human review still requests changes.
 - The branch is up to date with the default branch, and GitHub reports it as
   mergeable.

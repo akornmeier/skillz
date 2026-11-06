@@ -12,11 +12,11 @@ _Write this first, before the type sketch. Show the README or quickstart the con
 
 ## Shape
 
-_The recommended architecture. Data structures first. Then how data flows through the signatures. Name the load-bearing decisions. State which invariants are encoded in types, where validation lives, and what the system deliberately does not do. Judge interface depth explicitly. State what complexity the public surface hides, what remains exposed to callers, and why the interface is no larger than needed. Cite the principle behind each decision (e.g., `per boundary-discipline`). Don't restate it._
+_The recommended architecture. Data structures first. Then how data flows through the signatures. Name the load-bearing decisions. State which invariants are encoded in types, where validation lives, and what the system deliberately does not do. Judge interface depth explicitly. State what complexity the public surface hides, what remains exposed to callers, and why the interface is no larger than needed. Name the principle behind each decision in a few words (e.g., "validate at boundaries"). Don't restate it._
 
 ## Synthesis decision
 
-_Filled in by the **arena** skill. Records which candidate became the base and why, what was adapted from each of the others, and what was rejected and why._
+_Filled in during synthesis. Records which candidate became the base and why, what was adapted from each of the others, and what was rejected and why._
 
 ## Tradeoffs accepted
 

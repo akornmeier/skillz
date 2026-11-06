@@ -1,6 +1,6 @@
 ---
 name: svg-generate
-description: Creates static, editable SVG diagrams such as flowcharts, architecture diagrams, decision trees, matrices, and risk maps. Use for deterministic non-data-driven diagrams; use D3 for interactive data visualizations and infographic-builder for sourced visual narratives.
+description: Creates static, editable SVG diagrams such as flowcharts, architecture diagrams, decision trees, matrices, and risk maps. Use for deterministic non-data-driven diagrams; use diagram-design for a polished standalone HTML diagram page, D3 for interactive data visualizations, and infographic-builder for sourced visual narratives.
 compatibility: Requires file write access and Python 3 for bundled structural validation. Visual inspection requires an SVG-capable browser or renderer.
 metadata:
   category: diagram-generation

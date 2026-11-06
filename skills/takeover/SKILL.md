@@ -24,8 +24,10 @@ If the work will be squashed, preserve human author/co-author credit in the
 merge commit too, using verified identities rather than guessed emails. Model
 attribution is not a substitute for contributor credit.
 
-Use `modernize` to update the continuation against its intended base and
-current architecture. Rework what is necessary to finish the same goal, not
+For a PR continuation, use `modernize` to update it against its intended base
+and current architecture; it pushes only the continuation branch, never the
+original PR's branch. For a branch or thread without a PR, fetch its intended
+base and check the current architecture directly. Rework what is necessary to finish the same goal, not
 unrelated features. Simplify the implementation without dropping intended
 behavior or surfaces. Recheck the source PR too: it may have improved while
 you were working.
