@@ -1,0 +1,69 @@
+{
+  "schema": 1,
+  "skill": "typography",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "typography-build-article-styles",
+      "summary": "Writes base text styles for an article page that load fonts correctly, hold a readable measure and fluid scale, and adapt type for dark mode.",
+      "setup": "Disposable static site outside active skill trees: index.html with a long article (h1-h3, paragraphs, lists, links, a code block, a blockquote), an empty styles.css, and fonts/ holding a variable serif as source-serif-var.woff2 and source-serif-var-italic.woff2 (weight axis 200-900). Automatic discovery with typography, ui-rules, and the other design skills installed; paired no-skill baseline on the identical prompt, fixture, provider, model, thinking level, tools, and permissions. A headless browser is available for rendered checks.",
+      "prompt": "Write styles.css for this article page so the text reads well on phones and desktops, in light and dark mode. Use the font files in fonts/.",
+      "expectedBehavior": [
+        "Declares the upright and italic files as two @font-face rules under one family name, woff2 only, with a weight range and font-display: swap.",
+        "Adds at most two font preloads to index.html, each with as=\"font\", type=\"font/woff2\", and crossorigin.",
+        "Leaves the root font size at 100% or unset, sizes text in rem/em, and gives every clamp() a rem minimum and a preferred value with a rem term.",
+        "Limits the article text column so a rendered line holds about 45-75 characters (for example max-width near 30em) and uses a unitless line-height.",
+        "Applies text-wrap: balance only to headings, captions, or quotes and text-wrap: pretty to paragraphs or list items.",
+        "Underlines links with an em-based thickness and offset and text-decoration-skip-ink: auto, and gives links a color distinct from body text.",
+        "Under prefers-color-scheme: dark, uses a near-black background (not #000) and off-white text (not #fff) and raises the body weight slightly.",
+        "Reports contrast ratios it computed from the actual colors and lists only exceptions and unchecked rules, not the full rule list."
+      ],
+      "forbiddenBehavior": [
+        "Sets the html font size in px or uses a viewport-only font size or clamp() minimum.",
+        "Applies text-wrap: balance to paragraphs or other body text.",
+        "Uses pure #000 body text on white or pure #fff text on #000 in dark mode without stating a reason.",
+        "Claims a rendered or contrast check passed that it did not run."
+      ]
+    },
+    {
+      "id": "typography-review-docs-css",
+      "summary": "Reviews a docs stylesheet that breaks many type rules and reports each violation with its rule and fix, without editing.",
+      "setup": "Disposable project with docs.css containing: html { font-size: 14px }; .content { max-width: 1400px } with 16px body text; p { line-height: 22px; text-wrap: balance }; h1 { font-size: 6vw }; body { color: #000; background: #fff }; a { text-decoration: none; color: #0066cc }; one @font-face listing eot, ttf, and woff sources with font-display: block and no italic face; and a dark theme of #fff text on #000. No browser is available; only source files can be inspected. Explicit invocation of typography is recorded as bypassing discovery; paired no-skill baseline under identical controls.",
+      "prompt": "Users say our docs are hard to read. Review docs.css and tell me what to change. Don't edit anything yet.",
+      "expectedBehavior": [
+        "Makes no file edits.",
+        "Flags the px root size, the px line-height, the viewport-only h1 size, balance on paragraphs, the missing link underline, the legacy font formats, font-display: block, the missing italic face, and the pure black/white dark theme, each with a concrete fix.",
+        "Estimates characters per line for the 1400px column at 16px (well above 75) and recommends a measure of about 45-75 characters, such as max-width near 30em.",
+        "States that rendered checks could not run because no browser was available, instead of reporting them as passing."
+      ],
+      "forbiddenBehavior": [
+        "Edits docs.css or any other file.",
+        "Recommends px-based root sizing or a viewport-only font size as a fix.",
+        "Reports a contrast ratio without computing it from the stated colors."
+      ]
+    },
+    {
+      "id": "typography-print-report-boundary",
+      "summary": "Prepares an annual report for commercial print from HTML, applies print type and page rules, and does not invent the printer's spec or claim the PDF is print-ready unverified.",
+      "setup": "Disposable project with report.html (headings, body text, tables of figures, full-bleed cover photo, site nav) and screen styles only. The prompt names A4, perfect binding, and a commercial printer but supplies no printer spec. No PDF tooling, preflight software, or printer contact is available; no files outside the project may change. Automatic discovery; paired no-skill baseline under identical controls.",
+      "prompt": "We're sending our annual report to a commercial printer: A4, perfect bound. Add print styles to report.html and tell me what the PDF needs before it goes to them.",
+      "expectedBehavior": [
+        "Adds an @media print block with @page size A4, margins in mm or pt with the bottom margin largest, and extra inner margin for the perfect binding.",
+        "Sets print body text in pt with an absolute leading (for example 10.5pt on 14pt), keeps headings with their text (break-after: avoid), keeps tables and figures whole (break-inside: avoid), sets orphans and widows, and hides the site nav.",
+        "Uses tabular figures for table numbers.",
+        "States that the full-bleed cover needs 3mm of bleed past the trim, that a browser's PDF cannot carry it, and that bleed must be produced and checked with tooling that supports it.",
+        "States that the PDF must embed all fonts, carry body text as 100K black, include bleed and trim boxes, and default to PDF/X-4 unless the printer specifies otherwise, and says to request the printer's export preset.",
+        "States that a browser's Save as PDF is not print-ready and that preflight was not run, rather than calling the output print-ready."
+      ],
+      "forbiddenBehavior": [
+        "Invents printer-specific limits (such as an exact ink limit or press sheet size) and presents them as the printer's spec.",
+        "Uses rem, px, or vw for print body sizes, or rich or registration black for body text.",
+        "Claims the PDF is print-ready or preflighted without running a check."
+      ]
+    }
+  ]
+}
