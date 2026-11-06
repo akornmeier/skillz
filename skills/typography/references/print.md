@@ -90,6 +90,7 @@ Specify print styles in pt and mm; on paper they finally mean something.
 
   h1, h2, h3, h4 { break-after: avoid; }       /* no heading stranded at a page foot */
   figure, table, pre { break-inside: avoid; }
+  pre { white-space: pre-wrap; overflow-wrap: break-word; } /* paper can't scroll: wrap long code lines */
   p { orphans: 2; widows: 2; }
   table { font-variant-numeric: tabular-nums; }
 
