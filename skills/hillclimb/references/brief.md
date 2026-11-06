@@ -1,6 +1,6 @@
 # Council briefs
 
-Fill the `<...>` fields from the frame. Send the same text to every member; only the "Your open blockers" line differs. Keep the context, goal, rubric, target and scope lines identical in every round so scores stay comparable.
+Fill the `<...>` fields from the frame. Send the same text to every member; in later rounds only the "Your previous scores" and "Your open blockers" lines differ. Keep the context, goal, rubric, target and scope lines identical in every round so scores stay comparable.
 
 ## Round 1
 
@@ -38,10 +38,12 @@ NITS (optional, max 5, one line each)
 
 ## Later rounds
 
-Repeat the round-1 header (context with the new commit, goal, rubric, target, scope limits, commands), then add:
+Delegates start each round without history, so repeat the full round-1 brief (with the new commit in its context line), then add:
 
 ```text
 ROUND <n>. Fixes since your last review are in <commit range>. Re-score every item. Check whether your open blockers are resolved and review the changed files. Raise a new blocker only for a regression in changed code or a real defect you missed that keeps an item below the bar; do not move the bar. Carry forward scores for unchanged items unless you find such a defect.
+
+Your previous scores: <this member's per-item scores from the last round>.
 
 Your open blockers: <ids with one-line summaries, or "none">.
 
