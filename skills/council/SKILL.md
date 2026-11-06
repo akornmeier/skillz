@@ -1,6 +1,8 @@
 ---
 name: council
-description: "Runs a three-model review council: one high-effort delegate from each of three providers reviews the work and scores it out of 10, repeating rounds until all are satisfied. Use when the user says \"council\"."
+description: 'Runs a three-model review council: one high-effort delegate from each of three providers reviews the work and scores it out of 10, repeating rounds until all are satisfied. Use when the user says "council".'
+metadata:
+  harness: "claude, codex, muse"
 ---
 
 # Council
@@ -15,6 +17,12 @@ or feedback. Use one strong model from each of three different providers, at
 high reasoning effort. If the user's instructions name council members, use
 those. Otherwise pick the latest flagship model from each provider, for
 example Claude Opus, GPT Sol, and Meta Muse.
+
+Examples:
+
+- Claude Opus 5.5 (`xhigh`)
+- Muse Wonder Full (`xhigh`)
+- Codex GPT-6.1 Sol (`xhigh`)
 
 In T3 Code, use `orchestrator_capabilities` to resolve the models, then
 `delegate_task` to start one delegate per model in parallel. Elsewhere, use
