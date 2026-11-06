@@ -56,7 +56,7 @@ Set type that reads well, or review type that doesn't. On screens, apply the rul
 ### Links and wrapping
 
 - Underline links and nothing else. Links get a color distinct from body text, plus an underline with `text-decoration-thickness: 0.08em`, `text-underline-offset: 0.12em`, and `text-decoration-skip-ink: auto`. A softer underline color that turns `currentColor` on hover is fine. (default for the numbers)
-- `text-wrap: balance` on headings, captions, and pull quotes only, never body text, where it is slow and pointless. `text-wrap: pretty` on paragraphs and list items. Both fall back safely, so drop the `&nbsp;` and `<wbr>` hacks they replace.
+- `text-wrap: balance` on headings, captions, and pull quotes only, never body text, where it is slow and pointless. `text-wrap: pretty` on paragraphs and list items. Both fall back safely. They replace an `&nbsp;` or `<wbr>` added only to avoid a stranded word; keep the ones that bind a number to its unit or mark break points in long identifiers.
 - Use real quotes and apostrophes, en dashes for ranges, and tabular figures (`font-variant-numeric: tabular-nums`) where numbers align. The rest of the micro-typography rules are in the print reference and apply on screen too.
 
 ### Dark mode
