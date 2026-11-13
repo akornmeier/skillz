@@ -74,8 +74,8 @@ other's findings.
 
 Do not edit scoped files while review runs. Wait for every notice. Do not
 poll or start a third reviewer. Timeout, error, or no reply is not
-approval. On failure, cancel, verify stop, restart that reviewer with the
-ledger.
+approval. On failure, cancel, verify stop, restart that reviewer with only
+its own ledger entries.
 
 Round 1 brief (T3 children get no history; `<P>` is `S` or `X`):
 
@@ -90,7 +90,7 @@ perf, extra compat: nits, unless they risk security, data loss, or corrupted sta
 blocker = intended case wrong. should = real bug callers will hit, in intent. nit = rest.
 Reply:
 VERDICT: APPROVE or CHANGES
-<P>1 [blocker|should|nit] <file>:<line> <claim>. Fix: <suggestion> (stable ids)
+<P>1 [blocker|should|nit] <file>:<line> <claim>. Fix: <suggestion> (stable ids <P>1, <P>2...)
 ```
 
 ## 3. Answer findings
@@ -120,8 +120,10 @@ and changed code only. Mark each old id `resolved` or `still open: <reason>`.
 
 ## 5. Stop and ship
 
-Agreed: every reviewer that ran gives APPROVE on the current behavior diff,
-no blocker or should open, no concern of your own. Stuck: an item stays
+Agreed: Sol, and the cross-check unless you dropped it (see 2), give APPROVE
+on the current behavior diff, no blocker or should open, no concern of your
+own. A dropped cross-check's open findings stay in the ledger for you to
+resolve. Stuck: an item stays
 disputed after two replies, or budget ends. Show both sides in 2-3 lines
 each. The user decides. Budget end is not approval.
 
