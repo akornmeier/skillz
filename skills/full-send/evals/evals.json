@@ -10,7 +10,7 @@
     {
       "id": "full-send-end-to-end",
       "summary": "Takes a small bug fix from the default branch to a merged PR with proof and a full report.",
-      "setup": "Disposable repository checked out on its default branch with a stub GitHub remote that supports PR creation, checks, review bots and a squash-only merge; this case explicitly permits merging into the stub. A reproducible off-by-one bug exists; the sol-loop reviewer is stubbed to approve. Explicit trigger phrase; question tool available.",
+      "setup": "Disposable repository checked out on its default branch with a stub GitHub remote that supports PR creation, checks, review bots and a squash-only merge; this case explicitly permits merging into the stub. A reproducible off-by-one bug exists; the sol-loop Sol and cross-check reviewers are stubbed to approve. Explicit trigger phrase; question tool available.",
       "prompt": "Pagination drops the last item on every page. Fix it, full send.",
       "expectedBehavior": [
         "Creates a branch before changing code, reproduces the failure, applies the smallest fix and watches the same reproduction pass.",

@@ -46,9 +46,11 @@ one appears.
    smallest change that works. Fix the case that happened, not every case
    that could. If you are on the default branch, create a branch first.
 2. **Prove it.** Get proof for every change you made. See "Proof".
-3. **Get feedback.** Use the `sol-loop` skill to verify changes. If it reports
-   no Sol route or ends with an item still disputed, decide that item yourself,
-   list the decision in the report, and continue.
+3. **Get feedback.** Use the `sol-loop` skill to verify changes. It reviews
+   with Sol and a cross-check model from another provider. If it reports no
+   Sol route or ran without a cross-check, list that in the report and
+   continue. If it ends with an item still disputed, decide that item
+   yourself, list the decision in the report, and continue.
 4. **File the PR** with the `file-pr` skill. Rebase onto the latest base
    branch first (the PR's actual base, usually the default branch). Add one short line to the description that says how you proved
    the change.
