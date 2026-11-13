@@ -110,8 +110,9 @@ review grew the diff, cut first. Do not agree just to end the loop.
 
 ## 4. Next round
 
-If budget remains, send a next round to each reviewer that has a blocker or
-should open, or whose approval does not cover the current behavior diff. A
+If budget remains, send a next round to each reviewer, except a dropped
+cross-check, that has a blocker or should open, or whose approval does not
+cover the current behavior diff. A
 behavior fix made for the other reviewer counts. Use a fresh `delegate_task`
 in T3, or follow up the saved native ID. Send the round 1 brief, that
 reviewer's ledger entries (`fixed:` / `disagree:` / `declined:` + evidence),
