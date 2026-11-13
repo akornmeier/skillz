@@ -67,7 +67,8 @@ the change (for example Meta Muse when Claude wrote it). If only the
 writer's provider is reachable, use its flagship in a fresh context. Resolve
 and record it like Sol. Outside T3, use a native subagent (in Claude Code,
 `Agent` with a Claude model). If no route runs a cross-check, or it fails
-twice, continue with Sol alone and say so in the report.
+twice, drop it, continue with Sol alone if Sol is in the loop, and say so
+in the report.
 
 Start both at once with the same round 1 brief. Ids are `S1`, `S2`... for
 Sol and `X1`, `X2`... for the cross-check. Never show one reviewer the

@@ -54,7 +54,8 @@ one appears.
    in the report, and continue.
 4. **File the PR** with the `file-pr` skill. Rebase onto the latest base
    branch first (the PR's actual base, usually the default branch). Add one short line to the description that says how you proved
-   the change.
+   the change, and `sol-loop`'s verdict line above the model and harness
+   line if it reached agreement.
 5. **Babysit the PR** with the `babysit-pr` skill. Fix real findings and CI
    failures. Get proof for each fix before you push it.
 6. **Merge** when the merge gate passes.
