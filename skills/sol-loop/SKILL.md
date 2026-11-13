@@ -58,7 +58,8 @@ review.
 If T3 tools are not listed, try one direct capability call. Outside T3, use
 a native Sol subagent and keep its ID. In Claude Code, use a custom subagent
 only if it is set up to run Sol. If no route runs Sol, report the blocker. Do
-not substitute a model, and do not run the cross-check alone.
+not substitute a model. Run the cross-check alone only when a calling skill
+such as `full-send` says to; then every rule below applies without Sol.
 
 Cross-check: the latest flagship from a provider other than OpenAI, unless
 the user named one. Prefer a provider other than the one whose model wrote
@@ -66,7 +67,8 @@ the change (for example Meta Muse when Claude wrote it). If only the
 writer's provider is reachable, use its flagship in a fresh context. Resolve
 and record it like Sol. Outside T3, use a native subagent (in Claude Code,
 `Agent` with a Claude model). If no route runs a cross-check, or it fails
-twice, continue with Sol alone and say so in the report.
+twice, drop it, continue with Sol alone if Sol is in the loop, and say so
+in the report.
 
 Start both at once with the same round 1 brief. Ids are `S1`, `S2`... for
 Sol and `X1`, `X2`... for the cross-check. Never show one reviewer the
@@ -121,10 +123,11 @@ and changed code only. Mark each old id `resolved` or `still open: <reason>`.
 
 ## 5. Stop and ship
 
-Agreed: Sol, and the cross-check unless you dropped it (see 2), give APPROVE
-on the current behavior diff, no blocker or should open, no concern of your
-own. A dropped cross-check's open findings stay in the ledger for you to
-resolve. Stuck: an item stays
+Agreed: every reviewer in the loop (Sol if it ran, and the cross-check unless
+you dropped it, see 2) gives APPROVE on the current behavior diff, no
+blocker or should open, no concern of your own. A dropped cross-check's open
+findings stay in the ledger for you to resolve. If no reviewer is left, the
+change is unreviewed, not agreed. Stuck: an item stays
 disputed after two replies, or budget ends. Show both sides in 2-3 lines
 each. The user decides. Budget end is not approval.
 
@@ -136,8 +139,10 @@ and harness line:
 
 With no cross-check, use
 `Reviewed with sol-loop: <N> rounds with <model>. Sol verdict: approved`.
+With no Sol, use
+`Reviewed with sol-loop: <N> rounds with <model>, no Sol route. Cross-check verdict: approved`.
 Add `on <effort>` after a model only if verified.
 
 Report: rounds, models, what each reviewer changed, diff size before/after,
 fixed and declined findings with reasons, usage if exposed (else say not),
-why the cross-check was skipped if it was, pushed or not.
+why Sol or the cross-check was skipped if one was, pushed or not.

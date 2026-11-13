@@ -47,13 +47,15 @@ one appears.
    that could. If you are on the default branch, create a branch first.
 2. **Prove it.** Get proof for every change you made. See "Proof".
 3. **Get feedback.** Use the `sol-loop` skill to verify changes. It reviews
-   with Sol and a cross-check model from another provider. If it reports no
-   Sol route or ran without a cross-check, list that in the report and
-   continue. If it ends with an item still disputed, decide that item
-   yourself, list the decision in the report, and continue.
+   with Sol and a cross-check model from another provider. If no route runs
+   Sol, tell `sol-loop` to run the cross-check alone. List a missing Sol or
+   cross-check in the report and continue, even if neither ran. If it ends
+   with an item still disputed, decide that item yourself, list the decision
+   in the report, and continue.
 4. **File the PR** with the `file-pr` skill. Rebase onto the latest base
    branch first (the PR's actual base, usually the default branch). Add one short line to the description that says how you proved
-   the change.
+   the change, and `sol-loop`'s verdict line above the model and harness
+   line if it reached agreement.
 5. **Babysit the PR** with the `babysit-pr` skill. Fix real findings and CI
    failures. Get proof for each fix before you push it.
 6. **Merge** when the merge gate passes.
