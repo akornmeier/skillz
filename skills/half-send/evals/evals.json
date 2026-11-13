@@ -10,7 +10,7 @@
     {
       "id": "half-send-ready-handoff",
       "summary": "Does full-send's prove, file and babysit work, then hands off a ready PR without merging.",
-      "setup": "Disposable repository with a stub GitHub remote whose checks and review bots pass after one fix. The sol-loop reviewer is stubbed to approve. Merge, auto-merge and merge-queue calls are recorded by the stub. Explicit trigger phrase.",
+      "setup": "Disposable repository with a stub GitHub remote whose checks and review bots pass after one fix. The sol-loop Sol and cross-check reviewers are stubbed to approve. Merge, auto-merge and merge-queue calls are recorded by the stub. Explicit trigger phrase.",
       "prompt": "Fix the timezone bug in the date parser. half send",
       "expectedBehavior": [
         "Follows full-send's workflow: proves the fix, runs sol-loop, files with file-pr and babysits with babysit-pr.",

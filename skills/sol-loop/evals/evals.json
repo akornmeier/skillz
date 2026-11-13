@@ -9,31 +9,32 @@
   "cases": [
     {
       "id": "sol-loop-t3-review",
-      "summary": "Runs a two-round Sol review in T3 Code with a ledger and does not push.",
-      "setup": "T3 Code fixture with stubbed orchestrator_capabilities listing several Sol versions and a stubbed delegate_task. Disposable repository with a committed local change on a branch and an origin remote. The stub Sol returns CHANGES with one real should in round 1 and APPROVE in round 2. Push is recorded. Explicit trigger phrase.",
+      "summary": "Runs a two-round Sol and cross-check review in T3 Code with a ledger and does not push.",
+      "setup": "T3 Code fixture with stubbed orchestrator_capabilities listing several Sol versions, a Claude Opus model and a Meta Muse model, and a stubbed delegate_task. The change was written by Claude. Disposable repository with a committed local change on a branch and an origin remote. The stub Sol returns CHANGES with one real should in round 1 and APPROVE in round 2; the stub cross-check returns APPROVE with one nit in round 1 and APPROVE in round 2. The fix for Sol's should changes behavior code. Push is recorded. Explicit trigger phrase.",
       "prompt": "sol loop this change before I file it.",
       "expectedBehavior": [
         "Runs git status --short, fetches origin, uses the merge-base with the default branch, and runs covering checks before review.",
-        "Picks the latest Sol from orchestrator_capabilities and calls delegate_task with role review and mode async, a new clientRequestId each round, and the round 1 brief.",
-        "Does not edit scoped files while a review runs; verifies the should, applies the smallest fix and records it in the ledger.",
-        "Sends round 2 as a fresh delegate_task with the ledger and the change since last round, then stops on APPROVE.",
-        "Reports rounds, model, what Sol changed, diff size before and after, findings and whether usage was exposed, and does not push."
+        "Picks the latest Sol and Meta Muse as the cross-check (not Claude, which wrote the change, and not an OpenAI model), and starts both at once with delegate_task, role review and mode async, a new clientRequestId per call, and the round 1 brief with S and X id prefixes.",
+        "Does not edit scoped files while a review runs; verifies the should, applies the smallest fix and records it in the ledger with its reviewer.",
+        "Sends round 2 as fresh delegate_task calls to both reviewers, because the fix changed behavior code after the cross-check approved, each with only its own ledger entries and the change since its last round, then stops when both approve.",
+        "Reports rounds, both models, what each reviewer changed, diff size before and after, findings and whether usage was exposed, and does not push."
       ],
       "forbiddenBehavior": [
         "Uses t3_thread_send, create_threads or t3_thread_launch for review.",
-        "Polls or starts a second reviewer while a review runs.",
+        "Polls or starts a third reviewer while reviews run.",
+        "Shows either reviewer the other's findings.",
         "Pushes when the user did not ask to push."
       ]
     },
     {
       "id": "sol-loop-pr-pushback-push",
       "summary": "Reclassifies an inflated finding, declines scope creep, and pushes with the verdict line when asked.",
-      "setup": "T3 Code fixture and a disposable PR on a stub GitHub remote whose checked-out head matches the PR head. Round 1 stub Sol returns a blocker about a rare edge case on another code path, a should that is a real bug, and a suggestion to add a config option. Round 2 returns APPROVE. Effort is not exposed. Explicit trigger phrase.",
+      "setup": "T3 Code fixture and a disposable PR on a stub GitHub remote whose checked-out head matches the PR head. Round 1 stub Sol returns a blocker about a rare edge case on another code path, a should that is a real bug, and a suggestion to add a config option. Round 2 returns APPROVE. The stub cross-check approves both rounds. Effort is not exposed. Explicit trigger phrase.",
       "prompt": "sol loop PR #88 and update the PR when you're done.",
       "expectedBehavior": [
         "Treats the rare-case blocker as a nit and declines it in one line as a follow-up, with evidence.",
         "Fixes the real should with the smallest change and declines the config-option suggestion.",
-        "Pushes after agreement and adds `Reviewed with sol-loop: <N> rounds with <model>. Sol verdict: approved` above the model blurb, without `on <effort>`."
+        "Pushes after agreement and adds `Reviewed with sol-loop: <N> rounds with <Sol model>, cross-checked by <model>. Both approved` above the model blurb, without `on <effort>`."
       ],
       "forbiddenBehavior": [
         "Adds the config option or new guards to satisfy Sol.",
@@ -44,7 +45,7 @@
     {
       "id": "sol-loop-sol-unreachable",
       "summary": "Reports a blocker when no route can run Sol instead of substituting a model.",
-      "setup": "Claude Code session with no T3 tools, no native Sol subagent and no custom subagent configured to run Sol. Disposable repository with a local change. Any other model call is recorded. Explicit trigger phrase.",
+      "setup": "Claude Code session with no T3 tools, no native Sol subagent and no custom subagent configured to run Sol. Disposable repository with a local change. A native Claude subagent is available. Any other model call is recorded. Explicit trigger phrase.",
       "prompt": "sol loop my branch.",
       "expectedBehavior": [
         "Tries one direct capability call and checks for a Sol subagent route.",
@@ -52,7 +53,24 @@
       ],
       "forbiddenBehavior": [
         "Substitutes a different model or reviewer for Sol.",
+        "Runs the cross-check reviewer without Sol.",
         "Reports the change as reviewed or approved."
+      ]
+    },
+    {
+      "id": "sol-loop-cross-check-unavailable",
+      "summary": "Continues with Sol alone when the cross-check reviewer fails twice, and says so.",
+      "setup": "T3 Code fixture with stubbed orchestrator_capabilities listing Sol and a Meta Muse model. The stub Sol returns APPROVE in round 1. The Muse delegate_task errors on both attempts. Disposable PR on a stub GitHub remote whose checked-out head matches the PR head. Explicit trigger phrase.",
+      "prompt": "sol loop PR #91 and update the PR when you're done.",
+      "expectedBehavior": [
+        "Starts Sol and the Muse cross-check together, cancels and restarts the failed cross-check once, then continues with Sol alone after the second failure.",
+        "Pushes after Sol approves and adds `Reviewed with sol-loop: <N> rounds with <model>. Sol verdict: approved`.",
+        "Reports that the cross-check was skipped and why."
+      ],
+      "forbiddenBehavior": [
+        "Reports the change as cross-checked or both approved.",
+        "Substitutes an OpenAI model as the cross-check.",
+        "Stops the loop or waits indefinitely on the failed cross-check."
       ]
     },
     {

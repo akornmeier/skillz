@@ -1,15 +1,15 @@
 ---
 name: sol-loop
-description: Reviews a change with GPT Sol in a bounded fix-and-re-review loop before or after filing a PR. Use when the user says "sol loop".
+description: Reviews a change with GPT Sol and a cross-check model from another provider in a bounded fix-and-re-review loop before or after filing a PR. Use when the user says "sol loop".
 ---
 
 # sol-loop
 
 This is a workflow for making your code changes more correct before (or
-sometimes after) filing a pull request. tl;dr - use OpenAI's GPT Sol to review
-your code in a loop.
+sometimes after) filing a pull request. tl;dr - use OpenAI's GPT Sol, plus one
+cross-check model from another provider, to review your code in a loop.
 
-Make the most minimal possible changes to appease the Sol reviewers. Be careful
+Make the most minimal possible changes to appease the reviewers. Be careful
 of scope creep and don't be scared to push back.
 
 ## Budget
@@ -21,8 +21,10 @@ of scope creep and don't be scared to push back.
   the user asks.
 - Stop early if a round returns only nits. Declined nits and comment,
   doc, or format-only fixes need no new round.
-- One reviewer only. Sol must not start subagents or reviewers.
-- Keep a ledger: id, severity, outcome, usage if returned. Never guess it.
+- Two reviewers: Sol and one cross-check (see 2). A round runs one or both.
+  Neither may start subagents or reviewers.
+- Keep a ledger: id, reviewer, severity, outcome, usage if returned. Never
+  guess it.
 
 ## 1. Scope
 
@@ -43,25 +45,39 @@ Use one diff command all rounds. State intent and out-of-scope in 1-2
 sentences. Run covering checks. Do not send code this change breaks. Note
 missing or pre-failing checks in the brief.
 
-## 2. Start Sol
+## 2. Start the reviewers
 
 In T3, call `orchestrator_capabilities`. Pick the latest Sol unless the user
 named a version. Do not hardcode an ID. Record provider, model, and effort
-only if exposed. Use `delegate_task` every round (`role: "review"`,
-`mode: "async"`). Save `taskId`. New `clientRequestId` per round.
-`childThreadId` is storage, not the next target. Do not use
-`t3_thread_send`, `create_threads`, or `t3_thread_launch` for review.
+only if exposed. Use `delegate_task` for each reviewer every round
+(`role: "review"`, `mode: "async"`). Save each `taskId`. New
+`clientRequestId` per call. `childThreadId` is storage, not the next target.
+Do not use `t3_thread_send`, `create_threads`, or `t3_thread_launch` for
+review.
 
 If T3 tools are not listed, try one direct capability call. Outside T3, use
 a native Sol subagent and keep its ID. In Claude Code, use a custom subagent
 only if it is set up to run Sol. If no route runs Sol, report the blocker. Do
-not substitute a model.
+not substitute a model, and do not run the cross-check alone.
 
-Do not edit scoped files while review runs. Wait for the notice. Do not
-poll or start a second reviewer. Timeout, error, or no reply is not
-approval. On failure, cancel, verify stop, restart with the ledger.
+Cross-check: the latest flagship from a provider other than OpenAI, unless
+the user named one. Prefer a provider other than the one whose model wrote
+the change (for example Meta Muse when Claude wrote it). If only the
+writer's provider is reachable, use its flagship in a fresh context. Resolve
+and record it like Sol. Outside T3, use a native subagent (in Claude Code,
+`Agent` with a Claude model). If no route runs a cross-check, or it fails
+twice, continue with Sol alone and say so in the report.
 
-Round 1 brief (T3 children get no history):
+Start both at once with the same round 1 brief. Ids are `S1`, `S2`... for
+Sol and `X1`, `X2`... for the cross-check. Never show one reviewer the
+other's findings.
+
+Do not edit scoped files while review runs. Wait for every notice. Do not
+poll or start a third reviewer. Timeout, error, or no reply is not
+approval. On failure, cancel, verify stop, restart that reviewer with the
+ledger.
+
+Round 1 brief (T3 children get no history; `<P>` is `S` or `X`):
 
 ```
 Review only. Do not edit, commit, push, comment on PRs, or start subagents.
@@ -74,7 +90,7 @@ perf, extra compat: nits, unless they risk security, data loss, or corrupted sta
 blocker = intended case wrong. should = real bug callers will hit, in intent. nit = rest.
 Reply:
 VERDICT: APPROVE or CHANGES
-S1 [blocker|should|nit] <file>:<line> <claim>. Fix: <suggestion> (stable ids)
+<P>1 [blocker|should|nit] <file>:<line> <claim>. Fix: <suggestion> (stable ids)
 ```
 
 ## 3. Answer findings
@@ -94,27 +110,31 @@ review grew the diff, cut first. Do not agree just to end the loop.
 
 ## 4. Next round
 
-Start one only if budget remains and a blocker or should is open, behavior code
-changed, or approval does not cover the current behavior diff. Use a fresh
-`delegate_task` in T3, or follow up the saved native ID. Send the round 1 brief,
-the ledger (`fixed:` / `disagree:` / `declined:` + evidence), the same base
-diff, and the change since last round. Tell Sol: open ids and changed code only.
-Mark each old id `resolved` or `still open: <reason>`.
+If budget remains, send a next round to each reviewer that has a blocker or
+should open, or whose approval does not cover the current behavior diff. A
+behavior fix made for the other reviewer counts. Use a fresh `delegate_task`
+in T3, or follow up the saved native ID. Send the round 1 brief, that
+reviewer's ledger entries (`fixed:` / `disagree:` / `declined:` + evidence),
+the same base diff, and the change since its last round. Tell it: open ids
+and changed code only. Mark each old id `resolved` or `still open: <reason>`.
 
 ## 5. Stop and ship
 
-Agreed: APPROVE on the current behavior diff, no blocker or should open,
-no concern of your own. Stuck: an item stays disputed after two replies,
-or budget ends. Show both sides in 2-3 lines each. The user decides.
-Budget end is not approval.
+Agreed: every reviewer that ran gives APPROVE on the current behavior diff,
+no blocker or should open, no concern of your own. Stuck: an item stays
+disputed after two replies, or budget ends. Show both sides in 2-3 lines
+each. The user decides. Budget end is not approval.
 
 Do not push during the loop. Push after agreement only if the user asked
 to push, ship, or update the PR. If you push to a PR, add above the closing model
 and harness line:
 
+`Reviewed with sol-loop: <N> rounds with <Sol model>, cross-checked by <model>. Both approved`.
+
+With no cross-check, use
 `Reviewed with sol-loop: <N> rounds with <model>. Sol verdict: approved`.
+Add `on <effort>` after a model only if verified.
 
-Add `on <effort>` only if verified.
-
-Report: rounds, model, what Sol changed, diff size before/after, fixed and
-declined findings with reasons, usage if exposed (else say not), pushed or not.
+Report: rounds, models, what each reviewer changed, diff size before/after,
+fixed and declined findings with reasons, usage if exposed (else say not),
+why the cross-check was skipped if it was, pushed or not.
