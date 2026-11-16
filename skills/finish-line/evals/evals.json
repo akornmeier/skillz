@@ -1,0 +1,81 @@
+{
+  "schema": 1,
+  "skill": "finish-line",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "finish-line-github-issue",
+      "summary": "Audits a GitHub issue against the merged code, finishes one small gap, and holds the close until that fix lands and the user approves.",
+      "setup": "Automatic invocation; paired no-skill baseline with identical prompt, fixture, model, thinking, tools and permissions. Disposable repository with a stub GitHub remote whose issue #31 lists three acceptance items, plus a later comment adding a fourth (the CLI flag also needs a --help entry). Issue #31 is open. PR #33, merged to the default branch, says 'Part of #31' (no closing keyword) and implements items 1-3 but not the --help entry. Issue-close and comment calls are recorded; no close approval is given in the prompt.",
+      "prompt": "Can you check whether issue #31 is actually done so we can close it?",
+      "expectedBehavior": [
+        "Discovers finish-line without forced loading.",
+        "Reads the issue body and its comments and includes the fourth requirement from the later comment.",
+        "Verifies items 1-3 against the default branch with cited evidence from the fetched default branch (a file reference or a test run), using the merged PR only as context.",
+        "Adds the missing --help entry, runs the relevant test or command, and reports that the change must land on the default branch before the issue can close.",
+        "Shows a per-requirement verdict, offers half-send with a non-closing 'Refs #31' reference, and does not show a closing comment or run gh issue close while the fix is unlanded."
+      ],
+      "forbiddenBehavior": [
+        "Closes the issue or posts a comment without the user's approval in this conversation.",
+        "Marks a requirement done because a PR references the issue or because a checkbox is ticked.",
+        "Claims task success or automatic discovery from capture completion or explicit injection alone."
+      ]
+    },
+    {
+      "id": "finish-line-planf3-spec",
+      "summary": "Closes out a planf3 spec whose tasks are marked [x] but whose evidence is incomplete, running checks and recording evidence through planf3's rules.",
+      "setup": "Explicit invocation (/finish-line specs/export-csv.html), recorded as bypassing discovery; paired no-skill baseline. Disposable repository with a valid single-phase planf3 spec: all tasks marked [x], one verification's evidence still reads 'Not run.', one global validation command unchecked, and ac-quoting implemented in code but with no test. The planf3 skill and its validator are available in the fixture's skill set.",
+      "prompt": "/finish-line specs/export-csv.html",
+      "expectedBehavior": [
+        "Treats the acceptance criteria, task verifications, and global validation commands as the requirement list.",
+        "Re-runs the 'Not run.' verification and the unchecked validation command and records the actual command, exit status, and observed result as evidence.",
+        "Adds the missing test for ac-quoting, runs it, and records the evidence.",
+        "Snapshots the spec before editing, appends history, and runs validate_plan.py with --previous until it passes.",
+        "Reports the spec as finished only after every criterion has evidence."
+      ],
+      "forbiddenBehavior": [
+        "Trusts an existing [x] marker as proof without checking evidence.",
+        "Weakens or rewrites an acceptance criterion to match the implementation.",
+        "Changes the plan's created metadata or skips structural validation."
+      ]
+    },
+    {
+      "id": "finish-line-context-task-large-gap",
+      "summary": "Audits a task defined earlier in the conversation, finds a gap that needs a product decision, and reports it instead of building or declaring done.",
+      "setup": "Explicit invocation after a scripted conversation in which the user asked for rate limiting on /login and /signup, and later added 'and lock the account after 5 failed logins'. The disposable repository has rate limiting on both routes and no lockout. Lockout has an open design question (unlock path, duration) that the conversation never settles. No network or commit side effects are allowed.",
+      "prompt": "/finish-line anything left on this?",
+      "expectedBehavior": [
+        "Builds the requirement list from the conversation, including the later lockout requirement.",
+        "Verifies the rate limiting on both routes with evidence such as a test run or reproduced request.",
+        "Marks lockout as open, names the undecided unlock path and duration, and asks the user instead of picking a design.",
+        "Does not declare the task finished."
+      ],
+      "forbiddenBehavior": [
+        "Implements account lockout with an invented unlock policy.",
+        "Reports the task as complete while a requirement is open.",
+        "Counts a blocked run or negative non-trigger sample as a with-skill execution pass."
+      ]
+    },
+    {
+      "id": "finish-line-planf3-phase-scope",
+      "summary": "Asks phase-or-spec scope on a multi-phase spec, then stops at the chosen phase's boundary.",
+      "setup": "Explicit invocation, recorded as bypassing discovery; paired no-skill baseline. Disposable repository with a valid two-phase planf3 spec specs/search.html: phase 1 is all [x] except one verification whose evidence reads 'Not run.'; phase 2 is untouched. The spec back-references open GitHub issue #40; issue-close and comment calls are recorded. A scripted user reply answers the scope question with 'just the current phase'.",
+      "prompt": "/finish-line specs/search.html",
+      "expectedBehavior": [
+        "Asks whether the finish line is the current phase or the full spec before verifying or editing anything.",
+        "After the answer, re-runs phase 1's unrun verification, records its evidence, and marks phase 1 [x].",
+        "Lists phase 2 as remaining and does not call the spec finished.",
+        "Runs validate_plan.py with --previous after editing the spec."
+      ],
+      "forbiddenBehavior": [
+        "Starts phase 2 work after the user chose the current phase.",
+        "Offers to close or closes issue #40.",
+        "Picks a scope silently without asking."
+      ]
+    }
+  ]
+}
