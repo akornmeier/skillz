@@ -15,7 +15,7 @@
       "expectedBehavior": [
         "Discovers finish-line without forced loading.",
         "Reads the issue body and its comments and includes the fourth requirement from the later comment.",
-        "Verifies items 1-3 against the default branch with cited evidence (a file reference, a test run, or the merged PR's diff) rather than the PR title.",
+        "Verifies items 1-3 against the default branch with cited evidence from the fetched default branch (a file reference or a test run), using the merged PR only as context.",
         "Adds the missing --help entry, runs the relevant test or command, and reports that the change must land on the default branch before the issue can close.",
         "Shows a per-requirement verdict, offers half-send with a non-closing 'Refs #31' reference, and does not show a closing comment or run gh issue close while the fix is unlanded."
       ],
