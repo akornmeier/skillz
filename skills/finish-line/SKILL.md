@@ -17,13 +17,13 @@ Take one ticket to closed. Build its full requirement list, prove each item agai
 
 ## Steps
 
-1. **Resolve the ticket.** Take the spec path, the issue number or URL, or the task from context. Infer it only when exactly one candidate fits, such as an issue number in the branch name or a single spec for this work. Otherwise ask.
+1. **Resolve the ticket.** Take the spec path, the issue number or URL, or the task from context. Infer it only when exactly one candidate fits, such as an issue number in the branch name or a single spec for this work. Otherwise ask. If a spec has more than one phase with unfinished work and the request names no scope, ask whether the finish line is the current phase or the full spec. Unfinished means not `[x]`, or `[x]` without recorded evidence; the current phase is the first phase with unfinished work.
 2. **Build the requirement list.** Number each item and keep its source reference.
 
    | Source | Read | Requirements |
    | --- | --- | --- |
-   | planf3 spec | Run `python3 ../planf3/scripts/validate_plan.py <spec>` (path relative to this skill) first, then read the whole spec | Every acceptance criterion (`ac-*`), every task action and its verification, phase Testing Strategy checks, global Validation Commands, and any scope changes in Amendments |
-   | GitHub issue | `gh issue view <n> --comments --json title,body,state,comments,closedByPullRequestsReferences` and the diffs of the linked PRs | Body checklists and acceptance criteria. Repro steps, which must no longer reproduce. Later comments from the author or maintainers that add, drop, or change scope. Linked PRs, which must be merged. |
+   | planf3 spec | Run `python3 <skill-directory>/../planf3/scripts/validate_plan.py <spec>` first, then read the whole spec | For a phase scope, that phase, the earlier phases it depends on, and the currently applicable global Validation Commands. For the full spec, every acceptance criterion (`ac-*`), every task action and its verification, phase Testing Strategy checks, global Validation Commands, and any scope changes in Amendments |
+   | GitHub issue | `gh issue view <n> --json title,body,state,comments,closedByPullRequestsReferences` and the diffs of the linked PRs | Body checklists and acceptance criteria. Repro steps, which must no longer reproduce. Later comments from the author or maintainers that add, drop, or change scope. Linked PRs, which must be merged. |
    | Task in context | The user's request and every later correction in this conversation | Each asked-for outcome, plus the user's standing definition of done, such as passing tests, lint, or a build |
 
 3. **Verify each item.** Prefer running a check over reading code: the spec's verification commands, the issue's repro steps, and the project's tests, lint, and build. Grep for sibling occurrences of the change. Mark each item **Done**, **Open**, or **Unverifiable**. Unverifiable never counts as done: ask the user to confirm it or supply the evidence.
@@ -33,6 +33,6 @@ Take one ticket to closed. Build its full requirement list, prove each item agai
    | # | Requirement (source) | Status | Evidence |
    | --- | --- | --- | --- |
 
-   - **planf3 spec:** It is finished when every task and check is `[x]` with recorded evidence, the history is appended, and the validator passes with `--previous`. If the spec links a GitHub issue, offer to close that issue too, using the issue rules below.
-   - **GitHub issue:** If you changed code, the issue closes only after that change lands on the default branch. Offer `half-send` to land it, with `Closes #<n>` in the PR body. Once every item is Done and landed, show the closing comment, formatted per `leaving-pr-comments`, that lists each item with its evidence. Run `gh issue close <n> --reason completed --comment "<comment>"` only after the user approves. If items remain open, leave the issue open, and post the remaining list as a comment only with approval.
+   - **planf3 spec:** It is finished when every task and check is `[x]` with recorded evidence, the history is appended, and the validator passes with `--previous`. If the spec links a GitHub issue, offer to close that issue too, using the issue rules below. For a phase scope, finish at that phase's boundary: mark the phase `[x]`, list the later phases as remaining, and neither call the spec finished nor offer to close its issue.
+   - **GitHub issue:** If you changed code, the issue closes only after that change lands on the default branch. Offer `half-send` to land it, with `Refs #<n>` in the PR body; a closing keyword would close the issue on merge and skip your approved comment. Once every item is Done and landed, show the closing comment, formatted per `leaving-pr-comments` (applied to the issue comment), that lists each item with its evidence. Run `gh issue close <n> --reason completed --comment "<comment>"` only after the user approves. If items remain open, leave the issue open, and post the remaining list as a comment only with approval.
    - **Task in context:** Say it is done, or list exactly what remains and what decision each open item needs.
