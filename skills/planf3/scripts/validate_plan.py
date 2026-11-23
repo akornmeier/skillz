@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Check Plan F3 structure and references, not semantic correctness or executed evidence."""
+"""Check Plan F3 structure and references, not semantic correctness or executed evidence.
+
+Errors fail by default. Warnings flag completion markers without current evidence and, with
+--repo-root, listed existing files missing from disk; --strict fails on warnings too. With
+--previous, metadata, prior amendments, and acceptance criteria are checked for silent rewrites.
+"""
 
 from __future__ import annotations
 
@@ -56,6 +61,7 @@ class Diagnostic:
     column: int
     code: str
     message: str
+    severity: str = "error"
 
 
 @dataclass
@@ -78,6 +84,7 @@ class Element:
     column: int
     parent: Element | None
     text_parts: list[str] = field(default_factory=list)
+    nested_list_at: int | None = None  # len(text_parts) when the first nested ul/ol opened
 
     @property
     def classes(self) -> set[str]:
@@ -156,6 +163,10 @@ class PlanParser(HTMLParser):
         self.close_implied_elements(tag)
         values = self.attrs_dict(attrs)
         line, column = self.getpos()
+        if tag in {"ul", "ol"}:
+            for ancestor in self.element_stack:
+                if ancestor.nested_list_at is None:
+                    ancestor.nested_list_at = len(ancestor.text_parts)
         element = Element(tag, values, line, column + 1, self.element_stack[-1] if self.element_stack else None)
         self.elements.append(element)
         if tag not in VOID_TAGS:
@@ -315,6 +326,43 @@ def valid_iso(value: str) -> bool:
     return True
 
 
+STATUS_TOKEN = re.compile(r"\[(|wip|x|f)\]", re.I)
+CRITERION_ID = re.compile(r"(?<![\w-])ac-[^\s,;]+")
+UNPROVEN_EVIDENCE = ("not run", "stale:", "deferred:")
+
+
+def own_status(parser: PlanParser, element: Element | None) -> str:
+    """Return the element's own status ('', 'wip', 'x', 'f'), or 'unmarked', ignoring nested list items."""
+    if element is None:
+        return "unmarked"
+    for candidate in parser.elements:
+        if candidate.tag == "code" and "status" in candidate.classes and candidate.within(element):
+            if element.tag == "li" and nearest(candidate, {"li"}) is not element:
+                continue
+            match = STATUS_TOKEN.fullmatch(candidate.text)
+            if match:
+                return match.group(1).lower()
+            break
+    own = element.text_parts[:element.nested_list_at] if element.tag == "li" else element.text_parts
+    match = STATUS_TOKEN.match(normalize_text("".join(own)))
+    return match.group(1).lower() if match else "unmarked"
+
+
+def nearest(element: Element, tags: set[str]) -> Element | None:
+    parent = element.parent
+    while parent is not None and parent.tag not in tags:
+        parent = parent.parent
+    return parent
+
+
+def first_descendant(parser: PlanParser, ancestor: Element, tag: str) -> Element | None:
+    return next((element for element in parser.elements if element.tag == tag and element.within(ancestor)), None)
+
+
+def task_status(parser: PlanParser, task: Element) -> str:
+    return own_status(parser, first_descendant(parser, task, "h4"))
+
+
 def validate_engineering_contract(parser: PlanParser) -> list[Diagnostic]:
     """Check declared coverage and verification shape without judging their meaning."""
     diagnostics: list[Diagnostic] = []
@@ -324,8 +372,8 @@ def validate_engineering_contract(parser: PlanParser) -> list[Diagnostic]:
     tasks = [element for element in elements if "task" in element.classes]
     verifications = [element for element in elements if "verification" in element.classes]
 
-    def report(element: Element, code: str, message: str) -> None:
-        diagnostics.append(Diagnostic(element.line, element.column, code, message))
+    def report(element: Element, code: str, message: str, severity: str = "error") -> None:
+        diagnostics.append(Diagnostic(element.line, element.column, code, message, severity))
 
     for kind, definitions, prefix, section in (
         ("criterion", criteria, "ac-", "acceptance"),
@@ -351,12 +399,19 @@ def validate_engineering_contract(parser: PlanParser) -> list[Diagnostic]:
     for verification, owner in owners.items():
         if owner is None:
             report(verification, "PF3_VERIFICATION_OWNER", "verification must be nested inside its owning .task")
+        done = owner is not None and task_status(parser, owner) == "x"
         for name in ("cases", "command", "expected", "evidence"):
             fields = [element for element in elements
                       if element.tag == "dd" and name in element.classes and element.within(verification)]
-            if len(fields) != 1 or not fields[0].text:
+            label = verification.attrs.get("id", "")
+            if name == "evidence" and done and len(fields) == 1 and (
+                    not fields[0].text or fields[0].text.lower().startswith(UNPROVEN_EVIDENCE)):
+                # Warning, not error, so repair workflows can still run on hand-ticked tasks.
+                report(verification, "PF3_DONE_WITHOUT_EVIDENCE",
+                       f"task marked [x] but verification {label!r} has no current evidence", "warning")
+            elif len(fields) != 1 or not fields[0].text:
                 report(verification, "PF3_VERIFICATION_FIELD",
-                       f"verification {verification.attrs.get('id', '')!r} needs exactly one non-empty dd.{name}")
+                       f"verification {label!r} needs exactly one non-empty dd.{name}")
     for task in tasks:
         if task not in owners.values():
             report(task, "PF3_TASK_VERIFICATION", f"task {task.attrs.get('id', '')!r} needs its own .verification block")
@@ -392,10 +447,91 @@ def validate_engineering_contract(parser: PlanParser) -> list[Diagnostic]:
     for task in tasks:
         if task not in mapped_tasks:
             report(task, "PF3_TASK_UNCOVERED", f"task {task.attrs.get('id', '')!r} needs a coverage link to the criterion it serves")
+
+    for phase in (element for element in elements if "phase" in element.classes):
+        if own_status(parser, first_descendant(parser, phase, "h3")) != "x":
+            continue
+        unfinished = [task for task in tasks if task.within(phase) and task_status(parser, task) != "x"]
+        unfinished += [item for item in elements if item.tag == "li" and item.within(phase)
+                       and item.parent is not None and item.parent.tag == "ul"
+                       and "checklist" in item.parent.classes and own_status(parser, item) != "x"]
+        if unfinished:
+            report(phase, "PF3_PHASE_PREMATURE_DONE",
+                   f"phase marked [x] with {len(unfinished)} task(s) or checklist item(s) not marked [x]", "warning")
     return diagnostics
 
 
+def check_existing_files(parser: PlanParser, repo_root: Path) -> list[Diagnostic]:
+    """Check the first path span of each existing-file row; missing files only warn once a build has started."""
+    diagnostics: list[Diagnostic] = []
+    elements = parser.elements
+    files = next((element for element in elements if element.attrs.get("id") == "files"), None)
+    if files is None:
+        return diagnostics
+    started = any(task_status(parser, task) in {"wip", "x", "f"}
+                  for task in elements if "task" in task.classes)
+    severity = "warning" if started else "error"
+    root = repo_root.resolve()
+    for row in elements:
+        if row.tag != "li" or not row.within(files):
+            continue
+        if not any(span.tag == "span" and {"tag", "existing"} <= span.classes and span.within(row) for span in elements):
+            continue
+        code = first_descendant(parser, row, "code")
+        token = code.text if code is not None else ""
+        if not token or is_remote(token) or any(marker in token for marker in ("*", "<", ">", "{", "...")):
+            continue
+        candidate = (root / token).resolve()
+        try:
+            candidate.relative_to(root)
+            escaped = False
+        except ValueError:
+            escaped = True
+        if escaped or not candidate.exists():
+            reason = "escapes the repository root" if escaped else "does not exist"
+            diagnostics.append(Diagnostic(row.line, row.column, "PF3_EXISTING_FILE_MISSING",
+                                          f"existing file {token!r} {reason}", severity))
+    return diagnostics
+
+
+def criteria_text(parser: PlanParser) -> dict[str, str]:
+    return {element.attrs.get("id", ""): element.text for element in parser.elements if "criterion" in element.classes}
+
+
+def amendment_entries(parser: PlanParser) -> list[tuple[str, str, str]]:
+    """Return (full text, header, body) per amendment in order; header/body keep word breaks across tags."""
+    section = next((element for element in parser.elements
+                    if element.tag == "section" and element.attrs.get("id") == "amendments"), None)
+    if section is None:
+        return []
+    entries = []
+    for details in (element for element in parser.elements if element.tag == "details" and element.within(section)):
+        summary = first_descendant(parser, details, "summary")
+        spaced = normalize_text(" ".join(details.text_parts))
+        header = normalize_text(" ".join(summary.text_parts)) if summary is not None else ""
+        body = spaced[len(header):] if header and spaced.startswith(header) else spaced
+        entries.append((details.text, header, body))
+    return entries
+
+
 def compare_previous(current: PlanParser, previous: PlanParser, diagnostics: list[Diagnostic]) -> None:
+    old_amendments = amendment_entries(previous)
+    new_amendments = amendment_entries(current)
+    if [entry[0] for entry in new_amendments[:len(old_amendments)]] != [entry[0] for entry in old_amendments]:
+        diagnostics.append(Diagnostic(1, 1, "PF3_AMENDMENT_REWRITTEN",
+                                      "prior amendments must stay unchanged and in order; append new entries at the bottom"))
+    appended = new_amendments[len(old_amendments):]
+    new_criteria = criteria_text(current)
+    for identifier, old_text in criteria_text(previous).items():
+        if new_criteria.get(identifier) == old_text:
+            continue
+        token = re.compile(rf"(?<![\w-]){re.escape(identifier)}(?![\w-])")
+        if not any((token.search(header) or token.search(body)) and re.search(r"[A-Za-z0-9]", CRITERION_ID.sub("", body))
+                   for _, header, body in appended):
+            change = "removed" if identifier not in new_criteria else "changed"
+            diagnostics.append(Diagnostic(1, 1, "PF3_AC_MUTATED",
+                                          f"criterion {identifier!r} {change} without a newly appended amendment naming it with a rationale"))
+
     old_created = previous.metadata.get("created", "")
     new_created = current.metadata.get("created", "")
     if old_created and old_created != new_created:
@@ -410,7 +546,7 @@ def compare_previous(current: PlanParser, previous: PlanParser, diagnostics: lis
             )
 
 
-def validate(path: Path, source: str, previous_path: Path | None) -> list[Diagnostic]:
+def validate(path: Path, source: str, previous_path: Path | None, repo_root: Path | None = None) -> list[Diagnostic]:
     parser = PlanParser()
     parser.feed(source)
     parser.close()
@@ -491,6 +627,9 @@ def validate(path: Path, source: str, previous_path: Path | None) -> list[Diagno
         previous.close()
         compare_previous(parser, previous, diagnostics)
 
+    if repo_root is not None:
+        diagnostics.extend(check_existing_files(parser, repo_root))
+
     return sorted(diagnostics)
 
 
@@ -499,6 +638,8 @@ def main() -> int:
     parser.add_argument("plan", type=Path)
     parser.add_argument("--previous", type=Path, help="Previous artifact for append-only checks")
     parser.add_argument("--json", action="store_true", dest="json_output")
+    parser.add_argument("--repo-root", type=Path, help="Check that files tagged existing are present under this root")
+    parser.add_argument("--strict", action="store_true", help="Fail on warnings as well as errors")
     args = parser.parse_args()
 
     path = args.plan.expanduser().resolve()
@@ -508,21 +649,29 @@ def main() -> int:
         print(f"VALIDATION ERROR: unable to read plan: {exc}", file=sys.stderr)
         return 2
 
+    repo_root = args.repo_root.expanduser().resolve() if args.repo_root else None
+    if repo_root is not None and not repo_root.is_dir():
+        print(f"VALIDATION ERROR: repo root is not a directory: {repo_root}", file=sys.stderr)
+        return 2
     try:
-        diagnostics = validate(path, source, args.previous.expanduser().resolve() if args.previous else None)
+        diagnostics = validate(path, source, args.previous.expanduser().resolve() if args.previous else None, repo_root)
     except ValueError as exc:
         print(f"VALIDATION ERROR: {exc}", file=sys.stderr)
         return 2
 
+    warnings = sum(item.severity == "warning" for item in diagnostics)
+    failed = any(item.severity == "error" for item in diagnostics) or (args.strict and bool(diagnostics))
+    exit_code = 1 if failed else 0
     if args.json_output:
-        print(json.dumps({"ok": not diagnostics, "plan": str(path), "diagnostics": [asdict(item) for item in diagnostics]}, indent=2))
+        print(json.dumps({"ok": exit_code == 0, "plan": str(path), "diagnostics": [asdict(item) for item in diagnostics]}, indent=2))
     else:
         for item in diagnostics:
-            print(f"{item.code} {path}:{item.line}:{item.column} {item.message}", file=sys.stderr)
-        if not diagnostics:
-            print(f"STRUCTURALLY VALID: {path} (semantic review and execution evidence still require human/agent checks)")
+            print(f"{item.code} {path}:{item.line}:{item.column} {item.severity}: {item.message}", file=sys.stderr)
+        if exit_code == 0:
+            suffix = f" ({warnings} warning{'s' if warnings != 1 else ''})" if warnings else ""
+            print(f"STRUCTURALLY VALID{suffix}: {path} (semantic review and execution evidence still require human/agent checks)")
 
-    return 1 if diagnostics else 0
+    return exit_code
 
 
 if __name__ == "__main__":

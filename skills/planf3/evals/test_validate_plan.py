@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import re
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -213,6 +215,208 @@ class EngineeringContractTests(unittest.TestCase):
             source = plan().replace("2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z")
             codes = {item.code for item in validator.validate(previous, source, previous)}
             self.assertIn("PF3_CREATED_CHANGED", codes)
+
+
+
+def done_plan(evidence: str = "pnpm test exited 0; default case passed.") -> str:
+    """Fixture with the task, its checklist item, and its phase marked complete."""
+    return (plan()
+            .replace('<h3>Phase 1</h3>', '<h3><code class="status">[x]</code> Phase 1</h3>')
+            .replace('<h4>Parse page size</h4>', '<h4><code class="status">[x]</code> Parse page size</h4>')
+            .replace('<li>[] Implement parser.</li>', '<li><code class="status">[x]</code> Implement parser.</li>')
+            .replace('<dd class="evidence">Not run.</dd>', f'<dd class="evidence">{evidence}</dd>'))
+
+
+def with_amendments(source: str, *entries: str) -> str:
+    body = "".join(f"<details><summary>{summary}</summary><p>{text}</p></details>" for summary, text in entries)
+    return source.replace('<section id="amendments"></section>', f'<section id="amendments">{body}</section>')
+
+
+FIRST = ("2026-01-02 — Initial review", "Tightened wording after review.")
+SECOND = ("2026-01-03 — Boundary", "Added the boundary case.")
+
+
+class AntiDriftTests(unittest.TestCase):
+    def diagnostics(self, source: str, previous: str | None = None, repo_root: Path | None = None):
+        with tempfile.TemporaryDirectory() as directory:
+            previous_path = None
+            if previous is not None:
+                previous_path = Path(directory) / "previous.html"
+                previous_path.write_text(previous, encoding="utf-8")
+            return validator.validate(Path(directory) / "plan.html", source, previous_path, repo_root)
+
+    def codes(self, source: str, previous: str | None = None, repo_root: Path | None = None) -> dict[str, str]:
+        return {item.code: item.severity for item in self.diagnostics(source, previous, repo_root)}
+
+    def run_cli(self, source: str, *flags: str):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "plan.html"
+            path.write_text(source, encoding="utf-8")
+            return subprocess.run([sys.executable, str(SCRIPT), str(path), *flags],
+                                  capture_output=True, text=True, check=False)
+
+    def test_mutated_or_deleted_criterion_without_amendment_fails(self) -> None:
+        changed = plan().replace("Missing pageSize yields 20.", "Missing pageSize yields 50.")
+        self.assertEqual(self.codes(changed, plan()).get("PF3_AC_MUTATED"), "error")
+        removed = plan().replace('class="criterion" id="ac-default"', 'id="dropped"')
+        self.assertIn("PF3_AC_MUTATED", self.codes(removed, plan()))
+
+    def test_appended_amendment_naming_exact_id_with_rationale_passes(self) -> None:
+        previous = with_amendments(plan(), FIRST)
+        changed = with_amendments(plan().replace("yields 20.", "yields 50."), FIRST,
+                                  ("2026-01-04 — ac-default", "Product raised the default page size for ac-default."))
+        self.assertEqual(self.codes(changed, previous), {})
+
+    def test_amendment_must_name_exact_id_and_give_a_rationale(self) -> None:
+        previous = with_amendments(plan(), FIRST)
+        for summary, text in (("2026-01-04 — ac-default-rate", "Raised the limit for ac-default-rate."),
+                              ("2026-01-04 — ac-default", "ac-default")):
+            with self.subTest(summary=summary, text=text):
+                changed = with_amendments(plan().replace("yields 20.", "yields 50."), FIRST, (summary, text))
+                self.assertIn("PF3_AC_MUTATED", self.codes(changed, previous))
+
+    def test_prefix_substring_never_satisfies_a_shorter_id(self) -> None:
+        base = plan().replace('id="ac-default"', 'id="ac-login"').replace('#ac-default', '#ac-login')
+        changed = with_amendments(base.replace("yields 20.", "yields 50."),
+                                  ("2026-01-04 — ac-login-rate", "Changed ac-login-rate because traffic grew."))
+        self.assertIn("PF3_AC_MUTATED", self.codes(changed, base))
+
+    def test_old_amendment_rewritten_reordered_or_preceded_fails(self) -> None:
+        previous = with_amendments(plan(), FIRST, SECOND)
+        for label, current in (
+                ("rewritten", with_amendments(plan(), (FIRST[0], "Different rationale."), SECOND)),
+                ("reordered", with_amendments(plan(), SECOND, FIRST)),
+                ("deleted", with_amendments(plan(), SECOND)),
+                ("inserted first", with_amendments(plan(), ("2026-01-05 — New", "New entry."), FIRST, SECOND))):
+            with self.subTest(label=label):
+                self.assertEqual(self.codes(current, previous).get("PF3_AMENDMENT_REWRITTEN"), "error")
+        appended = with_amendments(plan(), FIRST, SECOND, ("2026-01-05 — New", "New entry."))
+        self.assertEqual(self.codes(appended, previous), {})
+
+    def test_adding_a_new_criterion_is_not_a_mutation(self) -> None:
+        current = plan().replace('</ul></section>\n<section id="coverage">',
+                                 '<li class="criterion" id="ac-boundary">Maximum is 100.</li>'
+                                 '</ul></section>\n<section id="coverage">')
+        self.assertNotIn("PF3_AC_MUTATED", self.codes(current, plan()))
+
+    def test_done_task_with_blank_evidence_warns_by_default_and_fails_strict(self) -> None:
+        source = done_plan(" ")
+        self.assertEqual(self.codes(source), {"PF3_DONE_WITHOUT_EVIDENCE": "warning"})
+        default = self.run_cli(source, "--json")
+        self.assertEqual(default.returncode, 0, default.stderr)
+        self.assertTrue(json.loads(default.stdout)["ok"])
+        strict = self.run_cli(source, "--json", "--strict")
+        self.assertEqual(strict.returncode, 1)
+        self.assertFalse(json.loads(strict.stdout)["ok"])
+
+    def test_missing_duplicate_or_unfinished_blank_evidence_stays_structural(self) -> None:
+        missing = done_plan().replace('class="evidence"', '')
+        duplicate = done_plan().replace('<dd class="evidence">', '<dd class="evidence">Ran.</dd><dd class="evidence">')
+        unfinished = plan().replace('<dd class="evidence">Not run.</dd>', '<dd class="evidence"> </dd>')
+        for label, source in (("missing", missing), ("duplicate", duplicate), ("unfinished", unfinished)):
+            with self.subTest(label=label):
+                codes = self.codes(source)
+                self.assertEqual(codes.get("PF3_VERIFICATION_FIELD"), "error")
+                self.assertNotIn("PF3_DONE_WITHOUT_EVIDENCE", codes)
+
+    def test_done_task_with_placeholder_evidence_warns(self) -> None:
+        for evidence in ("Not run.", "Stale: parser changed.", "DEFERRED: needs staging.", "not run yet"):
+            with self.subTest(evidence=evidence):
+                self.assertEqual(self.codes(done_plan(evidence)), {"PF3_DONE_WITHOUT_EVIDENCE": "warning"})
+                self.assertEqual(self.run_cli(done_plan(evidence), "--strict").returncode, 1)
+
+    def test_current_and_mixed_historical_evidence_pass_strict(self) -> None:
+        for evidence in ("pnpm test exited 0.",
+                         "Historical (superseded): Not run. Final: pnpm test exited 0 after the rename."):
+            with self.subTest(evidence=evidence):
+                self.assertEqual(self.codes(done_plan(evidence)), {})
+                result = self.run_cli(done_plan(evidence), "--strict")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("STRUCTURALLY VALID", result.stdout)
+
+    def test_task_status_reads_only_its_own_heading(self) -> None:
+        source = (plan().replace('<h4>Parse page size</h4>', '<h4><code class="status">[]</code> Parse page size</h4>')
+                  .replace('<li>[] Implement parser.</li>', '<li><code class="status">[x]</code> Implement parser.</li>'))
+        self.assertEqual(self.codes(source), {})
+
+    def test_done_phase_with_unfinished_task_or_checklist_warns(self) -> None:
+        unfinished_task = done_plan().replace('<h4><code class="status">[x]</code>', '<h4><code class="status">[wip]</code>')
+        unmarked_item = done_plan().replace('<li><code class="status">[x]</code> Implement parser.</li>',
+                                            '<li><code class="status">[x]</code> Implement parser.</li><li>Run tests.</li>')
+        for label, source in (("task", unfinished_task), ("checklist", unmarked_item)):
+            with self.subTest(label=label):
+                self.assertEqual(self.codes(source).get("PF3_PHASE_PREMATURE_DONE"), "warning")
+                self.assertEqual(self.run_cli(source, "--strict").returncode, 1)
+                result = self.run_cli(source)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("STRUCTURALLY VALID (", result.stdout)
+        self.assertEqual(self.codes(done_plan()), {})
+
+    def test_repo_root_missing_existing_file_errors_until_a_build_starts(self) -> None:
+        files = ('<section id="files" class="files"><ul><li><span class="tag existing">existing</span> '
+                 '<code>src/pagination.ts</code> — run with <code>--repo-root</code> and <code>sol-loop</code></li>'
+                 '<li><span class="tag new">new</span> <code>src/new.ts</code></li></ul></section>')
+        source = plan().replace('<section id="files">src/pagination.ts</section>', files)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.assertEqual(self.codes(source, repo_root=root).get("PF3_EXISTING_FILE_MISSING"), "error")
+            resumed = source.replace('<h4>Parse page size</h4>', '<h4><code class="status">[x]</code> Parse page size</h4>')
+            self.assertEqual(self.codes(resumed, repo_root=root).get("PF3_EXISTING_FILE_MISSING"), "warning")
+            (root / "src").mkdir()
+            (root / "src" / "pagination.ts").write_text("export {};\n", encoding="utf-8")
+            self.assertEqual(self.codes(source, repo_root=root), {})
+            self.assertEqual(self.codes(source), {})
+            escaping = source.replace('<code>src/pagination.ts</code>', '<code>../outside.ts</code>')
+            self.assertEqual(self.codes(escaping, repo_root=root).get("PF3_EXISTING_FILE_MISSING"), "error")
+
+    def test_repo_root_cli_reports_warning_for_resumed_build(self) -> None:
+        files = ('<section id="files" class="files"><ul><li><span class="tag existing">existing</span> '
+                 '<code>src/renamed.ts</code></li></ul></section>')
+        source = done_plan().replace('<section id="files">src/pagination.ts</section>', files)
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.run_cli(source, "--repo-root", directory)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("STRUCTURALLY VALID (1 warning)", result.stdout)
+            self.assertIn("PF3_EXISTING_FILE_MISSING", result.stderr)
+            self.assertEqual(self.run_cli(source, "--repo-root", directory, "--strict").returncode, 1)
+
+    def test_sidecar_image_resolves_only_beside_the_materialized_plan(self) -> None:
+        figure = '<figure><img src="plan/flow.png" alt="Request flow"><figcaption>Flow.</figcaption></figure>'
+        source = plan().replace('<section id="purpose">', figure + '<section id="purpose">')
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "plan").mkdir()
+            (root / "plan" / "flow.png").write_bytes(b"\x89PNG fixture")
+            materialized = {item.code for item in validator.validate(root / "plan.html", source, None)}
+            self.assertEqual(materialized, set())
+        with tempfile.TemporaryDirectory() as directory:
+            standalone = {item.code for item in validator.validate(Path(directory) / "plan.html", source, None)}
+            self.assertIn("PF3_IMAGE_MISSING", standalone)
+
+    def test_amendment_of_only_criterion_ids_is_not_a_rationale(self) -> None:
+        for body in ("ac-default, ac-other", "ac-default.v2"):
+            with self.subTest(body=body):
+                changed = with_amendments(plan().replace("yields 20.", "yields 50."), ("2026-01-04 — ac-default", body))
+                self.assertIn("PF3_AC_MUTATED", self.codes(changed, plan()))
+
+    def test_compact_amendment_html_still_cites_the_id(self) -> None:
+        changed = plan().replace("yields 20.", "yields 50.").replace(
+            '<section id="amendments"></section>',
+            '<section id="amendments"><details><summary>2026-01-04 change</summary>'
+            '<p>ac-default raised because product asked.</p></details></section>')
+        self.assertEqual(self.codes(changed, plan()), {})
+
+    def test_unmarked_checklist_item_does_not_inherit_a_nested_status(self) -> None:
+        nested = done_plan().replace('<li><code class="status">[x]</code> Implement parser.</li>',
+                                     '<li><ul><li>[x] Sub-step.</li></ul>Implement parser.</li>')
+        self.assertEqual(self.codes(nested).get("PF3_PHASE_PREMATURE_DONE"), "warning")
+        own = done_plan().replace('<li><code class="status">[x]</code> Implement parser.</li>',
+                                  '<li>[x] Validate integration<ul><li>[x] Validate</li></ul></li>')
+        self.assertEqual(self.codes(own), {})
+
+    def test_cli_bad_repo_root_exits_2(self) -> None:
+        result = self.run_cli(plan(), "--repo-root", "/nonexistent/plan-root")
+        self.assertEqual(result.returncode, 2)
 
 
 if __name__ == "__main__":

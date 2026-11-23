@@ -39,11 +39,14 @@ Find the base after `git fetch origin`:
   change. Base: `git merge-base HEAD origin/<baseRefName>`.
 - Local: `git merge-base HEAD origin/<default-branch>`. No remote: a base
   the user names, or `HEAD` for uncommitted changes only.
+- Supplied: when a calling skill or the user gives a base commit/ref, use
+  `git merge-base HEAD <supplied>`, never the unrebased tip itself.
 
 The change is base to working tree in those paths, with untracked files.
 Use one diff command all rounds. State intent and out-of-scope in 1-2
-sentences. Run covering checks. Do not send code this change breaks. Note
-missing or pre-failing checks in the brief.
+sentences, folding in any caller-supplied spec/course paths and non-goals.
+Run covering checks. Do not send code this change breaks. Note missing or
+pre-failing checks in the brief.
 
 ## 2. Start the reviewers
 

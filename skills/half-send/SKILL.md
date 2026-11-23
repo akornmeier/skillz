@@ -14,13 +14,18 @@ work without a separate "full send" request. That includes full-send's
 testing permission. A "half-send" request is the permission for the test
 methods Proof needs, even when a project file says to ask first, for
 example before computer use. Use those methods directly. Its merge
-permission does not apply. The overrides below take precedence.
+permission does not apply. Up to the readiness gate, the rest applies as is:
+its test-integrity rule and the spec guard in
+[linked-spec-guard.md](../planf3/references/linked-spec-guard.md), with its
+pre-push and final-head base checks. The overrides below take precedence.
 
 ## No merging
 
-You may commit, push, rebase, fix conflicts, and use `--force-with-lease` on
-this task's branch. Never merge, enable auto-merge, enter a merge queue, push
-to the default branch, bypass branch protection, or delegate those actions.
+You may commit, push, rebase, and fix conflicts on this task's branch, and
+force-push it after a rebase only with the guard's checked lease
+(`--force-with-lease=refs/heads/<branch>:<pending_lease>`). Never merge, enable
+auto-merge, enter a merge queue, push to the default branch, bypass branch
+protection, or delegate those actions.
 
 Disable existing auto-merge and remove the PR from any merge queue before
 work begins; check again before each push. Report these changes. If you
@@ -41,7 +46,10 @@ without the user. If someone else merged it, report that instead.
   that this is the actual blocker.
 - **Blocked:** explain what prevents readiness, what you tried, and what is
   needed. Follow full-send's rules for asking the user.
+- **Open proposals:** list unresolved `> PROPOSED` blocks and review requests
+  that conflict with the spec or course as decisions left to the user.
 
 In T3 Code, call `unwatch_pull_request` before the handoff or a question.
-Report the PR link, final head, verdict, proof, reviewer outcome, and remaining
-risks. State whether the PR is still open and unmerged.
+Report the PR link, final head, verdict, proof, reviewer outcome,
+decisions made without asking, docs/plan updated (or proposed changes), and
+remaining risks. State whether the PR is still open and unmerged.

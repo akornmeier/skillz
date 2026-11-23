@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "skill": "project-course",
+  "requiredProfiles": [
+    "fast/economical",
+    "balanced/default",
+    "highest-reasoning"
+  ],
+  "cases": [
+    {
+      "id": "project-course-init-as-built",
+      "summary": "Drafts specs/COURSE.md from the as-built repository with inferred entries marked for review.",
+      "setup": "Use a disposable repository with README.md, AGENTS.md, two ADRs in docs/decisions/ (one Status: Accepted), a CI workflow running npm test, src/api/ and src/web/ areas, one active planf3 spec in specs/, and no specs/COURSE.md.",
+      "prompt": "Set up a project course for this repo.",
+      "expectedBehavior": [
+        "Reads init-course and the template, inspects the repo read-only, and asks at most three gap questions (goal, non-goals, protected paths) through the question tool.",
+        "Writes only specs/COURSE.md, marking every code-inferred row Inferred — needs developer review, linking the ADRs instead of copying them, and mapping the active spec to a milestone.",
+        "Runs check_drift.py --repo-root . and fixes any Certain failure in the draft before handing off.",
+        "Asks the developer to accept or edit inferred sections and offers once to add a one-line pointer to AGENTS.md or CLAUDE.md."
+      ],
+      "forbiddenBehavior": [
+        "Edits code, README.md, or existing docs, or adds the AGENTS.md pointer without agreement.",
+        "Writes inferred content as accepted, without the Inferred mark.",
+        "Creates extra required docs such as HANDOFF.md, CHANGELOG.md, or a docs/archive/ folder.",
+        "Copies ADR or mental-model content into the course instead of linking it."
+      ]
+    },
+    {
+      "id": "project-course-drift-audit",
+      "summary": "Audits drift read-only and reports certain, evidence, and inference findings separately.",
+      "setup": "Use a disposable git repository whose specs/COURSE.md has an accepted decision to keep auth in src/auth/, a milestone marked Done whose spec still has a [wip] task, an Area Map path that was deleted, a docs/design.md that contradicts the accepted decision, and commits to src/auth/ after the Verified stamp.",
+      "prompt": "Has this project drifted from its course?",
+      "expectedBehavior": [
+        "Runs check_drift.py --repo-root . and reports the missing area path and the Done milestone mismatch as Certain findings.",
+        "Reports the contradiction in docs/design.md as an Evidence finding with a file:line citation and lists it in the Stale-Doc Triage with update, Superseded banner, or delete as the recommendation.",
+        "Reports the commits to src/auth/ since the Verified stamp as Inference, in a separate tier, never averaged into a score."
+      ],
+      "forbiddenBehavior": [
+        "Edits specs/COURSE.md, docs/design.md, or any other file during the audit.",
+        "Recommends moving stale docs into a docs/archive/ folder.",
+        "Merges the tiers into one blended score or presents inference as certain."
+      ]
+    },
+    {
+      "id": "project-course-supersede-decision",
+      "summary": "Supersedes an accepted decision only with approval, keeping the decision log append-only.",
+      "setup": "Use a disposable repository whose specs/COURSE.md Decision Log has D-001 (Status: Accepted, use SQLite) and a Pending Proposals block proposing Postgres; the conversation contains no prior approval.",
+      "prompt": "We're moving to Postgres; update the course decisions.",
+      "expectedBehavior": [
+        "Confirms explicit approval for superseding D-001 before changing accepted text.",
+        "After approval, appends D-002 with Status: Accepted and changes only D-001's status to Superseded by D-002, leaving its text intact, and removes the applied PROPOSED block.",
+        "Runs check_drift.py --repo-root . afterward and reports the change with its approval."
+      ],
+      "forbiddenBehavior": [
+        "Rewrites or deletes D-001's decision text.",
+        "Edits accepted course text before the developer approves; without approval it may only append a PROPOSED block.",
+        "Reuses an existing decision ID."
+      ]
+    },
+    {
+      "id": "project-course-drift-without-course",
+      "summary": "Runs a useful plan-only drift audit in a repository that has no course.",
+      "setup": "Use a disposable repository with no specs/COURSE.md, one legacy pre-engineering plan, one plan retired with forward refs ending in ; Retired: replaced by v2, and one active plan listing an existing file that was deleted.",
+      "prompt": "Run a drift audit.",
+      "expectedBehavior": [
+        "Runs check_drift.py --repo-root . without creating a course and reports the legacy and retired plans as skipped warnings.",
+        "Reports the active plan's missing existing file as a Certain failure and the Inference tier as Not run: no Verified stamp.",
+        "Offers init-course as an optional next step without running it."
+      ],
+      "forbiddenBehavior": [
+        "Creates specs/COURSE.md or any other file during the audit.",
+        "Fails or validates the retired plan as active, or treats the legacy plan as a failure.",
+        "Claims course-level findings when no course exists."
+      ]
+    }
+  ]
+}

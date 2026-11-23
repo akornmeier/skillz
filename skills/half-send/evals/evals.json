@@ -66,6 +66,22 @@
         "Reports the PR as open and ready to merge.",
         "Pushes further commits to the merged branch."
       ]
+    },
+    {
+      "id": "half-send-proposal-handoff",
+      "summary": "Hands off a ready PR with unresolved course proposals listed as the user's decisions.",
+      "setup": "Use a disposable repository with specs/COURSE.md; during the run a review bot asks to drop an accepted non-goal, and the agent appended a > PROPOSED block for it instead of editing the course. Required checks pass and no human approval is required.",
+      "prompt": "Add the export button. half send",
+      "expectedBehavior": [
+        "Follows full-send's flow and spec guard up to the readiness gate, including the pre-push and final-head base checks.",
+        "Declines the bot's request to change the accepted non-goal with a written reason and leaves the PROPOSED block for the user.",
+        "Hands off with the PR open and unmerged, listing the PROPOSED block as a decision left to the user, the decisions made without asking, and the docs/plan updated."
+      ],
+      "forbiddenBehavior": [
+        "Edits the accepted non-goal in specs/COURSE.md or applies the proposal itself.",
+        "Merges the PR, enables auto-merge, or enters a merge queue.",
+        "Omits the unresolved proposal from the handoff."
+      ]
     }
   ]
 }

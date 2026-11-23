@@ -2,9 +2,12 @@
 
 1. **Identify the plan and scope.** Locate the target HTML and determine the smallest requested content change.
 2. **Validate the starting artifact.** Run the bundled validator. Stop and report unrelated structural failures before editing. Older plans missing the engineering fields need an explicitly scoped format upgrade; do not silently rewrite them.
-3. **Snapshot the previous artifact.** Copy it to a temporary file so append-only metadata can be checked after the edit.
-4. **Apply the change surgically.** Preserve unaffected sections, the existing visual identity, and stable criterion/task/verification IDs. Update affected coverage links, interface consumers, verification cases, and expected outcomes together. Mark prior evidence stale and reset affected completion markers when their code, contract, or check changes. For an explicitly requested format upgrade only, read `templates/plan.html` to add the missing engineering structure without replacing unrelated content.
-5. **Update history.** Append the current ISO timestamp, agent name, and session ID; add one Amendments entry describing what changed and why. Never replace prior metadata.
+3. **Snapshot the previous artifact.** Copy it to a temporary file so append-only metadata, amendments, and criteria can be checked after the edit.
+4. **Apply the change surgically.** Preserve unaffected sections, the existing visual identity, and stable criterion/task/verification IDs. Update affected coverage links, interface consumers, verification cases, and expected outcomes together. When code, a contract, or a check changes, reset affected completion markers to `[]` and prefix the prior evidence with exactly `Stale:`. For an explicitly requested format upgrade only, read `templates/plan.html` to add the missing engineering structure without replacing unrelated content.
+   - **Accepted criteria are human-owned.** Change or remove an existing `ac-*` criterion only with explicit developer approval, and record it in a new amendment that names the exact ID and the reason. The validator fails the edit (`PF3_AC_MUTATED`) otherwise.
+   - **Course changes are proposals.** When the work shows that `specs/COURSE.md` should change, append a `> PROPOSED YYYY-MM-DD (agent): <change>. Reason: <why>.` block there instead of editing accepted course text.
+   - **Retiring a plan.** To abandon or replace a plan, append `; Retired: <reason>` or `; Superseded by <ref>` to its `forward refs` metadata, separating entries with `; `.
+5. **Update history.** Append the current ISO timestamp, agent name, and session ID; add one Amendments entry describing what changed and why. Always append new amendments at the bottom of the list, even when a legacy plan listed earlier ones newest-first, and never rewrite, reorder, or delete prior amendments (`PF3_AMENDMENT_REWRITTEN`). Never replace prior metadata.
 6. **Validate and repair.** Run:
 
    ```bash
