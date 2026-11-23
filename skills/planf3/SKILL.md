@@ -20,6 +20,7 @@ A plan is an offline, locally complete HTML package in `specs/`. The main page c
 - `IMAGES_OUTPUT_DIR`: `specs/<plan-name>/`.
 - `TEMPLATE`: `<skill-directory>/templates/plan.html`.
 - `AI_DOCS/` and `APP_DOCS/`: read only when present.
+- `COURSE_FILE`: `specs/COURSE.md`, the optional project course from the `project-course` skill. Read it when present. Only accepted text carries authority: ignore anything marked `Inferred — needs developer review`, inside a `> PROPOSED` block, or `Superseded by`.
 
 Resolve every relative skill path against the directory containing this `SKILL.md`, regardless of the current working directory. If no `USER_PROMPT` is available, ask for it.
 
@@ -41,7 +42,8 @@ Plan the smallest change that fully does the job. Map every place it must reach 
   python3 <skill-directory>/scripts/validate_plan.py <plan.html>
   ```
 
-  For updates, preserve a temporary pre-edit copy and add `--previous <copy>` to check append-only metadata. Structural success checks format and references, not semantic correctness or whether tests ran.
+  For updates, preserve a temporary pre-edit copy and add `--previous <copy>` to check append-only metadata, prior amendments, and acceptance criteria. Add `--repo-root .` before delivering a new plan and at Build step 1 to confirm listed existing files are on disk. Add `--strict` at Build step 8 so `[x]` tasks without current evidence and phases ticked early fail. Structural success checks format and references, not semantic correctness or whether tests ran.
+- An amendment records a change; it is not approval. Changing or removing an accepted `ac-*` criterion needs explicit developer approval and a new amendment at the bottom of Amendments that names the exact ID and why.
 
 ## Route to one workflow
 
@@ -62,4 +64,6 @@ Read only the matching workflow before acting:
 - `references/engineering-review.md` — read when creating or updating plan content, or when a build deviation changes tasks, interfaces, or verification.
 - `scripts/validate_plan.py` — execute after every plan mutation and before build execution; do not read it for instructions.
 - `scripts/generate_gpt_image.py` and `scripts/edit_gpt_image.py` — execute only through the image subworkflow after its approval gate.
+- `scripts/course_parser.py` — shared `specs/COURSE.md` parser used by `spec_guard.py` and `project-course`; do not read it for instructions.
+- `scripts/spec_guard.py` and `references/linked-spec-guard.md` — the PR course/spec guard that `full-send`, `half-send`, and `babysit-pr` run; read the reference only when one of those skills sends you there.
 - `workflows/*.md` — read only the routed workflow and any subworkflow it explicitly calls.

@@ -16,7 +16,8 @@ assume full autonomy. If they did, everything below applies.
 The user grants you permission to:
 
 - Merge the PR once the merge gate passes.
-- Force-push the PR's own branch with `--force-with-lease` after a rebase.
+- Force-push the PR's own branch after a rebase, only with the checked lease
+  `--force-with-lease=refs/heads/<branch>:<pending_lease>` from the guard.
 - Use the test methods that Proof needs, without asking first.
 
 ## Testing permission
@@ -44,23 +45,33 @@ one appears.
 
 1. **Finish the change.** Complete the goal from the user's request with the
    smallest change that works. Fix the case that happened, not every case
-   that could. If you are on the default branch, create a branch first.
+   that could. If you are on the default branch, create a branch first. On the
+   branch, run `spec_guard.py pin` per [linked-spec-guard.md](../planf3/references/linked-spec-guard.md).
+   On `guard: n/a` (no `prior_runs`), re-run `pin --run-start-head` at later
+   gates. Otherwise carry `guard_prefix` and `invocation_id`, read protected
+   boundaries before editing, run the takeover check (disable auto-merge,
+   dequeue), and gate commits and pushes.
 2. **Prove it.** Get proof for every change you made. See "Proof".
 3. **Get feedback.** Use the `sol-loop` skill to verify changes. It reviews
-   with Sol and a cross-check model from another provider. If no route runs
-   Sol, tell `sol-loop` to run the cross-check alone. List a missing Sol or
-   cross-check in the report and continue, even if neither ran. If it ends
-   with an item still disputed, decide that item yourself, list the decision
-   in the report, and continue.
-4. **File the PR** with the `file-pr` skill. Rebase onto the latest base
-   branch first (the PR's actual base, usually the default branch). Add one short line to the description that says how you proved
-   the change, and `sol-loop`'s verdict line above the model and harness
-   line if it reached agreement.
+   with Sol and a cross-check model from another provider. Pass it the merge
+   base, linked spec and `specs/COURSE.md` paths, and a one-sentence non-goal.
+   If no route runs Sol, tell `sol-loop` to run the cross-check alone. List a
+   missing Sol or cross-check in the report and continue, even if neither ran.
+   If it ends with an item still disputed, decide that item yourself, list the
+   decision in the report, and continue.
+4. **File the PR.** On a clean tree, run the guard's rebase gate (`rebase-pin`,
+   or `pin --pre-rebase-head` on `guard: n/a`), rebase onto its `base_sha`, run
+   `survival` if guarded, then `check --stage pre-push`. Push that `cand_sha`,
+   then use `file-pr` publish-only (no commits or pushes in it). If guarded,
+   run `bind-pr` and pass its `guard_prefix` and `invocation_id` to Step 5.
+   Add one short line to the description that says how you proved the change,
+   and `sol-loop`'s verdict line above the model and harness line if it
+   reached agreement.
 5. **Babysit the PR** with the `babysit-pr` skill. Fix real findings and CI
    failures. Get proof for each fix before you push it.
 6. **Merge** when the merge gate passes.
 7. **Report** in your final message: the PR link, the merge commit, your proof,
-   and each decision you made for the user.
+   each decision you made for the user, doc or plan updates, course proposals.
 
 Stay active from step 1 to step 7. If you end your turn while checks or bots are
 pending, the work stops, because nobody will prompt you again. Wait with the
@@ -82,8 +93,9 @@ reproduction, a screenshot. Use the most direct proof the change allows:
   tests do not prove that the user experience works. Attach screenshots to the
   PR when they help and you have a way to upload them.
 
-When you cannot find a way to prove a change, you do not have full confidence.
-Ask the user.
+Never weaken, skip, or delete an existing test to make a failure go away;
+intentional behavior changes may update tests, noted in the report. If you
+cannot find a way to prove a change, you lack full confidence. Ask the user.
 
 ## Merge gate
 
@@ -99,10 +111,14 @@ Full confidence means all of these are true on the latest commit:
   mergeable.
 
 Merge with the method the repo uses. Check the allowed methods and recent merged
-PRs. If the repo uses a merge queue or auto-merge, stay until GitHub reports the
-PR as merged. Merge through branch protection as configured. Never use `--admin`
-or other bypasses. You can ignore automated reviews that request "needs human
-review" if you have high confidence in your changes.
+PRs. First run the guard's final check (`check --stage final`, or `pin` on
+`guard: n/a`), and never enable auto-merge while checks or reviews are pending.
+Head-pin a direct merge to the checked `cand_sha` (`expectedHeadSha` with
+`auto: false`, or `--match-head-commit`). Use auto-merge or a merge queue only
+as the guide's CI-guard rule allows, and stay until GitHub reports it merged.
+Merge through branch protection as configured. Never use `--admin` or other
+bypasses. You can ignore automated reviews that request "needs human review"
+if you have high confidence in your changes.
 
 ## Asking the user
 
@@ -121,6 +137,10 @@ Ask only when you cannot continue alone:
   branch.
 - The goal is ambiguous in a way that changes the result.
 - Another PR makes this one obsolete.
+- A deliberate blocker: protected code paths, withheld access, a guard takeover
+  or merge-queue Ask, or an unrequested change to accepted criteria, course, or
+  ADRs, never overriding Testing Permission for test methods.
+- One diagnosed failure, not a flake, survives 2 consecutive failed fix attempts.
 
 Decide everything else yourself with sensible defaults, and list those decisions
 in the report.

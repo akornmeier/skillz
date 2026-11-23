@@ -82,7 +82,24 @@ Act on checks for the current head and on review threads that are still
 unresolved. Skip comments that a later push already addressed. Verify every bot
 finding against the source before changing code. Fix real findings and CI
 failures, distinguish repository failures from infrastructure flakes, and reply
-with a written reason when dismissing false positives.
+with a written reason when dismissing false positives. Never weaken, skip, or
+delete an existing test to make a failure go away, even on `guard: n/a`;
+intentional behavior changes may update tests, noted in the report.
+
+Stop pushing, unwatch (`unwatch_pull_request` or stop `pr-wait`), and escalate
+with logs after 2 consecutive fix pushes fail with the same diagnosed repository
+failure (same check name and failing test or error). The initial failing head,
+duplicate wakes, infrastructure flakes, and different failures do not count.
+
+### Spec guard
+
+- **Start.** Follow [linked-spec-guard.md](../planf3/references/linked-spec-guard.md); `spec_guard.py` does the git work. From `full-send` Step 5, reuse its `guard_prefix` and `invocation_id` and pass both on every call. Otherwise run `spec_guard.py pin --repo <owner/repo> --pr <n> --head-sha <headRefOid> --branch <headRefName>`, confirming the checkout is the PR before using local changes; non-empty `prior_runs` means resume or ask. On `guard: n/a`, keep `initial_head_sha` and `initial_merge_base` and re-run `pin --run-start-head` at later gates.
+- **Takeover.** While guarded, with non-empty `prior_runs`, or before a push that activates the guard: the PR must be open, auto-merge off, and outside any unguarded merge queue. Standalone, ask instead of changing the user's setting; under `full-send` or `half-send`, disable or dequeue it.
+- **Before applying** any review or CI fix, read the fetched base's protected boundaries and accepted decisions from `pin`.
+- **Bot drift.** Check suggestions against the PR goal, any bound spec, and accepted `specs/COURSE.md` or ADR entries. Decline requirement drift with a reason citing the spec or decision; ask when a bot finds a real spec flaw. Record an approval with `spec_guard.py approve` only after the user gives it.
+- **Rebase.** Run `rebase-pin` (guarded) or `pin --pre-rebase-head` (`guard: n/a`) first, keep `pending_lease` and `pre_rebase_head` until the push lands, and run `survival` right after a guarded rebase.
+- **Before pushing** any rebase, bot-fix, or CI-fix commit, run `check --stage pre-push` (or `pin --cand-sha` while skipped) and push its `cand_sha` with `git push <push_endpoint> "${cand_sha}:refs/heads/<branch>"`, adding `--force-with-lease=refs/heads/<branch>:<pending_lease>` only after a rebase.
+- **Spec sync.** When a fix changes a bound spec, snapshot it, mark pending proof `Stale:`, and validate with `validate_plan.py --previous <snapshot> --strict`.
 
 If the repo has `.macroscope/check-run-agents/*.md`, read those rules before you
 reply to a Macroscope finding. Its findings cite them.
@@ -115,7 +132,12 @@ user, and ask before closing the PR unless closure was explicitly authorized.
 If nothing has changed, stay quiet rather than posting filler comments. Stop
 when `pr-wait` exits 0, or in T3 Code when the merge gate passes on the latest
 head. Merge only when the user explicitly requested it;
-otherwise report that the PR is ready. A watcher's exit 0 is not the merge
+otherwise report that the PR is ready. Never enable auto-merge while checks
+are pending. Before calling it ready or merging, even if no bot commented, run
+the final-head base check (`spec_guard.py check --stage final`, or `pin` while
+skipped), head-pin a direct merge to the checked `cand_sha` (`expectedHeadSha`
+or `--match-head-commit`), and ask if a guarded PR's required merge queue lacks
+a qualifying `merge_group` CI guard. A watcher's exit 0 is not the merge
 gate. Right before a merge, run `git fetch` and check the PR again: required
 checks and approvals, no changes-requested review, no unresolved threads.
 Never merge when it is BEHIND or DIRTY, or when base commits that landed after
