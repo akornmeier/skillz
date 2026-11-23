@@ -110,7 +110,7 @@ def course_md(north_star="Ship reliable widgets.", non_goal="No mobile app.", in
 | ID | Date | Status | Decision | ADR |
 |---|---|---|---|---|
 | D-001 | 2026-01-01 | Accepted | {decision} | docs/adr/0001-postgres.md |
-| D-002 | 2026-01-02 |  | Use a queue | docs/adr/0002-queue.md |
+| D-002 | 2026-01-02 | Accepted | Use a queue | docs/adr/0002-queue.md |
 """
 
 
@@ -986,6 +986,74 @@ class SpecGuardTests(unittest.TestCase):
         self.assertIn("ci-old.yml", result["changed_paths"])
         self.assertIn("docs/adr/0002-queue.md", [item["path"] for item in result["spec_course_adr_diffs"]])
         self.assertTrue(all(item["status"] == "unapproved" for item in hits.values()))
+
+
+    def test_14_upstream_cannot_replace_a_branch_added_criterion(self) -> None:
+        box = self.box
+        work = box.init_origin({"specs/s.html": spec_html(), "src/app.py": "print(1)\n"})
+        box.git(work, "checkout", "-q", "-b", "topic")
+        box.commit(work, {"specs/s.html": spec_html(BASE + [("ac-new", "Branch text.")]), "src/app.py": "print(2)\n"},
+                   "branch adds ac-new")
+        ids = self.ids(self.guard(work, "pin", *LOCAL, code=0))
+        box.git(work, "checkout", "-q", "main")
+        box.commit(work, {"specs/s.html": spec_html(BASE + [("ac-new", "Upstream text.")])}, "main adds ac-new")
+        box.git(work, "checkout", "-q", "topic")
+        self.guard(work, "rebase-pin", *LOCAL, *ids, code=0)
+        box.git(work, "rebase", "-q", "main", check=False)
+        box.git(work, "checkout", "--ours", "specs/s.html")  # during a rebase, ours is the upstream side
+        box.git(work, "add", "specs/s.html")
+        box.git(work, "-c", "core.editor=true", "rebase", "--continue")
+        survival = self.guard(work, "survival", *LOCAL, *ids, code=1)
+        self.assertIn(("criterion_rewritten", "ac-new"),
+                      {(item["kind"], item.get("criterion")) for item in survival["survival"]})
+
+    def test_15_boundary_prose_edit_is_a_governed_change(self) -> None:
+        box = self.box
+        work = box.init_origin(course_files())
+        box.git(work, "checkout", "-q", "-b", "topic")
+        course = (work / "specs" / "COURSE.md").read_text(encoding="utf-8")
+        box.commit(work, {"specs/COURSE.md": course.replace("- `Makefile`", "- `Makefile`: edit freely, no approval")},
+                   "loosen boundary prose")
+        result = self.guard(work, "check", "--stage", "pre-push", *LOCAL,
+                            *self.ids(self.guard(work, "pin", *LOCAL, code=0)), code=1)
+        self.assertEqual({field["field"] for item in result["governed_course_changes"] for field in item["fields"]},
+                         {"protected_boundary_items"})
+
+    def test_16_relative_adr_links_resolve_to_repo_paths(self) -> None:
+        box = self.box
+        files = course_files()
+        files["specs/COURSE.md"] = (files["specs/COURSE.md"]
+                                    .replace("| docs/adr/0001-postgres.md |", "| [ADR](../docs/adr/0001-postgres.md) |")
+                                    .replace("| docs/adr/0002-queue.md |", "| `./docs/adr/0002-queue.md` |"))
+        work = box.init_origin(files)
+        box.git(work, "checkout", "-q", "-b", "topic")
+        box.commit(work, {"docs/adr/0001-postgres.md": "# ADR 1\n\nStatus: Accepted\n\nEdited.\n",
+                          "docs/adr/0002-queue.md": "# ADR 2\n\nStatus: Accepted\n\nEdited.\n"}, "edit ADRs")
+        pinned = self.guard(work, "pin", *LOCAL, code=0)
+        result = self.guard(work, "check", "--stage", "pre-push", *LOCAL, *self.ids(pinned), code=1)
+        self.assertEqual({item["path"] for item in result["protected_path_hits"]},
+                         {"docs/adr/0001-postgres.md", "docs/adr/0002-queue.md"})
+
+    def test_17_pre_push_binds_untracked_specs_only_in_the_candidate_checkout(self) -> None:
+        box = self.box
+        work = box.init_origin({"specs/s.html": spec_html(), "src/app.py": "print(1)\n"})
+        box.git(work, "checkout", "-q", "-b", "topic")
+        cand = box.commit(work, {"specs/s.html": spec_html(BASE + [("ac-new", "New.")])}, "edit spec")
+        ids = self.ids(self.guard(work, "pin", *LOCAL, code=0))
+        box.git(work, "checkout", "-q", "main")
+        box.write(work, {"specs/foreign.html": spec_html(title="Foreign")})
+        elsewhere = self.guard(work, "check", "--stage", "pre-push", *LOCAL, *ids, "--cand-sha", cand, code=0)
+        self.assertNotIn("specs/foreign.html", elsewhere["bound_specs"])
+        self.assertEqual(elsewhere["bound_spec_deletions"], [])
+        box.git(work, "checkout", "-q", "topic")
+        owned = self.guard(work, "check", "--stage", "pre-push", *LOCAL, *ids, "--cand-sha", cand, code=1)
+        self.assertIn("specs/foreign.html", owned["bound_specs"])
+
+    def test_18_pin_for_a_pr_needs_the_exact_candidate(self) -> None:
+        work = self.box.init_origin({"src/app.py": "print(1)\n"})
+        missing = self.guard(work, "pin", *LOCAL, "--repo", "org/repo", "--pr", "4", "--branch", "topic", code=2)
+        self.assertIn("--head-sha", missing["error"])
+        self.guard(work, "pin", *LOCAL, "--repo", "org/repo", "--pr", "4", "--head-sha", self.box.head(work), code=2)
 
 
 if __name__ == "__main__":

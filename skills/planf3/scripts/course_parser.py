@@ -9,6 +9,7 @@ authority: governed prose is accepted unless marked "Inferred — needs develope
 from __future__ import annotations
 
 import fnmatch
+import posixpath
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -23,7 +24,6 @@ CODE_SPAN = re.compile(r"`([^`]+)`")
 DECISION_ID = re.compile(r"\bD-\d{3,}\b")
 SUPERSEDED = re.compile(r"superseded\s+by\s+(D-\d{3,})", re.I)
 ACCEPTED = re.compile(r"^\s*(?:status\s*:\s*)?accepted\b", re.I)
-VERIFIED = re.compile(r"^\s*verified\s*:\s*(\d{4}-\d{2}-\d{2})(?:\s*\(\s*([^)\s]+)\s*\))?", re.I | re.M)
 PATH_EXTENSION = re.compile(r"\.(?=[A-Za-z0-9]{0,4}[A-Za-z])[A-Za-z0-9]{1,5}$")
 EXTERNAL = re.compile(r"^(?:/|~|[A-Za-z]:)")
 URL = re.compile(r"^[a-z][a-z0-9+.-]*:", re.I)
@@ -51,7 +51,7 @@ class Course:
     proposals: list = field(default_factory=list)
     unsupported_boundaries: list = field(default_factory=list)
     accepted: dict = field(default_factory=dict)
-    verified: Optional[dict] = None
+    boundary_items: list = field(default_factory=list)
 
 
 def normalize(value: str) -> str:
@@ -80,8 +80,8 @@ def is_separator(cells: list[str]) -> bool:
 
 
 def plain(cell: str) -> str:
-    """Strip Markdown emphasis and code ticks from a table cell."""
-    return normalize(re.sub(r"[`*_]", "", cell))
+    """Strip code ticks and edge-of-word emphasis from a table cell, keeping literal paths like my_plan.html."""
+    return normalize(re.sub(r"(?<!\w)[*_]+|[*_]+(?!\w)", "", cell.replace("`", "")))
 
 
 def path_tokens(text: str) -> list[str]:
@@ -100,11 +100,20 @@ def path_tokens(text: str) -> list[str]:
     return tokens
 
 
+def repo_relative(path: str, base_dir: str = "specs") -> str | None:
+    """Canonical repo-relative form: ./x is repo-root, ../x resolves from the course's directory; escapes are None."""
+    if path.startswith("../"):
+        path = posixpath.join(base_dir, path)
+    path = posixpath.normpath(path)
+    return None if path == ".." or path.startswith("../") else path
+
+
 def adr_links(text: str) -> list[str]:
     """Decision Log links: Markdown link targets and .md path tokens, never other paths named in prose."""
     links = [path for match in MD_LINK.finditer(text) for path in path_tokens(match.group(1))]
     links += [path for path in path_tokens(MD_LINK.sub(" ", text)) if path.lower().endswith(".md")]
-    return list(dict.fromkeys(links))
+    canonical = (repo_relative(path) for path in links)
+    return list(dict.fromkeys(path for path in canonical if path))
 
 
 def match_protected_path(changed_path: str, boundary: str) -> bool:
@@ -218,30 +227,14 @@ def items_and_proposals(lines: list[tuple[int, str]]) -> tuple[list[dict], list[
     return items, proposals
 
 
-def adr_status(paths: list[str], reader: Callable[[str], Optional[str]] | None) -> bool:
-    if not paths or reader is None:
-        return False
-    for path in paths:
-        text = reader(path)
-        if text is None or re.search(r"superseded", text, re.I):
-            return False
-        if not re.search(r"^\W*status\W*:?\W*accepted\b", text, re.I | re.M):
-            return False
-    return True
-
-
 def parse_course(text: str, repo_root: Path | str | None = None,
                  read_file: Callable[[str], Optional[str]] | None = None) -> Course:
-    """Parse COURSE.md text. read_file(path) supplies linked-ADR text (for example from a git blob)."""
-    if read_file is None and repo_root is not None:
-        root = Path(repo_root)
+    """Parse COURSE.md text into a Course.
 
-        def read_file(path: str) -> Optional[str]:
-            try:
-                return (root / path).read_text(encoding="utf-8")
-            except (OSError, UnicodeError):
-                return None
-
+    repo_root and read_file are accepted for callers that inspect linked files (for example from a git
+    blob), but acceptance never depends on them: a decision and its ADR are accepted only by the
+    Decision Log row's own Status: Accepted.
+    """
     sections: dict[str, list[tuple[int, str]]] = {}
     inferred_sections: set[str] = set()
     current, fenced = None, False
@@ -263,10 +256,6 @@ def parse_course(text: str, repo_root: Path | str | None = None,
             sections.setdefault(current, []).append((number, line))
 
     course = Course()
-    verified = VERIFIED.search(text)
-    if verified:
-        course.verified = {"date": verified.group(1), "commit": verified.group(2)}
-
     accepted: dict = {key: [] for key in GOVERNED}
     for key, lines in sections.items():
         items, proposals = items_and_proposals(lines)
@@ -277,6 +266,7 @@ def parse_course(text: str, repo_root: Path | str | None = None,
             if key in inferred_sections or INFERRED.search(item["text"]):
                 continue
             if key == "protected_boundaries":
+                course.boundary_items.append(item["text"])  # prose, so wording changes stay governed
                 paths, unsupported = boundary_spans(item["text"])
                 accepted[key].extend(path for path in paths if path not in accepted[key])
                 course.unsupported_boundaries.extend(dict(entry, line=item["line"]) for entry in unsupported)
@@ -304,13 +294,7 @@ def parse_course(text: str, repo_root: Path | str | None = None,
         superseded = SUPERSEDED.search(status)
         adr_paths = adr_links(" ".join(row.values()))
         inferred = decisions_inferred or any(INFERRED.search(value) for value in row.values())
-        if superseded or inferred:
-            is_accepted = False
-        elif ACCEPTED.match(status):
-            is_accepted = True
-        else:
-            # A row that defers to its ADR is accepted only when the ADR itself says Status: Accepted.
-            is_accepted = not status and adr_status(adr_paths, read_file)
+        is_accepted = not (superseded or inferred) and bool(ACCEPTED.match(status))
         course.decisions.append({"line": number, "id": identifier.group(0) if identifier else column(row, "id"),
                                  "date": column(row, "date"), "status": status, "decision": decision,
                                  "superseded_by": superseded.group(1) if superseded else None,
@@ -328,9 +312,19 @@ def parse_course(text: str, repo_root: Path | str | None = None,
     return course
 
 
+def governed_view(course: Course | None) -> dict:
+    """Everything an approval gate compares: the accepted dict plus accepted boundary prose."""
+    if course is None:
+        return dict(EMPTY_GOVERNED)
+    return dict(course.accepted, protected_boundary_items=list(course.boundary_items))
+
+
 def protected_paths(course: Course) -> list[str]:
     """Accepted Protected Boundaries plus the ADR files linked from accepted decisions."""
     paths = list(course.accepted.get("protected_boundaries", []))
     for decision in course.accepted.get("accepted_decisions", []):
         paths.extend(path for path in decision["adr_paths"] if path not in paths)
     return paths
+
+
+EMPTY_GOVERNED = governed_view(parse_course(""))

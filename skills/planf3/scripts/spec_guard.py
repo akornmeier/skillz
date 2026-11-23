@@ -329,7 +329,7 @@ def plan_facts(text: str) -> PlanFacts:
     markers = any({"criterion", "task"} & element.classes for element in parser.elements)
     legacy = "acceptance" not in parser.ids and "coverage" not in parser.ids and not markers
     resources = [resource for resource, _, _ in parser.resources] + [figure.image_src for figure in parser.figures]
-    return PlanFacts(validate_plan.criteria_text(parser), [full for full, _ in validate_plan.amendment_entries(parser)],
+    return PlanFacts(validate_plan.criteria_text(parser), [entry[0] for entry in validate_plan.amendment_entries(parser)],
                      dict(parser.metadata), legacy, resources)
 
 
@@ -566,9 +566,6 @@ def is_spec(path: str) -> bool:
 
 # ---------------------------------------------------------------- course helpers
 
-EMPTY_ACCEPTED = course_parser.parse_course("").accepted
-
-
 def load_course(snapshot: Snapshot, findings: Findings):
     text = snapshot.text(COURSE, findings)
     if text is None:
@@ -619,12 +616,12 @@ def approved_criterion(approvals: list, spec: str, criterion: str, old: str, new
     return False
 
 
-def upstream_match(upstream: PlanFacts | None, fork: PlanFacts | None, criterion: str, new: str | None) -> bool:
-    """True when the candidate text is exactly what <base_sha> legitimately changed it to."""
+def upstream_match(upstream: PlanFacts | None, fork: PlanFacts | None, criterion: str, old: str,
+                   new: str | None) -> bool:
+    """True when <base_sha> changed exactly the accepted text `old` (as of the fork) into `new`."""
     if upstream is None or fork is None:
         return False
-    target = upstream.criteria.get(criterion)
-    return target == new and fork.criteria.get(criterion) != target
+    return fork.criteria.get(criterion) == old != new and upstream.criteria.get(criterion) == new
 
 
 # ---------------------------------------------------------------- survival
@@ -655,7 +652,7 @@ def spec_survival(spec: str, label: str, source: Snapshot, fork: Snapshot, targe
             continue
         found = now.criteria.get(criterion)
         if found == text or approved_criterion(approvals, spec, criterion, text, found) \
-                or upstream_match(upstream_facts, base, criterion, found):
+                or upstream_match(upstream_facts, base, criterion, text, found):
             continue
         kind = "criterion_dropped" if found is None else "criterion_rewritten"
         failures.append(dict(item, kind=kind, criterion=criterion, expected=text, found=found))
@@ -769,6 +766,9 @@ def validate_pin_args(args) -> None:
         raise GuardError("--repo and --pr must be passed together")
     if args.repo and not re.fullmatch(r"[^/\s]+/[^/\s]+", args.repo):
         raise GuardError("--repo must look like owner/repo")
+    if args.pr and not args.resume and not (args.branch and (args.head_sha or args.cand_sha or args.checkout_owns_pr)):
+        raise GuardError("--pr needs --branch <headRefName> and the exact candidate: --head-sha <headRefOid>, "
+                         "--cand-sha, or --checkout-owns-pr")
     if bool(args.run_start_head) != bool(args.run_start_merge_base):
         raise GuardError("--run-start-head and --run-start-merge-base must be passed together")
     if args.pending_lease is not None and not args.pre_rebase_head:
@@ -958,7 +958,9 @@ def cmd_check(git: Git, args) -> tuple[int, dict]:
         changed += sorted(worktree)
     else:
         changed = diff_names(git, (base_cmp, cand_sha))
-    local_specs = untracked(git, (SPEC_PATHSPEC,)) if args.stage != "final" else []
+    # Untracked drafts belong to this run only in the checkout that produces the candidate.
+    owns_checkout = cand_sha is None or (args.stage == "pre-push" and cand_sha == resolve_commit(git, "HEAD", "HEAD"))
+    local_specs = untracked(git, (SPEC_PATHSPEC,)) if owns_checkout else []
     bound = update_bound(git, run, [path for path in changed + local_specs if is_spec(path)])
 
     def cand_entry(path: str):
@@ -992,7 +994,7 @@ def cmd_check(git: Git, args) -> tuple[int, dict]:
                 if new == old or (criterion, old) in seen:
                     continue
                 seen.add((criterion, old))
-                if upstream_match(upstream_facts, fork_facts, criterion, new):
+                if upstream_match(upstream_facts, fork_facts, criterion, old, new):
                     status = "upstream_base"
                 elif (deletion_ok and now is None) or approved_criterion(run.approvals, spec, criterion, old, new):
                     status = "approved"
@@ -1024,16 +1026,14 @@ def cmd_check(git: Git, args) -> tuple[int, dict]:
     base_course, cand_course = load_course(base_cmp_snapshot, findings), load_course(cand, findings)
     upstream_course = load_course(upstream, findings)
     governed = []
-    fields = accepted_diff(base_course.accepted if base_course else EMPTY_ACCEPTED,
-                           cand_course.accepted if cand_course else EMPTY_ACCEPTED)
+    fields = accepted_diff(course_parser.governed_view(base_course), course_parser.governed_view(cand_course))
     if fields:
         from_entry, to_entry = entry_str(base_cmp_snapshot.entry(COURSE)), entry_str(cand_entry(COURSE))
         status = "approved" if approved_path(run.approvals, COURSE, from_entry, to_entry) else "unapproved"
         governed.append({"path": COURSE, "baseline": "base_cmp", "from_entry": from_entry, "to_entry": to_entry,
                          "fields": fields, "status": status})
     if base_cmp != base_sha:
-        fields = accepted_diff(base_course.accepted if base_course else EMPTY_ACCEPTED,
-                               upstream_course.accepted if upstream_course else EMPTY_ACCEPTED)
+        fields = accepted_diff(course_parser.governed_view(base_course), course_parser.governed_view(upstream_course))
         if fields:
             rebase_recommended = True
             governed.append({"path": COURSE, "baseline": "base_sha", "from_entry": entry_str(base_cmp_snapshot.entry(COURSE)),

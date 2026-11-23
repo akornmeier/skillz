@@ -393,6 +393,23 @@ class AntiDriftTests(unittest.TestCase):
             standalone = {item.code for item in validator.validate(Path(directory) / "plan.html", source, None)}
             self.assertIn("PF3_IMAGE_MISSING", standalone)
 
+    def test_amendment_of_only_criterion_ids_is_not_a_rationale(self) -> None:
+        changed = with_amendments(plan().replace("yields 20.", "yields 50."),
+                                  ("2026-01-04 — ac-default", "ac-default, ac-other"))
+        self.assertIn("PF3_AC_MUTATED", self.codes(changed, plan()))
+
+    def test_compact_amendment_html_still_cites_the_id(self) -> None:
+        changed = plan().replace("yields 20.", "yields 50.").replace(
+            '<section id="amendments"></section>',
+            '<section id="amendments"><details><summary>2026-01-04 change</summary>'
+            '<p>ac-default raised because product asked.</p></details></section>')
+        self.assertEqual(self.codes(changed, plan()), {})
+
+    def test_unmarked_checklist_item_does_not_inherit_a_nested_status(self) -> None:
+        nested = done_plan().replace('<li><code class="status">[x]</code> Implement parser.</li>',
+                                     '<li><ul><li>[x] Sub-step.</li></ul>Implement parser.</li>')
+        self.assertEqual(self.codes(nested).get("PF3_PHASE_PREMATURE_DONE"), "warning")
+
     def test_cli_bad_repo_root_exits_2(self) -> None:
         result = self.run_cli(plan(), "--repo-root", "/nonexistent/plan-root")
         self.assertEqual(result.returncode, 2)

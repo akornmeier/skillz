@@ -322,6 +322,7 @@ def valid_iso(value: str) -> bool:
 
 
 STATUS_TOKEN = re.compile(r"\[(|wip|x|f)\]", re.I)
+CRITERION_ID = re.compile(r"(?<![\w-])ac-[\w-]+")
 UNPROVEN_EVIDENCE = ("not run", "stale:", "deferred:")
 
 
@@ -337,7 +338,11 @@ def own_status(parser: PlanParser, element: Element | None) -> str:
             if match:
                 return match.group(1).lower()
             break
-    match = STATUS_TOKEN.match(element.text)
+    text = element.text
+    nested = next((item for item in parser.elements if item.tag in {"ul", "ol"} and item.within(element)), None)
+    if element.tag == "li" and nested is not None and nested.text and text.startswith(nested.text):
+        text = ""  # the item has no text of its own before its nested list
+    match = STATUS_TOKEN.match(text)
     return match.group(1).lower() if match else "unmarked"
 
 
@@ -491,8 +496,8 @@ def criteria_text(parser: PlanParser) -> dict[str, str]:
     return {element.attrs.get("id", ""): element.text for element in parser.elements if "criterion" in element.classes}
 
 
-def amendment_entries(parser: PlanParser) -> list[tuple[str, str]]:
-    """Return (full text, text after the summary header) for each amendment, in document order."""
+def amendment_entries(parser: PlanParser) -> list[tuple[str, str, str]]:
+    """Return (full text, header, body) per amendment in order; header/body keep word breaks across tags."""
     section = next((element for element in parser.elements
                     if element.tag == "section" and element.attrs.get("id") == "amendments"), None)
     if section is None:
@@ -500,17 +505,17 @@ def amendment_entries(parser: PlanParser) -> list[tuple[str, str]]:
     entries = []
     for details in (element for element in parser.elements if element.tag == "details" and element.within(section)):
         summary = first_descendant(parser, details, "summary")
-        body = details.text
-        if summary is not None and body.startswith(summary.text):
-            body = body[len(summary.text):]
-        entries.append((details.text, body))
+        spaced = normalize_text(" ".join(details.text_parts))
+        header = normalize_text(" ".join(summary.text_parts)) if summary is not None else ""
+        body = spaced[len(header):] if header and spaced.startswith(header) else spaced
+        entries.append((details.text, header, body))
     return entries
 
 
 def compare_previous(current: PlanParser, previous: PlanParser, diagnostics: list[Diagnostic]) -> None:
     old_amendments = amendment_entries(previous)
     new_amendments = amendment_entries(current)
-    if [text for text, _ in new_amendments[:len(old_amendments)]] != [text for text, _ in old_amendments]:
+    if [entry[0] for entry in new_amendments[:len(old_amendments)]] != [entry[0] for entry in old_amendments]:
         diagnostics.append(Diagnostic(1, 1, "PF3_AMENDMENT_REWRITTEN",
                                       "prior amendments must stay unchanged and in order; append new entries at the bottom"))
     appended = new_amendments[len(old_amendments):]
@@ -519,7 +524,8 @@ def compare_previous(current: PlanParser, previous: PlanParser, diagnostics: lis
         if new_criteria.get(identifier) == old_text:
             continue
         token = re.compile(rf"(?<![\w-]){re.escape(identifier)}(?![\w-])")
-        if not any(token.search(text) and re.search(r"[A-Za-z0-9]", token.sub("", body)) for text, body in appended):
+        if not any((token.search(header) or token.search(body)) and re.search(r"[A-Za-z0-9]", CRITERION_ID.sub("", body))
+                   for _, header, body in appended):
             change = "removed" if identifier not in new_criteria else "changed"
             diagnostics.append(Diagnostic(1, 1, "PF3_AC_MUTATED",
                                           f"criterion {identifier!r} {change} without a newly appended amendment naming it with a rationale"))

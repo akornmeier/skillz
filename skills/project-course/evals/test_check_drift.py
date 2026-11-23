@@ -17,6 +17,7 @@ assert SPEC is not None and SPEC.loader is not None
 check_drift = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = check_drift
 SPEC.loader.exec_module(check_drift)
+_, course_parser = check_drift.load_siblings()
 
 
 def status(mark: str | None) -> str:
@@ -325,6 +326,36 @@ class CheckDriftTests(unittest.TestCase):
         (self.repo.root / "docs" / "adr").mkdir(parents=True)
         (self.repo.root / "docs" / "adr" / "0001-one.md").write_text("Status: Accepted\n", encoding="utf-8")
         self.assertEqual(self.run_check()[0], 0)
+
+    def test_milestone_spec_path_keeps_underscores(self) -> None:
+        self.repo.spec("add_login.html", plan())
+        self.repo.course(milestones="| M1 | Active | `specs/add_login.html` | — |")
+        code, result = self.run_check()
+        self.assertEqual(code, 0, result["certain"]["failures"])
+        self.assertNotIn("unlinked-active-spec", self.codes(result, "warnings"))
+
+    def test_relative_adr_links_resolve_to_repo_paths(self) -> None:
+        self.repo.spec("active.html", plan())
+        self.repo.course(decisions="| D-001 | 2026-01-01 | Accepted | One | [ADR](../docs/adr/0001-one.md) |\n"
+                                   "| D-002 | 2026-01-02 | Accepted | Two | `./docs/adr/0002-two.md` |")
+        (self.repo.root / "docs" / "adr").mkdir(parents=True)
+        for name in ("0001-one.md", "0002-two.md"):
+            (self.repo.root / "docs" / "adr" / name).write_text("Status: Accepted\n", encoding="utf-8")
+        self.assertEqual(self.run_check()[0], 0)
+        course = course_parser.parse_course((self.repo.root / "specs" / "COURSE.md").read_text(encoding="utf-8"))
+        self.assertEqual(course_parser.protected_paths(course), ["docs/adr/0001-one.md", "docs/adr/0002-two.md"])
+
+    def test_decision_acceptance_comes_from_the_row_status_only(self) -> None:
+        course = course_parser.parse_course(
+            "## Decision Log\n| ID | Date | Status | Decision | ADR |\n|---|---|---|---|---|\n"
+            "| D-001 | 2026-01-01 |  | Queue | docs/adr/0001-queue.md |\n", repo_root=self.repo.root)
+        self.assertEqual(course.accepted["accepted_decisions"], [])
+
+    def test_boundary_prose_is_part_of_the_governed_view(self) -> None:
+        old = course_parser.parse_course("## Protected Boundaries\n- `infra/`: ask first\n")
+        new = course_parser.parse_course("## Protected Boundaries\n- `infra/`: edit freely\n")
+        self.assertEqual(old.accepted, new.accepted)
+        self.assertNotEqual(course_parser.governed_view(old), course_parser.governed_view(new))
 
     def test_prose_back_refs_warn_without_failing(self) -> None:
         back = r"https://example.test/docs; README.md; /file-pr; C:\temp\a.txt; None; missing/file.md"
