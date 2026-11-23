@@ -361,6 +361,8 @@ class CheckDriftTests(unittest.TestCase):
         new = course_parser.parse_course("## Protected Boundaries\n- `infra/`: edit freely\n")
         self.assertEqual(old.accepted, new.accepted)
         self.assertNotEqual(course_parser.governed_view(old), course_parser.governed_view(new))
+        dotted = course_parser.parse_course("## Protected Boundaries\n- `./infra/` and `./Makefile`\n")
+        self.assertEqual(dotted.accepted["protected_boundaries"], ["infra/", "Makefile"])
 
     def test_prose_back_refs_warn_without_failing(self) -> None:
         back = r"https://example.test/docs; README.md; /file-pr; C:\temp\a.txt; None; missing/file.md"

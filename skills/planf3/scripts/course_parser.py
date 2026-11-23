@@ -137,6 +137,8 @@ def boundary_spans(text: str) -> tuple[list[str], list[dict]]:
             unsupported.append({"span": span, "reason": "external path"})
             continue
         path = span[1:] if span.startswith("/") else span
+        while path.startswith("./"):
+            path = path[2:]  # git reports infra/main.tf, never ./infra/main.tf
         if not path or re.search(r"\s", path) or ".." in path.split("/"):
             unsupported.append({"span": span, "reason": "not a repo-relative path"})
             continue
