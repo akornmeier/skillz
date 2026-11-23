@@ -329,7 +329,8 @@ class CheckDriftTests(unittest.TestCase):
 
     def test_milestone_spec_path_keeps_underscores(self) -> None:
         self.repo.spec("add_login.html", plan())
-        self.repo.course(milestones="| M1 | Active | `specs/add_login.html` | — |")
+        self.repo.spec("_draft.html", plan())
+        self.repo.course(milestones="| M1 | Active | `specs/add_login.html`, **specs/_draft.html** | — |")
         code, result = self.run_check()
         self.assertEqual(code, 0, result["certain"]["failures"])
         self.assertNotIn("unlinked-active-spec", self.codes(result, "warnings"))
@@ -344,8 +345,12 @@ class CheckDriftTests(unittest.TestCase):
         self.assertEqual(self.run_check()[0], 0)
         course = course_parser.parse_course((self.repo.root / "specs" / "COURSE.md").read_text(encoding="utf-8"))
         self.assertEqual(course_parser.protected_paths(course), ["docs/adr/0001-one.md", "docs/adr/0002-two.md"])
+        self.assertEqual(course_parser.adr_links("[ADR](./../docs/adr/0001-one.md) `../../outside.md`"),
+                         ["docs/adr/0001-one.md"])
 
     def test_decision_acceptance_comes_from_the_row_status_only(self) -> None:
+        (self.repo.root / "docs" / "adr").mkdir(parents=True)
+        (self.repo.root / "docs" / "adr" / "0001-queue.md").write_text("Status: Accepted\n", encoding="utf-8")
         course = course_parser.parse_course(
             "## Decision Log\n| ID | Date | Status | Decision | ADR |\n|---|---|---|---|---|\n"
             "| D-001 | 2026-01-01 |  | Queue | docs/adr/0001-queue.md |\n", repo_root=self.repo.root)

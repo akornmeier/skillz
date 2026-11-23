@@ -394,9 +394,10 @@ class AntiDriftTests(unittest.TestCase):
             self.assertIn("PF3_IMAGE_MISSING", standalone)
 
     def test_amendment_of_only_criterion_ids_is_not_a_rationale(self) -> None:
-        changed = with_amendments(plan().replace("yields 20.", "yields 50."),
-                                  ("2026-01-04 — ac-default", "ac-default, ac-other"))
-        self.assertIn("PF3_AC_MUTATED", self.codes(changed, plan()))
+        for body in ("ac-default, ac-other", "ac-default.v2"):
+            with self.subTest(body=body):
+                changed = with_amendments(plan().replace("yields 20.", "yields 50."), ("2026-01-04 — ac-default", body))
+                self.assertIn("PF3_AC_MUTATED", self.codes(changed, plan()))
 
     def test_compact_amendment_html_still_cites_the_id(self) -> None:
         changed = plan().replace("yields 20.", "yields 50.").replace(
@@ -409,6 +410,9 @@ class AntiDriftTests(unittest.TestCase):
         nested = done_plan().replace('<li><code class="status">[x]</code> Implement parser.</li>',
                                      '<li><ul><li>[x] Sub-step.</li></ul>Implement parser.</li>')
         self.assertEqual(self.codes(nested).get("PF3_PHASE_PREMATURE_DONE"), "warning")
+        own = done_plan().replace('<li><code class="status">[x]</code> Implement parser.</li>',
+                                  '<li>[x] Validate integration<ul><li>[x] Validate</li></ul></li>')
+        self.assertEqual(self.codes(own), {})
 
     def test_cli_bad_repo_root_exits_2(self) -> None:
         result = self.run_cli(plan(), "--repo-root", "/nonexistent/plan-root")

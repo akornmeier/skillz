@@ -81,7 +81,7 @@ def is_separator(cells: list[str]) -> bool:
 
 def plain(cell: str) -> str:
     """Strip code ticks and edge-of-word emphasis from a table cell, keeping literal paths like my_plan.html."""
-    return normalize(re.sub(r"(?<!\w)[*_]+|[*_]+(?!\w)", "", cell.replace("`", "")))
+    return normalize(re.sub(r"(?<![\w/.-])[*_]+|[*_]+(?![\w/.-])", "", cell.replace("`", "")))
 
 
 def path_tokens(text: str) -> list[str]:
@@ -102,9 +102,9 @@ def path_tokens(text: str) -> list[str]:
 
 def repo_relative(path: str, base_dir: str = "specs") -> str | None:
     """Canonical repo-relative form: ./x is repo-root, ../x resolves from the course's directory; escapes are None."""
-    if path.startswith("../"):
-        path = posixpath.join(base_dir, path)
     path = posixpath.normpath(path)
+    if path.startswith("../"):
+        path = posixpath.normpath(posixpath.join(base_dir, path))
     return None if path == ".." or path.startswith("../") else path
 
 

@@ -84,6 +84,7 @@ class Element:
     column: int
     parent: Element | None
     text_parts: list[str] = field(default_factory=list)
+    nested_list_at: int | None = None  # len(text_parts) when the first nested ul/ol opened
 
     @property
     def classes(self) -> set[str]:
@@ -162,6 +163,10 @@ class PlanParser(HTMLParser):
         self.close_implied_elements(tag)
         values = self.attrs_dict(attrs)
         line, column = self.getpos()
+        if tag in {"ul", "ol"}:
+            for ancestor in self.element_stack:
+                if ancestor.nested_list_at is None:
+                    ancestor.nested_list_at = len(ancestor.text_parts)
         element = Element(tag, values, line, column + 1, self.element_stack[-1] if self.element_stack else None)
         self.elements.append(element)
         if tag not in VOID_TAGS:
@@ -322,7 +327,7 @@ def valid_iso(value: str) -> bool:
 
 
 STATUS_TOKEN = re.compile(r"\[(|wip|x|f)\]", re.I)
-CRITERION_ID = re.compile(r"(?<![\w-])ac-[\w-]+")
+CRITERION_ID = re.compile(r"(?<![\w-])ac-[^\s,;]+")
 UNPROVEN_EVIDENCE = ("not run", "stale:", "deferred:")
 
 
@@ -338,11 +343,8 @@ def own_status(parser: PlanParser, element: Element | None) -> str:
             if match:
                 return match.group(1).lower()
             break
-    text = element.text
-    nested = next((item for item in parser.elements if item.tag in {"ul", "ol"} and item.within(element)), None)
-    if element.tag == "li" and nested is not None and nested.text and text.startswith(nested.text):
-        text = ""  # the item has no text of its own before its nested list
-    match = STATUS_TOKEN.match(text)
+    own = element.text_parts[:element.nested_list_at] if element.tag == "li" else element.text_parts
+    match = STATUS_TOKEN.match(normalize_text("".join(own)))
     return match.group(1).lower() if match else "unmarked"
 
 
