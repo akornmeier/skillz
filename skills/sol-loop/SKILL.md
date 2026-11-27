@@ -66,7 +66,7 @@ such as `full-send` says to; then every rule below applies without Sol.
 
 Cross-check: the latest flagship from a provider other than OpenAI, unless
 the user named one. Prefer a provider other than the one whose model wrote
-the change (for example Meta Muse when Claude wrote it). If only the
+the change (for example Meta Muse or Gemini 4 Neon when Claude wrote it). If only the
 writer's provider is reachable, use its flagship in a fresh context. Resolve
 and record it like Sol. Outside T3, use a native subagent (in Claude Code,
 `Agent` with a Claude model). If no route runs a cross-check, or it fails
