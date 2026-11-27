@@ -15,8 +15,8 @@ and explore new ideas, skip fixes to code being replaced.
 Bring in three delegates to help with the user's request, usually for review
 or feedback. Use one strong model from each of three different providers, at
 high reasoning effort. If the user's instructions name council members, use
-those. Otherwise pick the latest flagship model from each provider, for
-example Claude Opus, GPT Sol, Gemini Neon, and Meta Muse.
+those. Otherwise pick the latest flagship model from three providers, for
+example Claude Opus, GPT Sol, and Gemini Neon or Meta Muse.
 
 Examples:
 
