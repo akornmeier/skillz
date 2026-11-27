@@ -15,14 +15,15 @@ and explore new ideas, skip fixes to code being replaced.
 Bring in three delegates to help with the user's request, usually for review
 or feedback. Use one strong model from each of three different providers, at
 high reasoning effort. If the user's instructions name council members, use
-those. Otherwise pick the latest flagship model from each provider, for
-example Claude Opus, GPT Sol, and Meta Muse.
+those. Otherwise pick the latest flagship model from three providers, for
+example Claude Opus, GPT Sol, and Gemini Neon or Meta Muse.
 
 Examples:
 
 - Claude Opus 5.5 (`xhigh`)
 - Muse Wonder Full (`xhigh`)
 - Codex GPT-6.1 Sol (`xhigh`)
+- Gemini 4 Neon (`xhigh`)
 
 In T3 Code, use `orchestrator_capabilities` to resolve the models, then
 `delegate_task` to start one delegate per model in parallel. Elsewhere, use
